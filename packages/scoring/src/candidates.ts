@@ -35,6 +35,7 @@ export function candidatesOf(data: GameData, veterans: Veteran[], t: CandidateTa
 		const label = v.borrowed ? `borrowed from ${v.borrowed.trainerName ?? v.borrowed.trainerId}` : `Rank score ${v.rankScore}, created ${v.createdAt}`;
 		const horses = [horseOf(data, v.factorIds, compat?.affinity ?? 0, t.pinkGroupId)];
 		v.parents.forEach((g, i) => { if (g) horses.push(horseOf(data, g.factorIds, compat?.grandparents[i] ?? 0, t.pinkGroupId)); });
+		// Borrowed trainedIds are negative, so they never collide with owned ones.
 		return { id: String(v.trainedId), name: `${version} (${label})`, horses };
 	});
 }

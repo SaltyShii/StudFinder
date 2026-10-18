@@ -275,6 +275,7 @@ export class RaceSolver {
 	usedSkills: Set<string>
 	nHills: number
 	hillIdx: number
+	/** Slope in % x 10000 (so `slopePer / 10000` is the percent grade). */
 	slopePer: number
 	hillStart: number[]
 	hillEnd: number[]
