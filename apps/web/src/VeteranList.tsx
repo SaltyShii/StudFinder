@@ -18,7 +18,7 @@ export function VeteranList({ scores, progress, stale, data, onCancel }: Props) 
 	const [all, setAll] = useState(false);
 	const shown = scores && !all ? scores.slice(0, TOP) : scores;
 	return (
-		<section aria-busy={stale}>
+		<section class="panel" aria-busy={stale}>
 			<h3>Your veterans{stale && ' (outdated, recomputing)'}</h3>
 			<p>Ace veterans ranked by lengths gained for this CM. The ranking is relative only: lengths are not a win chance.</p>
 			{stale && <p>Scoring{progress && ` ${progress[0]}/${progress[1]}`}... <button name="cancel-veterans" onClick={onCancel}>Cancel</button></p>}

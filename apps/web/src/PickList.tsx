@@ -13,7 +13,7 @@ interface Props {
 
 export function PickList({ title, testId, picks, candidates, stale, data }: Props) {
 	return (
-		<section aria-busy={stale}>
+		<section class="panel" aria-busy={stale}>
 			<h3>{title}{stale && ' (outdated, recomputing)'}</h3>
 			<ol style={stale ? { opacity: 0.5 } : undefined}>
 				{picks?.map((p) => (
