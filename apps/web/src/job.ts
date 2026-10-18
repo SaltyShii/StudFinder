@@ -5,12 +5,14 @@ import { scoreVeterans, type AceVeteranScore } from '../../../packages/scoring/s
 export interface VeteranJob {
 	veterans: Veteran[];
 	courseId: number;
+	/** [card id, unique skill id] pairs (structured-cloneable for the worker). */
+	uniqueSkills: [number, number][];
 }
 /** Progress is posted from inside the worker; the returned function cancels by terminating it. */
 export type VeteranRunner = (job: VeteranJob, onProgress: (done: number, total: number) => void, done: (r: AceVeteranScore[]) => void) => () => void;
 
-export function computeVeterans({ veterans, courseId }: VeteranJob, onProgress?: (done: number, total: number) => void): AceVeteranScore[] {
-	return scoreVeterans(veterans, { courseId, onProgress });
+export function computeVeterans({ veterans, courseId, uniqueSkills }: VeteranJob, onProgress?: (done: number, total: number) => void): AceVeteranScore[] {
+	return scoreVeterans(veterans, { courseId, uniqueSkills: new Map(uniqueSkills), onProgress });
 }
 
 export type VeteranMessage = { progress: [number, number] } | { result: AceVeteranScore[] };

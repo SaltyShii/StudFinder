@@ -159,15 +159,30 @@ it('scores veterans without an Ace, reruns on CM change, and cancels', async () 
 });
 
 it('shows top 5 Ace veterans, expands to all, and notes ranking is relative only', async () => {
-	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', label: `#${i}`, aptitude: { surface: 7, distance: 7 }, lengthsGained: 1, gap: i, detail: [], assumesPosition: false });
+	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 2, aptitude: { surface: 7, distance: 7 }, lengthsGained: 1, gap: i, detail: [], assumesPosition: false });
 	const seven: VeteranRunner = (_j, _p, done) => { done([0, 1, 2, 3, 4, 5, 6].map(score)); return () => {}; };
 	render(<App loadData={async () => data} run={inline} runVeterans={seven} />, root);
 	await importFile();
 	const cards = () => root.querySelectorAll('[data-testid=veteran-card]');
 	expect(cards().length).toBe(5);
 	expect(root.textContent).toContain('relative only');
+	expect(root.textContent).toContain('surface A, distance A');
+	expect(root.textContent).toContain('2 skills not simulated');
 	await act(() => { (root.querySelector('button[name=toggle-all-veterans]') as HTMLButtonElement).click(); });
 	expect(cards().length).toBe(7);
+});
+
+it('drops scores on cancel so they do not look current', async () => {
+	const score = { trainedId: 1, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 0, aptitude: { surface: 7, distance: 7 }, lengthsGained: 1, gap: 0, detail: [], assumesPosition: false };
+	let first = true;
+	const r: VeteranRunner = (_j, _p, done) => { if (first) { first = false; done([score]); } return () => {}; };
+	render(<App loadData={async () => data} run={inline} runVeterans={r} />, root);
+	await importFile();
+	expect(root.querySelectorAll('[data-testid=veteran-card]').length).toBe(1);
+	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
+	cm.value = String(CMS.find((c) => c.id !== Number(cm.value))!.id);
+	await act(() => { cm.dispatchEvent(new Event('change')); });
+	expect(root.querySelectorAll('[data-testid=veteran-card]').length).toBe(0);
 });
 
 it('gives the same ranking for the same inputs', () => {

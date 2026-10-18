@@ -16,12 +16,12 @@ export interface AceVeteranScore {
 	style: Style;
 	rankScore: number;
 	createdAt: string;
-	/** Tells duplicate outfits apart: rank score and create date. */
-	label: string;
 	/** Aptitude grades (1 = G ... 8 = S) for the CM's surface and distance. */
 	aptitude: { surface: number; distance: number };
 	/** Median lengths gained by the full skill set over the same runner with no skills, same seed. */
 	lengthsGained: number;
+	/** Equipped skills the sim has no data for, so they add nothing to the score. */
+	skillsNotSimulated: number;
 	/** Lengths behind the best Ace veteran (0 for the best). */
 	gap: number;
 	detail: SkillDetail[];
@@ -33,6 +33,8 @@ export interface VeteranScoreOptions {
 	courseId: number;
 	samples?: number;
 	seed?: number;
+	/** Unique skill id per card id; the unique skill counts as equipped even if the export's skill list omits it. */
+	uniqueSkills?: ReadonlyMap<number, number>;
 	/** Called after each veteran is scored. Cancel by terminating the worker, as with recommend(). */
 	onProgress?: (done: number, total: number) => void;
 }
@@ -66,7 +68,7 @@ function gained(horse: HorseDesc, skillIds: string[], courseId: number, samples:
 }
 
 /** Scores every veteran as herself: own stats, aptitudes, equipped skills, career style; no Target stats. Best first, ties by trained id. */
-export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, seed = 1, onProgress }: VeteranScoreOptions): AceVeteranScore[] {
+export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, seed = 1, uniqueSkills, onProgress }: VeteranScoreOptions): AceVeteranScore[] {
 	const course = new RaceSolverBuilder(1).course(courseId)._course;
 	const category = categoryOf(course.distance);
 	const surface = course.surface === 2 ? 'dirt' : 'turf';
@@ -76,15 +78,17 @@ export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, se
 			...buildAce({ aptitudes: v.aptitudes, style, category, surface }),
 			speed: v.stats.speed, stamina: v.stats.stamina, power: v.stats.power, guts: v.stats.guts, wisdom: v.stats.wiz,
 		};
-		const ids = [...new Set(v.skillIds.map(String))].filter((id) => id in skillData); // skills the sim does not know are skipped
+		const unique = uniqueSkills?.get(v.cardId);
+		const equipped = [...new Set([...v.skillIds, ...(unique == null ? [] : [unique])].map(String))];
+		const ids = equipped.filter((id) => id in skillData); // skills the sim does not know are skipped
 		// Per-skill detail is each skill alone on the skill-less runner; the headline is the whole set together.
 		const detail = ids.map((skillId): SkillDetail => ({ skillId, ...skillValue(skillId, { horse, courseId, samples, seed }), assumesPosition: assumesPosition(skillId) }));
+		const lengthsGained = gained(horse, ids, courseId, samples, seed);
 		onProgress?.(i + 1, veterans.length);
 		return {
 			trainedId: v.trainedId, cardId: v.cardId, style, rankScore: v.rankScore, createdAt: v.createdAt,
-			label: `Rank score ${v.rankScore}, created ${v.createdAt}`,
 			aptitude: { surface: v.aptitudes[surface], distance: v.aptitudes[category] },
-			lengthsGained: gained(horse, ids, courseId, samples, seed), gap: 0, detail,
+			lengthsGained, skillsNotSimulated: equipped.length - ids.length, gap: 0, detail,
 			assumesPosition: detail.some((d) => d.assumesPosition),
 		};
 	});

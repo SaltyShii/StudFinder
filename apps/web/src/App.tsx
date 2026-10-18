@@ -85,12 +85,15 @@ export function App({ loadData = loadGameData, run = workerRunner, runVeterans =
 		if (!roster || !course) return;
 		let live = true;
 		setVStale(true);
+		setVScores(null); // scores of another CM must not pass as current
 		setVProgress(null);
-		const stop = runVeterans({ veterans: roster.veterans, courseId: cm.courseId }, (d, t) => live && setVProgress([d, t]), (r) => {
+		const uniqueSkills: [number, number][] = [];
+		data?.cards.forEach((c) => { if (c.uniqueSkillId != null) uniqueSkills.push([c.id, c.uniqueSkillId]); });
+		const stop = runVeterans({ veterans: roster.veterans, courseId: cm.courseId, uniqueSkills }, (d, t) => live && setVProgress([d, t]), (r) => {
 			if (!live) return;
 			setVScores(r); setVStale(false);
 		});
-		vCancel.current = () => { stop(); live = false; setVStale(false); };
+		vCancel.current = () => { stop(); live = false; setVStale(false); setVScores(null); };
 		return () => { live = false; stop(); };
 	}, [roster, course, cmId]);
 

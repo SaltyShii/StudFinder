@@ -15,6 +15,7 @@ test('a veteran with skills gains lengths, with per-skill detail and career styl
 	expect(r.lengthsGained).toBeGreaterThan(0);
 	expect(r.detail.map((d) => d.skillId)).toEqual(['10071']); // unknown ids skipped
 	expect(r.gap).toBe(0);
+	expect(r.skillsNotSimulated).toBe(1);
 });
 
 test('no skills gains nothing; ranking is best first with gaps, and repeatable', () => {
@@ -37,9 +38,25 @@ test('duplicate outfits are labelled rows; low aptitude is scored and exposed; p
 	const low = { ...aptitudes, turf: 1, middle: 1, mile: 1 };
 	const r = scoreVeterans([vet(1, { rankScore: 5000 }), vet(2, { rankScore: 6000, createdAt: '2026-02-02', aptitudes: low })], { ...opts, onProgress: (d, t) => calls.push([d, t]) });
 	expect(r).toHaveLength(2);
-	expect(new Set(r.map((x) => x.label)).size).toBe(2);
 	const b = r.find((x) => x.trainedId === 2)!;
-	expect(b.label).toContain('6000');
+	expect(b.rankScore).toBe(6000);
 	expect(b.aptitude.surface).toBe(1);
 	expect(calls).toEqual([[1, 2], [2, 2]]);
+});
+
+test('the card unique skill is used, once, and the baseline has none', () => {
+	const none = scoreVeterans([vet(1)], opts)[0];
+	const withUnique = scoreVeterans([vet(1)], { ...opts, uniqueSkills: new Map([[1, 10071]]) })[0];
+	expect(none.lengthsGained).toBe(0);
+	expect(withUnique.detail.map((d) => d.skillId)).toEqual(['10071']);
+	expect(withUnique.lengthsGained).toBeGreaterThan(0);
+	const dup = scoreVeterans([vet(1, { skillIds: [10071] })], { ...opts, uniqueSkills: new Map([[1, 10071]]) })[0];
+	expect(dup.detail).toHaveLength(1);
+});
+
+test('progress reaches N/N only after the last veteran is scored', () => {
+	let lastLeft = false;
+	const vs = [vet(1, { skillIds: [10071] })];
+	scoreVeterans(vs, { ...opts, onProgress: () => { lastLeft = true; } });
+	expect(lastLeft).toBe(true);
 });
