@@ -7,6 +7,7 @@ import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import { resolveTierList } from '../../../packages/lineage/src/tiers';
 import type { TierList } from '../../../packages/scoring/src/shared';
+import { formatAge } from './age';
 import { PickList } from './PickList';
 import { workerRunner, type Runner } from './job';
 import { OwnedFilterSelect, useOwned } from './Owned';
@@ -126,6 +127,7 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 					<PickList title="Side loop" testId="side-card" picks={result?.side} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
 				</section>
 			)}
+			{data?.meta?.resourceVersion && <footer>Game data: resource version {data.meta.resourceVersion}, generated {formatAge(data.meta.generatedAt)}</footer>}
 		</main>
 	);
 }
