@@ -1,0 +1,15 @@
+{
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "true",
+    "CLAUDE_CODE_NEW_INIT": "1",
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "0",
+    "disableClaudeAiConnectors": "1"
+  },
+  "showClearContextOnPlanAccept": true,
+  "permissions": {
+    "allow": ["Bash", "Read", "Edit", "Write", "Bash(git add:*)", "Bash(git commit:*)", "Bash(git checkout -b:*)"],
+    "ask": ["Bash(git push:*)", "Bash(gh pr create:*)", "Bash(gh pr merge:*)", "Bash(curl:*)", "Bash(wget:*)", "Bash(rm -rf /*)"],
+    "deny": ["Edit(.git/**/*)", "Edit(node_modules/**/*)"],
+    "defaultMode": "default"
+  }
+}

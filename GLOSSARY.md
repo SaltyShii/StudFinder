@@ -38,3 +38,28 @@ Grandparents and parents built specifically for one upcoming CM, carrying the CM
 **Ace**:
 The final trainee run for the CM; it ignores pink sparks and spark chance and only maximizes inherited relevant skills, measured in lengths gained.
 _Avoid_: trainee (when meaning the final CM runner)
+
+**Spark**:
+An inheritable bonus on a veteran, passed to the trainee. Pink sparks raise an aptitude, blue sparks raise a stat, green sparks give a unique skill, white sparks give general skills.
+_Avoid_: factor
+
+**Affinity**:
+How compatible a trainee and its lineage are; it raises spark chance. Dirt sparks are kept in the core loop for this reason.
+_Avoid_: compatibility (in UI copy)
+
+**Tier list**:
+The user's configurable ranking of general sparks, used in the core loop to decide which are worth keeping.
+
+**Proc**:
+A skill activating in a simulated race. Proc % is the share of runs in which it did.
+_Avoid_: trigger
+
+**Lengths gained**:
+How far ahead a skill puts the runner, in race lengths, measured over runs where it procced. Skill value is proc % x median lengths gained.
+_Avoid_: bashin (in UI copy)
+
+**CM preset**:
+The course, season and conditions of a specific Champions Meeting, used to pick the course and rank styles.
+
+**Candidate pool**:
+Every outfit available on Global, owned or not, that can be recommended. Owned outfits are marked.
