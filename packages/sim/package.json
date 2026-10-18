@@ -1,0 +1,8 @@
+{
+  "name": "@stud-finder/sim",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "src/RaceSolverBuilder.ts"
+}

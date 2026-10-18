@@ -1,0 +1,7 @@
+{
+  "name": "stud-finder",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": { "test": "npm test --workspaces --if-present" }
+}

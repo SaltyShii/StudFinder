@@ -1,0 +1,8 @@
+{
+  "name": "@stud-finder/lineage",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "main": "src/inheritance.ts"
+}
