@@ -70,6 +70,13 @@ _Avoid_: trigger
 How far ahead a skill puts the runner, in race lengths, measured over runs where it procced. Skill value is proc % x median lengths gained.
 _Avoid_: bashin (in UI copy)
 
+**Paired race**:
+The same runner and seed raced twice, once without and once with the skills, with the gap measured when the first of them finishes. Skill value and Set lengths gained are both read off paired races.
+
+**Set lengths gained**:
+The median lengths gained by a veteran's whole equipped skill set together, over all runs whether or not each skill procced. The Ace veteran headline and ranking use it.
+_Avoid_: lengths gained (when meaning the whole set; that term is per skill, over runs where it procced)
+
 **CM preset**:
 The course, season and conditions of a specific Champions Meeting, used to pick the course and rank styles.
 
