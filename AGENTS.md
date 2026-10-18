@@ -36,13 +36,16 @@ npm workspaces:
 2. One logical change per commit; when in doubt, go smaller
 3. Run `npm run check` before committing
 4. Commit format: `<type>(<scope>): <short summary>` plus a body on what and why
-5. Push, PRs (`/mattpocock-skills:pr` for the body) and merges only when asked
+5. Push, PRs (`/mattpocock-skills:pr` for the body) and merges only when asked; approving a PR in `/ship` also approves its merge once checks are green
 
 ## Gotchas
 
 - Issue tracker: GitHub Issues. Specs are issues, tickets are sub-issues labelled `ready-for-agent`, blockers use GitHub's native links
 - Read issues with `gh issue view N --json title,body`; plain `gh issue view`, `gh pr merge` and `gh pr edit` error on the Projects classic deprecation, so use `gh api` (REST) for merges and base changes
 - Subagent worktrees start on a stale commit: `git reset --hard <integration branch>`, then `npm install`
+- Repo slug is `SaltyShii/StudFinder` (not `stud-finder`); use `gh api repos/{owner}/{repo}/...` so it resolves from the remote
+- Attach a sub-issue with `gh api -X POST repos/{owner}/{repo}/issues/N/sub_issues -F sub_issue_id=<database id>` (the `.id` field, not the number)
+- GitHub Pages deploys from `.github/workflows/deploy-pages.yml`; private repos on the free plan cannot use Pages
 - `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`). Regenerate locally with the commands in `scripts/ingest/NOTICE.md` (vendored lineageplanner-salty scripts; also writes `apps/web/public/img/{cards,cm,races}`); scheduled refresh is #18
 
 ## Response Constraints

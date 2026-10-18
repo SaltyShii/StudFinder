@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/scoring && tsc --noEmit -p apps/web",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/scoring && tsc --noEmit -p apps/web && tsc --noEmit -p scripts",
     "lint": "eslint .",
     "check": "npm run lint && npm run typecheck && npm test",
     "prepare": "git config core.hooksPath .githooks"
