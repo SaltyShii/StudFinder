@@ -1,5 +1,6 @@
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import skills from '@stud-finder/sim/src/data/skill_data.json';
+import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks, type TierList } from './coreLoop';
 import { skillValue, type SkillValue } from './skillValue';
 
@@ -10,7 +11,10 @@ export interface Outfit {
 	owned: boolean;
 	/** Skills this outfit would pass on to the Ace. */
 	skillIds: string[];
+	/** Stars (1-3) of the CM-relevant pink spark; Ace ignores it, side loop scores it. */
 	pinkSparks?: number;
+	/** Affinity with the target lineage; raises inheritance chances (side loop). */
+	affinity?: number;
 	/** Core loop inputs; blue sparks are deliberately not modelled. */
 	whiteSparks?: string[];
 	dirtSparks?: number;
@@ -40,6 +44,7 @@ export interface Pick {
 export interface Recommendation {
 	ace: Pick[];
 	core: Pick[];
+	side: Pick[];
 }
 
 const POSITION = /order|overtake|behind|infront|blocked/;
@@ -64,5 +69,5 @@ export function recommend(roster: Roster, { samples = 100, seed = 1, tierList, .
 			return { outfitId: o.id, owned: o.owned, score, reason, detail };
 		})
 		.sort((a, b) => b.score - a.score || a.outfitId.localeCompare(b.outfitId));
-	return { ace: ace.slice(0, TOP), core: tierList ? coreLoopPicks(roster.outfits, tierList, TOP) : [] };
+	return { ace: ace.slice(0, TOP), core: tierList ? coreLoopPicks(roster.outfits, tierList, TOP) : [], side: sideLoopPicks(roster.outfits, detailOf, TOP) };
 }
