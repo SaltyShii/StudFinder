@@ -1,5 +1,6 @@
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import skills from '@stud-finder/sim/src/data/skill_data.json';
+import { coreLoopPicks, type TierList } from './coreLoop';
 import { skillValue, type SkillValue } from './skillValue';
 
 // Minimal Roster until the importer lands; pinkSparks exists only so Ace can ignore it.
@@ -10,6 +11,9 @@ export interface Outfit {
 	/** Skills this outfit would pass on to the Ace. */
 	skillIds: string[];
 	pinkSparks?: number;
+	/** Core loop inputs; blue sparks are deliberately not modelled. */
+	whiteSparks?: string[];
+	dirtSparks?: number;
 }
 export interface Roster {
 	outfits: Outfit[];
@@ -19,6 +23,7 @@ export interface CmPreset {
 	horse: HorseDesc;
 	samples?: number;
 	seed?: number;
+	tierList?: TierList;
 }
 export interface SkillDetail extends SkillValue {
 	skillId: string;
@@ -34,6 +39,7 @@ export interface Pick {
 }
 export interface Recommendation {
 	ace: Pick[];
+	core: Pick[];
 }
 
 const POSITION = /order|overtake|behind|infront|blocked/;
@@ -42,7 +48,7 @@ const assumesPosition = (id: string) =>
 
 const TOP = 5;
 
-export function recommend(roster: Roster, { samples = 100, seed = 1, ...cm }: CmPreset): Recommendation {
+export function recommend(roster: Roster, { samples = 100, seed = 1, tierList, ...cm }: CmPreset): Recommendation {
 	const cache = new Map<string, SkillDetail>();
 	const detailOf = (skillId: string) => {
 		let d = cache.get(skillId);
@@ -58,5 +64,5 @@ export function recommend(roster: Roster, { samples = 100, seed = 1, ...cm }: Cm
 			return { outfitId: o.id, owned: o.owned, score, reason, detail };
 		})
 		.sort((a, b) => b.score - a.score || a.outfitId.localeCompare(b.outfitId));
-	return { ace: ace.slice(0, TOP) };
+	return { ace: ace.slice(0, TOP), core: tierList ? coreLoopPicks(roster.outfits, tierList, TOP) : [] };
 }
