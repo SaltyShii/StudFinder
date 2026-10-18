@@ -44,6 +44,12 @@ it('renders the ace list after importing an export, with expandable skill detail
 	expect(cards[0].querySelector('details')!.textContent).toMatch(/Synthetic Skill.*%.*position/s);
 });
 
+it('renders the core loop and side loop lists beside the ace list', async () => {
+	render(<App loadData={async () => data} run={inline} />, root);
+	await importFile();
+	for (const id of ['ace-card', 'core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(3);
+});
+
 it('badges owned outfits, filters without recomputing, and persists manual owned toggles', async () => {
 	const jobs: Job[] = [];
 	const counting: Runner = (job, done) => { jobs.push(job); done(compute(job)); return () => {}; };
@@ -70,6 +76,7 @@ it('badges owned outfits, filters without recomputing, and persists manual owned
 
 	render(null, root);
 	render(<App loadData={async () => data} run={counting} />, root);
+	await flush();
 	await flush();
 	expect(owned().length).toBe(2); // survives reload
 });

@@ -5,9 +5,21 @@ import { buildAce, defaultTargetStats, STYLES, type Category, type Style, type T
 import { candidatePool } from '../../../packages/scoring/src/candidatePool';
 import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
+import { resolveTierList } from '../../../packages/lineage/src/tiers';
+import type { TierList } from '../../../packages/scoring/src/shared';
+import { PickList } from './PickList';
 import { workerRunner, type Runner } from './job';
-import { OwnedFilterSelect, OwnedMark, useOwned } from './Owned';
+import { OwnedFilterSelect, useOwned } from './Owned';
 import { clearRoster, importRoster, loadRoster, saveRoster } from './roster';
+
+const PINK_GROUP: Record<Category, number> = { short: 31, mile: 32, middle: 33, long: 34 };
+
+// Every skill name of an entry maps to its tier; resolved entries are sorted best first.
+function tierListOf(data: GameData, style: Style): TierList {
+	const list: TierList = {};
+	for (const e of resolveTierList(data, style).entries) for (const n of e.skills) list[n] ??= e.tier;
+	return list;
+}
 
 const STATS = ['speed', 'stamina', 'power', 'guts', 'wisdom'] as const;
 
@@ -35,13 +47,16 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
 	const own = useOwned();
-	const pool = useMemo(
-		() => (data && roster ? candidatePool(data, roster.veterans) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
-		[data, roster, own.overrides],
-	);
 	const card = data && (data.cards.get(aceId ?? -1) ?? data.cards.values().next().value);
 	const cm = pickCm(new Date(), cmId);
 	const course = data?.courses.get(cm.courseId);
+	// The CM-relevant pink spark is the distance aptitude of the CM course (factor groups 31-34).
+	const pinkGroupId = course ? PINK_GROUP[categoryOf(course.distance)] : 0;
+	const pool = useMemo(
+		() => (data && roster ? candidatePool(data, roster.veterans, card && { aceCardId: card.id, pinkGroupId }) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
+		[data, roster, card, pinkGroupId, own.overrides],
+	);
+	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
 
 	useEffect(() => {
 		if (!data || !card || !course || !pool.length) return;
@@ -50,10 +65,10 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 			uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId),
 		});
 		setBusy(true);
-		const stop = run({ roster: { outfits: pool }, preset: cmPreset(cm, ace) }, (r) => { setResult(r); setBusy(false); });
+		const stop = run({ roster: { outfits: pool }, preset: cmPreset(cm, ace), tierList }, (r) => { setResult(r); setBusy(false); });
 		setCancel(() => () => { stop(); setBusy(false); });
 		return stop; // restart: drop the stale job when inputs change
-	}, [data, pool, card, course, style, target, cmId]);
+	}, [data, pool, card, course, style, target, cmId, tierList]);
 
 	async function onFile(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
@@ -104,19 +119,9 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 					))}
 					{busy && <p>Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<OwnedFilterSelect value={own.filter} onChange={own.setFilter} />
-					<ol>
-						{result?.ace.filter((p) => own.show(isOwned(p.outfitId))).map((p) => (
-							<li data-testid="ace-card">
-								<strong>{name(p.outfitId)}</strong> <OwnedMark owned={isOwned(p.outfitId)} onToggle={() => own.toggle(p.outfitId, isOwned(p.outfitId))} /> {p.score.toFixed(2)} <em>{p.reason}</em>
-								<details>
-									<summary>Skills</summary>
-									<ul>{p.detail.map((d) => (
-										<li>{data.skills.get(Number(d.skillId))?.name ?? d.skillId}: {d.proc.toFixed(0)}% proc, {d.lengths.median.toFixed(2)} median lengths, value {d.value.toFixed(2)}{d.assumesPosition && ' (assumes default position)'}</li>
-									))}</ul>
-								</details>
-							</li>
-						))}
-					</ol>
+					<PickList title="Ace" testId="ace-card" picks={result?.ace} name={name} data={data} own={own} isOwned={isOwned} />
+					<PickList title="Core loop" testId="core-card" picks={result?.core} name={name} data={data} own={own} isOwned={isOwned} />
+					<PickList title="Side loop" testId="side-card" picks={result?.side} name={name} data={data} own={own} isOwned={isOwned} />
 				</section>
 			)}
 		</main>
