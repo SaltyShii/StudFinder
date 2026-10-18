@@ -39,6 +39,10 @@ Grandparents and parents built specifically for one upcoming CM, carrying the CM
 The final trainee run for the CM; it ignores pink sparks and spark chance and only maximizes inherited relevant skills, measured in lengths gained.
 _Avoid_: trainee (when meaning the final CM runner)
 
+**Ace veteran**:
+A veteran scored as a CM runner as herself, in the running style she ran in her career, with her actual stats and equipped skills. Ranked against other Ace veterans by lengths gained.
+_Avoid_: ace (when it is a finished run rather than the one about to be trained)
+
 **Target stats**:
 The stat line the user aims for when training the Ace, entered on top of a recommended default. The untrained Ace has no real stats, so skill value is measured on a runner with these.
 _Avoid_: ace stats (the Ace has none before its run)

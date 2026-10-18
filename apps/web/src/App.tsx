@@ -7,8 +7,12 @@ import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import { resolveTierList } from '../../../packages/lineage/src/tiers';
 import type { TierList } from '../../../packages/scoring/src/shared';
+import { formatAge } from './age';
 import { PickList } from './PickList';
-import { workerRunner, type Runner } from './job';
+import type { Runner, VeteranRunner } from './job';
+import { workerRunner, workerVeteranRunner } from './runners';
+import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
+import { VeteranList } from './VeteranList';
 import { OwnedFilterSelect, useOwned } from './Owned';
 import { clearRoster, importRoster, loadCm, loadRoster, saveCm, saveRoster } from './roster';
 
@@ -24,9 +28,14 @@ const STATS = ['speed', 'stamina', 'power', 'guts', 'wisdom'] as const;
 interface Props {
 	loadData?: () => Promise<GameData>;
 	run?: Runner;
+	runVeterans?: VeteranRunner;
 }
 
-export function App({ loadData = loadGameData, run = workerRunner }: Props) {
+export function App({ loadData = loadGameData, run = workerRunner, runVeterans = workerVeteranRunner }: Props) {
+	const [vScores, setVScores] = useState<AceVeteranScore[] | null>(null);
+	const [vProgress, setVProgress] = useState<[number, number] | null>(null);
+	const [vStale, setVStale] = useState(false);
+	const vCancel = useRef<() => void>(() => {});
 	const [roster, setRoster] = useState<ImportResult | null>(() => loadRoster(localStorage));
 	const [data, setData] = useState<GameData | null>(null);
 	const [error, setError] = useState('');
@@ -71,6 +80,23 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 		return stop; // restart: drop the stale job when inputs change
 	}, [data, pool, card, course, style, target, cmId, tierList]);
 
+	// Needs no Ace or Target stats, so it runs as soon as a Roster and CM course exist.
+	useEffect(() => {
+		if (!roster || !course) return;
+		let live = true;
+		setVStale(true);
+		setVScores(null); // scores of another CM must not pass as current
+		setVProgress(null);
+		const uniqueSkills: [number, number][] = [];
+		data?.cards.forEach((c) => { if (c.uniqueSkillId != null) uniqueSkills.push([c.id, c.uniqueSkillId]); });
+		const stop = runVeterans({ veterans: roster.veterans, courseId: cm.courseId, uniqueSkills }, (d, t) => live && setVProgress([d, t]), (r) => {
+			if (!live) return;
+			setVScores(r); setVStale(false);
+		});
+		vCancel.current = () => { stop(); live = false; setVStale(false); setVScores(null); };
+		return () => { live = false; stop(); };
+	}, [roster, course, cmId]);
+
 	async function onFile(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
 		if (!file) return;
@@ -99,7 +125,7 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 				<section>
 					<h2>Roster</h2>
 					<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
-					<button onClick={() => { clearRoster(localStorage); setRoster(null); setResult(null); own.clear(); }}>Clear data</button>
+					<button onClick={() => { clearRoster(localStorage); setRoster(null); setResult(null); setVScores(null); own.clear(); }}>Clear data</button>
 				</section>
 			)}
 			{roster && data && (
@@ -124,8 +150,10 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 					<PickList title="Ace" testId="ace-card" picks={result?.ace} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
 					<PickList title="Core loop" testId="core-card" picks={result?.core} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
 					<PickList title="Side loop" testId="side-card" picks={result?.side} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
+					<VeteranList scores={vScores} progress={vProgress} stale={vStale} data={data} onCancel={() => vCancel.current()} />
 				</section>
 			)}
+			{data?.meta?.resourceVersion && <footer>Game data: resource version {data.meta.resourceVersion}, generated {formatAge(data.meta.generatedAt)}</footer>}
 		</main>
 	);
 }
