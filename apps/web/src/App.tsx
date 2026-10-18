@@ -6,6 +6,7 @@ import { candidatePool } from '../../../packages/scoring/src/candidatePool';
 import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import { workerRunner, type Runner } from './job';
+import { OwnedFilterSelect, OwnedMark, useOwned } from './Owned';
 import { clearRoster, importRoster, loadRoster, saveRoster } from './roster';
 
 const STATS = ['speed', 'stamina', 'power', 'guts', 'wisdom'] as const;
@@ -33,7 +34,11 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
-	const pool = useMemo(() => (data && roster ? candidatePool(data, roster.veterans) : []), [data, roster]);
+	const own = useOwned();
+	const pool = useMemo(
+		() => (data && roster ? candidatePool(data, roster.veterans) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
+		[data, roster, own.overrides],
+	);
 	const card = data && (data.cards.get(aceId ?? -1) ?? data.cards.values().next().value);
 	const cm = pickCm(new Date(), cmId);
 	const course = data?.courses.get(cm.courseId);
@@ -66,6 +71,7 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 	}
 
 	const name = (id: string) => pool.find((o) => o.id === id)?.name ?? id;
+	const isOwned = (id: string) => pool.find((o) => o.id === id)?.owned ?? false;
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 
 	return (
@@ -97,10 +103,11 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 						<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>
 					))}
 					{busy && <p>Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
+					<OwnedFilterSelect value={own.filter} onChange={own.setFilter} />
 					<ol>
-						{result?.ace.map((p) => (
+						{result?.ace.filter((p) => own.show(isOwned(p.outfitId))).map((p) => (
 							<li data-testid="ace-card">
-								<strong>{name(p.outfitId)}</strong> {p.score.toFixed(2)} <em>{p.reason}</em>
+								<strong>{name(p.outfitId)}</strong> <OwnedMark owned={isOwned(p.outfitId)} onToggle={() => own.toggle(p.outfitId, isOwned(p.outfitId))} /> {p.score.toFixed(2)} <em>{p.reason}</em>
 								<details>
 									<summary>Skills</summary>
 									<ul>{p.detail.map((d) => (

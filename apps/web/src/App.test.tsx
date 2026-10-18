@@ -44,6 +44,36 @@ it('renders the ace list after importing an export, with expandable skill detail
 	expect(cards[0].querySelector('details')!.textContent).toMatch(/Synthetic Skill.*%.*position/s);
 });
 
+it('badges owned outfits, filters without recomputing, and persists manual owned toggles', async () => {
+	const jobs: Job[] = [];
+	const counting: Runner = (job, done) => { jobs.push(job); done(compute(job)); return () => {}; };
+	render(<App loadData={async () => data} run={counting} />, root);
+	await importFile();
+	const cards = () => [...root.querySelectorAll('[data-testid=ace-card]')];
+	const owned = () => cards().filter((c) => c.querySelector('[data-testid=owned-badge]'));
+	expect(owned().length).toBe(1); // Dud, from the export
+	expect(owned()[0].textContent).toContain('Test Dud');
+
+	const before = jobs.length;
+	const filter = root.querySelector('select[name=owned-filter]') as HTMLSelectElement;
+	for (const [v, n] of [['owned', 1], ['not-owned', 2], ['all', 3]] as const) {
+		filter.value = v;
+		await act(() => { filter.dispatchEvent(new Event('change')); });
+		expect(cards().length).toBe(n);
+	}
+	expect(jobs.length).toBe(before);
+
+	const stud = cards().find((c) => c.textContent!.includes('Test Stud'))!;
+	await act(() => { (stud.querySelector('input[name=owned-toggle]') as HTMLInputElement).click(); });
+	expect(jobs.length).toBe(before + 1);
+	expect(owned().length).toBe(2);
+
+	render(null, root);
+	render(<App loadData={async () => data} run={counting} />, root);
+	await flush();
+	expect(owned().length).toBe(2); // survives reload
+});
+
 it('recomputes when an input changes and cancel stops the running job', async () => {
 	const jobs: Job[] = [];
 	let cancelled = 0;
