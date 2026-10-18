@@ -13,6 +13,15 @@ export interface TargetStats {
 	wisdom: number;
 }
 
+/** Factor groups of the distance pink sparks (see lineage APTITUDE_BY_GROUP). */
+export const PINK_GROUP: Record<Category, number> = { short: 31, mile: 32, middle: 33, long: 34 };
+/** Factor group of the dirt aptitude spark. */
+export const DIRT_GROUP = 12;
+
+export function categoryOf(distance: number): Category {
+	return distance <= 1400 ? 'short' : distance <= 1800 ? 'mile' : distance <= 2400 ? 'middle' : 'long';
+}
+
 // shortcut: rough community-guide values, not tuned against the sim; revisit if rankings look off.
 const STAMINA: Record<Category, number> = { short: 500, mile: 700, middle: 900, long: 1100 };
 const STYLE_TWEAK: Record<Style, Partial<TargetStats>> = { nige: { speed: 50 }, senko: {}, sashi: { power: 50 }, oikomi: { power: 50, wisdom: 50 } };

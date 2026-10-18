@@ -1,6 +1,7 @@
 import type { GameData } from '../../lineage/src/gameData';
 import { lineageCompat } from '../../lineage/src/compatibility';
 import { FactorType, type Veteran } from '../../lineage/src/types';
+import { DIRT_GROUP } from './ace';
 import type { Outfit } from './recommend';
 
 export interface PoolTarget {
@@ -10,7 +11,6 @@ export interface PoolTarget {
 	pinkGroupId: number;
 }
 
-const DIRT_GROUP = 12;
 
 type Sparks = Pick<Outfit, 'pinkSparks' | 'affinity' | 'whiteSparks' | 'dirtSparks'>;
 
@@ -26,7 +26,7 @@ function sparksOf(data: GameData, v: Veteran, t: PoolTarget): Sparks {
 	};
 }
 
-// The generated game data holds Global outfits only, so every card is a candidate.
+// The generated game data holds Global outfits only, so every card is a candidate, except the Ace itself.
 // Hard-to-train outfits (missing aptitudes) are deliberately not filtered out.
 // An owned outfit takes its data from its best Veteran: highest affinity, then rank score.
 export function candidatePool(data: GameData, veterans: Veteran[], target?: PoolTarget): Outfit[] {
@@ -36,7 +36,7 @@ export function candidatePool(data: GameData, veterans: Veteran[], target?: Pool
 		const cur = best.get(v.cardId);
 		if (!cur || ((s?.affinity ?? 0) - (cur.s?.affinity ?? 0) || v.rankScore - cur.v.rankScore) > 0) best.set(v.cardId, { v, s });
 	}
-	return [...data.cards.values()].map((c) => ({
+	return [...data.cards.values()].filter((c) => c.id !== target?.aceCardId).map((c) => ({
 		id: String(c.id),
 		name: `${c.title} ${c.name}`.trim(),
 		owned: best.has(c.id),

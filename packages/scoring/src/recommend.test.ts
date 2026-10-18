@@ -46,6 +46,18 @@ test('same seed and samples give identical output', () => {
 	expect(recommend(roster, preset)).toEqual(recommend(roster, preset));
 });
 
+test('marking an outfit owned lowers the marginal score of others sharing its skill', () => {
+	const score = (aOwned: boolean) => recommend({ outfits: roster.outfits.map((o) => (o.id === 'a' ? { ...o, owned: aOwned } : o)) }, preset).ace.find((p) => p.outfitId === 'c')!.score;
+	expect(score(false)).toBeGreaterThan(0);
+	expect(score(true)).toBe(0);
+});
+
+test('a skill already in the Ace baseline (its unique skill) is not credited again', () => {
+	const withUnique = { ...preset, ace: { ...horse, skills: ['10071'] } };
+	const r: Roster = { outfits: [{ id: 'x', name: 'X', owned: false, skillIds: ['10071'] }] };
+	expect(recommend(r, withUnique).ace[0].score).toBe(0);
+});
+
 test('two owned outfits sharing a skill credit only the first by id', () => {
 	const r: Roster = {
 		outfits: [
