@@ -29,7 +29,6 @@ npm workspaces:
 
 - Never copy `saltyuma-tools/SAMPLEdata.json` (the user's real roster export) into this repo, or any file with personal roster data
 - uma.moe API keys stay in the browser; never commit or log them
-- Do not push or create the GitHub remote without asking
 
 ## Git Workflow
 
@@ -39,8 +38,17 @@ npm workspaces:
 4. Commit format: `<type>(<scope>): <short summary>` plus a body on what and why
 5. Push, PRs (`/mattpocock-skills:pr` for the body) and merges only when asked
 
+## Gotchas
+
+- Issue tracker: GitHub Issues. Specs are issues, tickets are sub-issues labelled `ready-for-agent`, blockers use GitHub's native links
+- Read issues with `gh issue view N --json title,body`; the plain form errors on the Projects classic deprecation
+- Subagent worktrees start on a stale commit: `git reset --hard <integration branch>`, then `npm install`
+- `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`); automatic refresh is #18
+
 ## Preferences
 
 Report concisely.
 
-For grilling workflows, ask with the native `AskUserQuestion` tool (rounds of up to 4 questions); fall back to concise plain text only if it is unavailable.
+`AskUserQuestion` asks every grilling round (up to 4 questions), including when the grilling skill shows a plain-text format; fall back to concise plain text only if the tool is unavailable.
+
+After `/code-review` or `/retro` (or when the user skips the retro), suggest `/ship`.
