@@ -196,6 +196,8 @@ it('shows a portrait on pick cards', async () => {
 	await importFile();
 	await pickAce();
 	expect(root.querySelector('[data-testid=ace-card] img')!.getAttribute('src')).toMatch(/img\/cards\/1002?01\.png/);
+	for (const id of ['core-card', 'side-card']) expect(root.querySelector(`[data-testid=${id}]`)!.querySelector('img, [data-testid=portrait-placeholder]')).not.toBeNull();
+	expect(root.querySelectorAll('.picks > section').length).toBe(3);
 });
 
 it('drops scores on cancel so they do not look current', async () => {
