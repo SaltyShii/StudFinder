@@ -6,7 +6,7 @@ import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { CMS } from '../../../packages/scoring/src/cm';
 import { App } from './App';
-import { compute, type Job, type Runner } from './job';
+import { compute, type Job, type Runner, type VeteranJob, type VeteranRunner } from './job';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 const courses = Object.fromEntries(CMS.map((c) => [c.courseId, { id: c.courseId, trackId: 1, distance: 2000, ground: 1, turn: 1 }]));
@@ -22,6 +22,7 @@ const data = new GameData({
 } as unknown as RawGameData);
 
 const inline: Runner = (job, done) => { done(compute(job)); return () => {}; };
+const noV: VeteranRunner = () => () => {};
 const exportText = JSON.stringify([{ trained_chara_id: 1, card_id: 100301, succession_chara_array: [] }]);
 const flush = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
 
@@ -42,7 +43,7 @@ async function pickAce(id = '100101') {
 }
 
 it('renders the ace list after importing an export, with expandable skill detail', async () => {
-	render(<App loadData={async () => data} run={inline} />, root);
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
 	const cards = [...root.querySelectorAll('[data-testid=ace-card]')];
@@ -52,7 +53,7 @@ it('renders the ace list after importing an export, with expandable skill detail
 });
 
 it('renders the core loop and side loop lists beside the ace list', async () => {
-	render(<App loadData={async () => data} run={inline} />, root);
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
 	for (const id of ['ace-card', 'core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(2);
@@ -61,7 +62,7 @@ it('renders the core loop and side loop lists beside the ace list', async () => 
 it('badges owned outfits, filters without recomputing, and persists manual owned toggles', async () => {
 	const jobs: Job[] = [];
 	const counting: Runner = (job, done) => { jobs.push(job); done(compute(job)); return () => {}; };
-	render(<App loadData={async () => data} run={counting} />, root);
+	render(<App loadData={async () => data} run={counting} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
 	const cards = () => [...root.querySelectorAll('[data-testid=ace-card]')];
@@ -88,7 +89,7 @@ it('badges owned outfits, filters without recomputing, and persists manual owned
 	expect(owned().length).toBe(2);
 
 	render(null, root);
-	render(<App loadData={async () => data} run={counting} />, root);
+	render(<App loadData={async () => data} run={counting} runVeterans={noV} />, root);
 	await flush();
 	await flush();
 	await pickAce();
@@ -99,7 +100,7 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 	const jobs: Job[] = [];
 	let cancelled = 0;
 	const manual: Runner = (job) => { jobs.push(job); return () => { cancelled++; }; };
-	render(<App loadData={async () => data} run={manual} />, root);
+	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
 	expect(jobs).toHaveLength(1);
@@ -116,7 +117,7 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 it('shows a prompt and runs no job until an Ace is chosen, and marks lists stale on restart', async () => {
 	const jobs: Job[] = [];
 	const manual: Runner = (job) => { jobs.push(job); return () => {}; };
-	render(<App loadData={async () => data} run={manual} />, root);
+	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
 	expect(jobs).toHaveLength(0);
 	expect(root.textContent).toContain('Choose an Ace');
@@ -127,7 +128,7 @@ it('shows a prompt and runs no job until an Ace is chosen, and marks lists stale
 });
 
 it('persists the CM override and clears owned overrides with Clear data', async () => {
-	render(<App loadData={async () => data} run={inline} />, root);
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
 	cm.value = String(CMS[0].id);
@@ -137,6 +138,36 @@ it('persists the CM override and clears owned overrides with Clear data', async 
 	await act(() => { (root.querySelector('button:not([name])') as HTMLButtonElement).click(); });
 	expect(localStorage.getItem('stud-finder:owned')).toBeNull();
 	expect(localStorage.getItem('stud-finder:cm')).toBeNull();
+});
+
+it('scores veterans without an Ace, reruns on CM change, and cancels', async () => {
+	const jobs: VeteranJob[] = [];
+	let cancelled = 0;
+	const manual: VeteranRunner = (job, progress) => { jobs.push(job); progress(1, 2); return () => { cancelled++; }; };
+	render(<App loadData={async () => data} run={inline} runVeterans={manual} />, root);
+	await importFile();
+	expect(jobs).toHaveLength(1);
+	expect(root.textContent).toContain('Scoring 1/2');
+	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
+	cm.value = String(CMS.find((c) => c.id !== Number(cm.value))!.id);
+	await act(() => { cm.dispatchEvent(new Event('change')); });
+	expect(jobs).toHaveLength(2);
+	expect(cancelled).toBe(1);
+	await act(() => { (root.querySelector('button[name=cancel-veterans]') as HTMLButtonElement).click(); });
+	expect(cancelled).toBe(2);
+	expect(root.textContent).not.toContain('Scoring');
+});
+
+it('shows top 5 Ace veterans, expands to all, and notes ranking is relative only', async () => {
+	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', label: `#${i}`, aptitude: { surface: 7, distance: 7 }, lengthsGained: 1, gap: i, detail: [], assumesPosition: false });
+	const seven: VeteranRunner = (_j, _p, done) => { done([0, 1, 2, 3, 4, 5, 6].map(score)); return () => {}; };
+	render(<App loadData={async () => data} run={inline} runVeterans={seven} />, root);
+	await importFile();
+	const cards = () => root.querySelectorAll('[data-testid=veteran-card]');
+	expect(cards().length).toBe(5);
+	expect(root.textContent).toContain('relative only');
+	await act(() => { (root.querySelector('button[name=toggle-all-veterans]') as HTMLButtonElement).click(); });
+	expect(cards().length).toBe(7);
 });
 
 it('gives the same ranking for the same inputs', () => {
