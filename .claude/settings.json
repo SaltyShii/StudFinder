@@ -14,8 +14,7 @@
       "Write",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git checkout -b:*)",
-      "Bash(gh api -X PUT repos/SaltyShii/StudFinder/pulls/*/merge*)"
+      "Bash(git checkout -b:*)"
     ],
     "ask": [
       "Bash(git push:*)",

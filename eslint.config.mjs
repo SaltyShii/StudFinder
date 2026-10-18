@@ -29,4 +29,9 @@ export default tseslint.config(
 			}))],
 		},
 	},
+	// scripts are new code: tabs like the rest of the repo, so a stray 2-space file fails the gate
+	{
+		files: ['scripts/**/*.ts'],
+		rules: { indent: ['error', 'tab'] },
+	},
 );

@@ -10,3 +10,4 @@ coverage
 # real roster exports must never be committed
 SAMPLEdata.json
 *roster*.json
+.claude/worktrees
