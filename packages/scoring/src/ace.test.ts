@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buildAce, CATEGORIES, defaultTargetStats, STYLES } from './ace';
+import { aceForCourse, buildAce, CATEGORIES, defaultTargetStats, pinkGroupOf, STYLES } from './ace';
 import { recommend } from './recommend';
 
 const aptitudes = { turf: 8, dirt: 3, short: 4, mile: 7, middle: 7, long: 5, nige: 2, senko: 7, sashi: 6, oikomi: 1 };
@@ -29,4 +29,10 @@ test('recommend runs from a built Ace', () => {
 	const ace = buildAce({ aptitudes, style: 'senko', category: 'mile', surface: 'turf' });
 	const r = recommend({ outfits: [{ id: 'a', name: 'A', owned: true, skillIds: ['10071'] }] }, { courseId: 10101, ace, samples: 10 });
 	expect(r.ace[0].score).toBeGreaterThan(0);
+});
+
+test('aceForCourse reads surface, distance and unique skill from the course and card', () => {
+	const ace = aceForCourse({ aptitudes, uniqueSkillId: 1001 }, { distance: 2000, ground: 2 }, 'senko', { speed: 1234 });
+	expect(ace).toMatchObject({ speed: 1234, surfaceAptitude: 'E', distanceAptitude: 'A', skills: ['1001'] });
+	expect(pinkGroupOf(2000)).toBe(33);
 });

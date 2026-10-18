@@ -21,7 +21,7 @@ const data = new GameData({
 	saddles: {}, tracks: {}, courses, races: [],
 } as unknown as RawGameData);
 
-const inline: Runner = (job, done) => { done(compute(job)); return () => {}; };
+const inline: Runner = (job, _p, done) => { done(compute(job)); return () => {}; };
 const noV: VeteranRunner = () => () => {};
 const exportText = JSON.stringify([{ trained_chara_id: 1, card_id: 100301, succession_chara_array: [] }]);
 const flush = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
@@ -61,7 +61,7 @@ it('renders the core loop and side loop lists beside the ace list', async () => 
 
 it('badges owned outfits, filters without recomputing, and persists manual owned toggles', async () => {
 	const jobs: Job[] = [];
-	const counting: Runner = (job, done) => { jobs.push(job); done(compute(job)); return () => {}; };
+	const counting: Runner = (job, _p, done) => { jobs.push(job); done(compute(job)); return () => {}; };
 	render(<App loadData={async () => data} run={counting} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
@@ -143,7 +143,7 @@ it('persists the CM override and clears owned overrides with Clear data', async 
 it('scores veterans without an Ace, reruns on CM change, and cancels', async () => {
 	const jobs: VeteranJob[] = [];
 	let cancelled = 0;
-	const manual: VeteranRunner = (job, progress) => { jobs.push(job); progress(1, 2); return () => { cancelled++; }; };
+	const manual: VeteranRunner = (job, progress) => { jobs.push(job); progress([1, 2]); return () => { cancelled++; }; };
 	render(<App loadData={async () => data} run={inline} runVeterans={manual} />, root);
 	await importFile();
 	expect(jobs).toHaveLength(1);
@@ -188,4 +188,25 @@ it('drops scores on cancel so they do not look current', async () => {
 it('gives the same ranking for the same inputs', () => {
 	const job = { roster: { outfits: [{ id: 'a', name: 'A', owned: false, skillIds: ['10071'] }] }, preset: { courseId: CMS[0].courseId, ace: { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const, samples: 20 } };
 	expect(compute(job)).toEqual(compute(job));
+});
+
+it('shows a worker error, stops the busy state, drops the old result and clears the error on the next success', async () => {
+	let fail = false;
+	const r: Runner = (job, _p, done, onError) => { if (fail) onError(new Error('worker crashed')); else done(compute(job)); return () => {}; };
+	render(<App loadData={async () => data} run={r} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const before = root.querySelectorAll('[data-testid=ace-card]').length;
+	fail = true;
+	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
+	style.value = 'nige';
+	await act(() => { style.dispatchEvent(new Event('change')); });
+	expect(root.querySelector('[role=alert]')?.textContent).toBe('worker crashed');
+	expect(root.textContent).not.toContain('Computing');
+	expect(root.querySelectorAll('[data-testid=ace-card]').length).toBe(0);
+	expect(before).toBeGreaterThan(0);
+	fail = false;
+	style.value = 'oikomi';
+	await act(() => { style.dispatchEvent(new Event('change')); });
+	expect(root.querySelector('[role=alert]')).toBeNull();
 });

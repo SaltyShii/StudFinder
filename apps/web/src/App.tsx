@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { buildAce, categoryOf, defaultTargetStats, PINK_GROUP, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { aceForCourse, categoryOf, defaultTargetStats, pinkGroupOf, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatePool } from '../../../packages/scoring/src/candidatePool';
 import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
-import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import { resolveTierList } from '../../../packages/lineage/src/tiers';
 import type { TierList } from '../../../packages/scoring/src/shared';
 import { formatAge } from './age';
 import { PickList } from './PickList';
-import type { Runner, VeteranRunner } from './job';
-import { workerRunner, workerVeteranRunner } from './runners';
-import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
+import type { Job, Runner, VeteranJob, VeteranRunner } from './job';
+import { recommendRunner, veteranRunner } from './runners';
+import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
 import { OwnedFilterSelect, useOwned } from './Owned';
 import { clearRoster, importRoster, loadCm, loadRoster, saveCm, saveRoster } from './roster';
@@ -31,11 +30,7 @@ interface Props {
 	runVeterans?: VeteranRunner;
 }
 
-export function App({ loadData = loadGameData, run = workerRunner, runVeterans = workerVeteranRunner }: Props) {
-	const [vScores, setVScores] = useState<AceVeteranScore[] | null>(null);
-	const [vProgress, setVProgress] = useState<[number, number] | null>(null);
-	const [vStale, setVStale] = useState(false);
-	const vCancel = useRef<() => void>(() => {});
+export function App({ loadData = loadGameData, run = recommendRunner, runVeterans = veteranRunner }: Props) {
 	const [roster, setRoster] = useState<ImportResult | null>(() => loadRoster(localStorage));
 	const [data, setData] = useState<GameData | null>(null);
 	const [error, setError] = useState('');
@@ -43,11 +38,6 @@ export function App({ loadData = loadGameData, run = workerRunner, runVeterans =
 	const [aceId, setAceId] = useState<number | null>(null);
 	const [style, setStyle] = useState<Style>('senko');
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
-	const [result, setResult] = useState<Recommendation | null>(null);
-	const [busy, setBusy] = useState(false);
-	const [stale, setStale] = useState(false);
-	const cancelRef = useRef<() => void>(() => {});
-	const jobId = useRef(0);
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
@@ -55,47 +45,30 @@ export function App({ loadData = loadGameData, run = workerRunner, runVeterans =
 	const card = data && aceId != null ? data.cards.get(aceId) : undefined;
 	const cm = pickCm(new Date(), cmId);
 	const course = data?.courses.get(cm.courseId);
-	// The CM-relevant pink spark is the distance aptitude of the CM course (factor groups 31-34).
-	const pinkGroupId = course ? PINK_GROUP[categoryOf(course.distance)] : 0;
+	const pinkGroupId = course ? pinkGroupOf(course.distance) : 0;
 	const pool = useMemo(
 		() => (data && roster && card ? candidatePool(data, roster.veterans, { aceCardId: card.id, pinkGroupId }) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
 		[data, roster, card, pinkGroupId, own.overrides],
 	);
 	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
 
-	useEffect(() => {
-		if (!data || !card || !course || !pool.length) return;
-		const ace = buildAce({
-			aptitudes: card.aptitudes, style, category: categoryOf(course.distance), surface: course.ground === 2 ? 'dirt' : 'turf', target,
-			uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId),
-		});
-		const id = ++jobId.current;
-		setBusy(true);
-		setStale(true);
-		const stop = run({ roster: { outfits: pool }, preset: cmPreset(cm, ace), tierList }, (r) => {
-			if (id !== jobId.current) return; // a newer job owns busy and result
-			setResult(r); setBusy(false); setStale(false);
-		});
-		cancelRef.current = () => { stop(); if (id === jobId.current) setBusy(false); };
-		return stop; // restart: drop the stale job when inputs change
+	const job = useMemo<Job | null>(() => {
+		if (!data || !card || !course || !pool.length) return null;
+		const ace = aceForCourse(card, course, style, target);
+		return { roster: { outfits: pool }, preset: cmPreset(cm, ace), tierList };
 	}, [data, pool, card, course, style, target, cmId, tierList]);
+	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
 	// Needs no Ace or Target stats, so it runs as soon as a Roster and CM course exist.
-	useEffect(() => {
-		if (!roster || !course) return;
-		let live = true;
-		setVStale(true);
-		setVScores(null); // scores of another CM must not pass as current
-		setVProgress(null);
+	const veteranJob = useMemo<VeteranJob | null>(() => {
+		if (!roster || !course) return null;
 		const uniqueSkills: [number, number][] = [];
 		data?.cards.forEach((c) => { if (c.uniqueSkillId != null) uniqueSkills.push([c.id, c.uniqueSkillId]); });
-		const stop = runVeterans({ veterans: roster.veterans, courseId: cm.courseId, uniqueSkills }, (d, t) => live && setVProgress([d, t]), (r) => {
-			if (!live) return;
-			setVScores(r); setVStale(false);
-		});
-		vCancel.current = () => { stop(); live = false; setVStale(false); setVScores(null); };
-		return () => { live = false; stop(); };
-	}, [roster, course, cmId]);
+		return { veterans: roster.veterans, courseId: cm.courseId, uniqueSkills };
+	}, [roster, course, cmId, data]);
+	// Scores of another CM must not pass as current, so a restart or cancel drops them.
+	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });
+	const shownError = error || jobError?.message || vs.error?.message;
 
 	async function onFile(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
@@ -120,12 +93,12 @@ export function App({ loadData = loadGameData, run = workerRunner, runVeterans =
 			<h1>Stud Finder</h1>
 			<p>Your export is read in this browser only and never sent anywhere.</p>
 			<input type="file" accept=".json,application/json" onChange={onFile} />
-			{error && <p role="alert">{error}</p>}
+			{shownError && <p role="alert">{shownError}</p>}
 			{roster && (
 				<section>
 					<h2>Roster</h2>
 					<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
-					<button onClick={() => { clearRoster(localStorage); setRoster(null); setResult(null); setVScores(null); own.clear(); }}>Clear data</button>
+					<button onClick={() => { clearRoster(localStorage); setRoster(null); own.clear(); }}>Clear data</button>
 				</section>
 			)}
 			{roster && data && (
@@ -145,12 +118,12 @@ export function App({ loadData = loadGameData, run = workerRunner, runVeterans =
 						<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>
 					))}</fieldset>}
 					{!card && <p>Choose an Ace to see recommendations.</p>}
-					{busy && <p>Computing... <button name="cancel" onClick={() => cancelRef.current()}>Cancel</button></p>}
+					{busy && <p>Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<OwnedFilterSelect value={own.filter} onChange={own.setFilter} />
 					<PickList title="Ace" testId="ace-card" picks={result?.ace} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
 					<PickList title="Core loop" testId="core-card" picks={result?.core} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
 					<PickList title="Side loop" testId="side-card" picks={result?.side} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
-					<VeteranList scores={vScores} progress={vProgress} stale={vStale} data={data} onCancel={() => vCancel.current()} />
+					<VeteranList scores={vs.result} progress={vs.progress} stale={vs.stale} data={data} onCancel={vs.cancel} />
 				</section>
 			)}
 			{data?.meta?.resourceVersion && <footer>Game data: resource version {data.meta.resourceVersion}, generated {formatAge(data.meta.generatedAt)}</footer>}

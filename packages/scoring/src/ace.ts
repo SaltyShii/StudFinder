@@ -1,5 +1,5 @@
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
-import type { Aptitudes } from '@stud-finder/lineage/src/types';
+import type { Aptitudes, Card, Course } from '@stud-finder/lineage/src/types';
 
 export const CATEGORIES = ['short', 'mile', 'middle', 'long'] as const;
 export const STYLES = ['nige', 'senko', 'sashi', 'oikomi'] as const;
@@ -22,6 +22,16 @@ export const DIRT_GROUP = 12;
 
 export function categoryOf(distance: number): Category {
 	return distance <= 1400 ? 'short' : distance <= 1800 ? 'mile' : distance <= 2400 ? 'middle' : 'long';
+}
+
+/** Factor group of the CM-relevant pink spark: the distance aptitude of the course. */
+export function pinkGroupOf(distance: number): number {
+	return PINK_GROUP[categoryOf(distance)];
+}
+
+/** Game ground id (1 = turf, 2 = dirt); the lineage Course and the sim course both use it. */
+export function surfaceOf(ground: number): 'turf' | 'dirt' {
+	return ground === 2 ? 'dirt' : 'turf';
 }
 
 // shortcut: rough community-guide values, not tuned against the sim; revisit if rankings look off.
@@ -61,4 +71,12 @@ export function buildAce({ aptitudes, style, category, surface, target, uniqueSk
 		mood: 2,
 		skills: uniqueSkillId ? [uniqueSkillId] : [],
 	};
+}
+
+/** The untrained Ace for a CM course: the card's aptitudes and unique skill, the given style, recommended stats unless overridden. */
+export function aceForCourse(card: Pick<Card, 'aptitudes' | 'uniqueSkillId'>, course: Pick<Course, 'distance' | 'ground'>, style: Style, target?: Partial<TargetStats>): HorseDesc {
+	return buildAce({
+		aptitudes: card.aptitudes, style, category: categoryOf(course.distance), surface: surfaceOf(course.ground), target,
+		uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId),
+	});
 }
