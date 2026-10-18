@@ -1,0 +1,113 @@
+/* Tokens copied from lineageplanner-salty so the two tools read as one suite. */
+:root {
+	--bg: #eef0ec;
+	--surface: #fff;
+	--surface-2: #f2f4ef;
+	--border: #d3d8cd;
+	--text: #14181a;
+	--muted: #646d66;
+	--accent: #0f7a45;
+	--accent-soft: #dcf0e4;
+	--danger: #c4261f;
+	--radius: 4px;
+	--shadow: 0 1px 0 rgb(0 0 0 / 4%), 0 6px 18px rgb(10 25 15 / 7%);
+	color-scheme: light;
+	font: 14px/1.4 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif;
+	color: var(--text);
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #0b0f0e;
+		--surface: #141a18;
+		--surface-2: #1c2421;
+		--border: #28312d;
+		--text: #eaf0ec;
+		--muted: #8a968f;
+		--accent: #2fcf7a;
+		--accent-soft: #12331f;
+		--danger: #ff3b30;
+		--shadow: none;
+		color-scheme: dark;
+	}
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1rem; }
+h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+
+.layout {
+	display: grid;
+	grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+	gap: 16px;
+	max-width: 1400px;
+	margin: 0 auto;
+	padding: 16px;
+	align-items: start;
+}
+@media (max-width: 800px) {
+	.layout { grid-template-columns: minmax(0, 1fr); }
+}
+.sidebar, .results { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow);
+}
+.muted, footer { color: var(--muted); font-size: 0.85rem; }
+footer { grid-column: 1 / -1; }
+
+.banner { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--border); display: block; }
+
+label { display: flex; flex-direction: column; gap: 3px; font-size: 0.85rem; color: var(--muted); text-transform: capitalize; }
+label:has(> input[type='checkbox']) { flex-direction: row; align-items: flex-start; gap: 8px; text-transform: none; }
+fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; margin: 0; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); }
+legend { padding: 0 4px; color: var(--muted); font-size: 0.85rem; }
+
+select, input[type='number'], input[type='file'] {
+	width: 100%;
+	padding: 6px 8px;
+	font: inherit;
+	color: var(--text);
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+button {
+	align-self: flex-start;
+	padding: 6px 12px;
+	font: inherit;
+	color: var(--text);
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+[role='alert'] { padding: 8px 12px; color: var(--danger); background: var(--surface); border: 1px solid var(--danger); border-radius: var(--radius); }
+
+ol, ul { margin: 0; padding-left: 20px; }
+details > summary { cursor: pointer; color: var(--accent); }
+
+.cards { display: flex; flex-direction: column; gap: 8px; padding: 0; list-style: none; }
+.card { display: flex; gap: 10px; padding: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
+.card.best { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.card-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.picks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .picks { grid-template-columns: minmax(0, 1fr); } }
+.picks .portrait { width: 40px; height: 40px; }
+.portrait { flex: none; width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius); background: var(--border); }
+.headline .big { font-size: 1.4rem; font-weight: 700; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { padding: 1px 8px; font-size: 0.8rem; background: var(--accent-soft); border-radius: 999px; }
+.caveat { font-size: 0.85rem; color: var(--muted); font-style: italic; }

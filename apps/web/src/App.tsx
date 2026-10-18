@@ -21,6 +21,14 @@ function tierListOf(data: GameData, style: Style): TierList {
 	return list;
 }
 
+// Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
+function CmBanner({ cmId }: { cmId: number }) {
+	const [tries, setTries] = useState(0);
+	useEffect(() => setTries(0), [cmId]);
+	if (tries > 1) return null;
+	return <img class="banner" alt="" src={`${import.meta.env.BASE_URL}img/cm/${cmId}${tries ? '-jp' : ''}.png`} onError={() => setTries(tries + 1)} />;
+}
+
 const STATS = ['speed', 'stamina', 'power', 'guts', 'wisdom'] as const;
 
 interface Props {
@@ -85,47 +93,59 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	}
 
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
+	const cardIds = useMemo(() => new Map([...(roster?.veterans ?? []), ...(roster?.borrowed ?? [])].map((v) => [String(v.trainedId), v.cardId])), [roster]);
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 
 	return (
-		<main>
-			<h1>Stud Finder</h1>
-			<p>Your export is read in this browser only and never sent anywhere.</p>
-			<input type="file" accept=".json,application/json" onChange={onFile} />
-			{shownError && <p role="alert">{shownError}</p>}
-			{roster && (
-				<section>
-					<h2>Roster</h2>
-					<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
-					<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
-					<button onClick={() => { clearRoster(localStorage); setRoster(null); setUseBorrowed(false); }}>Clear data</button>
+		<main class="layout">
+			<div class="sidebar">
+				<section class="panel">
+					<h1>Stud Finder</h1>
+					<p class="muted">Your export is read in this browser only and never sent anywhere.</p>
+					<input type="file" accept=".json,application/json" onChange={onFile} />
 				</section>
-			)}
+				{shownError && <p role="alert">{shownError}</p>}
+				{roster && (
+					<section class="panel">
+						<h2>Roster</h2>
+						<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
+						<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
+						<button onClick={() => { clearRoster(localStorage); setRoster(null); setUseBorrowed(false); }}>Clear data</button>
+					</section>
+				)}
+				{roster && data && (
+					<section class="panel">
+						<CmBanner cmId={cm.id} />
+						<h2>Ace</h2>
+						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); }}>
+							{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
+						</select></label>
+						<label>Ace version <select name="ace" value={card?.id ?? ''} onChange={(e) => setAceId(Number(e.currentTarget.value))}>
+							<option value="" disabled>Choose an Ace</option>
+							{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
+						</select></label>
+						<label>Style <select name="style" value={style} onChange={(e) => setStyle(e.currentTarget.value as Style)}>
+							{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
+						</select></label>
+						{defaults && <fieldset><legend>Target stats</legend>{STATS.map((k) => (
+							<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>
+						))}</fieldset>}
+					</section>
+				)}
+			</div>
 			{roster && data && (
-				<section>
-					<h2>Ace</h2>
-					<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); }}>
-						{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
-					</select></label>
-					<label>Ace version <select name="ace" value={card?.id ?? ''} onChange={(e) => setAceId(Number(e.currentTarget.value))}>
-						<option value="" disabled>Choose an Ace</option>
-						{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
-					</select></label>
-					<label>Style <select name="style" value={style} onChange={(e) => setStyle(e.currentTarget.value as Style)}>
-						{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
-					</select></label>
-					{defaults && <fieldset><legend>Target stats</legend>{STATS.map((k) => (
-						<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>
-					))}</fieldset>}
-					{!card && <p>Choose an Ace to see recommendations.</p>}
-					{busy && <p>Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
-					<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} stale={stale} data={data} />
-					<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} stale={stale} data={data} />
-					<PickList title="Side loop" testId="side-card" picks={result?.side} candidates={byId} stale={stale} data={data} />
+				<div class="results">
+					{!card && <p class="panel">Choose an Ace to see recommendations.</p>}
+					{busy && <p class="panel">Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
+					<div class="picks">
+						<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
+						<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
+						<PickList title="Side loop" testId="side-card" picks={result?.side} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
+					</div>
 					<VeteranList scores={vs.result} progress={vs.progress} stale={vs.stale} data={data} onCancel={vs.cancel} />
-				</section>
+				</div>
 			)}
-			{data?.meta?.resourceVersion && <footer>Game data: resource version {data.meta.resourceVersion}, generated {formatAge(data.meta.generatedAt)}</footer>}
+			{data?.meta?.resourceVersion && <footer class="muted">Game data: resource version {data.meta.resourceVersion}, generated {formatAge(data.meta.generatedAt)}</footer>}
 		</main>
 	);
 }

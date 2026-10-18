@@ -2,7 +2,7 @@
 name: change-triage
 description: Classifies pending changes as docs, light or full so the caller picks the right commit, merge and deploy flow. Returns one verdict line.
 model: haiku
-effort: low
+effort: medium
 color: yellow
 tools: Bash
 maxTurns: 8

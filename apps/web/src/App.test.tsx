@@ -165,10 +165,39 @@ it('shows top 5 Ace veterans, expands to all, and notes ranking is relative only
 	const cards = () => root.querySelectorAll('[data-testid=veteran-card]');
 	expect(cards().length).toBe(5);
 	expect(root.textContent).toContain('relative only');
-	expect(root.textContent).toContain('surface A, distance A');
+	expect(root.textContent).toContain('surface A');
+	expect(root.textContent).toContain('distance A');
 	expect(root.textContent).toContain('2 skills not simulated');
 	await act(() => { (root.querySelector('button[name=toggle-all-veterans]') as HTMLButtonElement).click(); });
 	expect(cards().length).toBe(7);
+});
+
+it('renders veteran cards with portrait, best flag, grade chips and caveats, and survives a missing portrait', async () => {
+	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 2, aptitude: { surface: 7, distance: 6 }, lengthsGained: 1, gap: i, detail: [], assumesPosition: i === 0 });
+	const two: VeteranRunner = (_j, _p, done) => { done([score(0), score(1)]); return () => {}; };
+	render(<App loadData={async () => data} run={inline} runVeterans={two} />, root);
+	await importFile();
+	const [best, other] = [...root.querySelectorAll('[data-testid=veteran-card]')];
+	expect(best.querySelector('img')!.getAttribute('src')).toContain('img/cards/100301.png');
+	expect(best.hasAttribute('data-best')).toBe(true);
+	expect(other.hasAttribute('data-best')).toBe(false);
+	expect(best.textContent).toContain('surface A');
+	expect(best.textContent).toContain('distance B');
+	expect(best.textContent).toContain('assumes default position');
+	expect(other.textContent).not.toContain('assumes default position');
+	expect(best.textContent).toContain('2 skills not simulated');
+	await act(() => { best.querySelector('img')!.dispatchEvent(new Event('error')); });
+	expect(best.querySelector('img')).toBeNull();
+	expect(best.querySelector('[data-testid=portrait-placeholder]')).not.toBeNull();
+});
+
+it('shows a portrait on pick cards', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	expect(root.querySelector('[data-testid=ace-card] img')!.getAttribute('src')).toMatch(/img\/cards\/1002?01\.png/);
+	for (const id of ['core-card', 'side-card']) expect(root.querySelector(`[data-testid=${id}]`)!.querySelector('img, [data-testid=portrait-placeholder]')).not.toBeNull();
+	expect(root.querySelectorAll('.picks > section').length).toBe(3);
 });
 
 it('drops scores on cancel so they do not look current', async () => {
