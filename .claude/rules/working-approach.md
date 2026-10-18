@@ -8,6 +8,7 @@ Match the effort to the task. Most work does not need heavy orchestration — re
 |---|---|
 | A small, obvious change (one-liner, rename, clear fix) | Just do it, then verify. No pipeline. |
 | Substantial delivery (a feature, an issue, a migration) | The mattpocock-skills flow: `/mattpocock-skills:grill-with-docs` → `/mattpocock-skills:to-spec` → `/mattpocock-skills:to-tickets` (`implement-spec` needs tickets) → `/mattpocock-skills:implement-spec`, then `/mattpocock-skills:code-review`; `/mattpocock-skills:ask-matt` picks the skill |
+| A spec whose work is one obvious ticket (small refactor) | Skip `to-tickets` and `implement-spec`: implement on a branch, then `/mattpocock-skills:code-review` and `/ship` |
 | A hard end-state you want reached without prompting each turn | Set a **`/goal`** (measurable end state + stated check + a turn bound). An evaluator checks after every turn. |
 | Recurring or monitoring work (triage a queue, poll a build, periodic scan) | **`/loop`** on an interval, optionally paired with a `/goal` |
 | Large multi-part research or audit | Spawn parallel `investigator` subagents (Agent tool), one question each, then synthesize their reports |

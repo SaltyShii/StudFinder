@@ -4,6 +4,10 @@
 
 Stud Finder answers one question: which uma should I train next as a great-grandparent, grandparent or parent for the upcoming Champions Meeting? In-browser only (Vite + Preact + TypeScript), no backend; Web Workers run the race simulations. Vocabulary and design notes: `GLOSSARY.md`. Update this file when the stack or architecture changes.
 
+## Grilling
+
+Any grill skill (`grill-with-docs`, `grilling`): call `AskUserQuestion` for every round, up to 4 questions, recommended option first. The skill's ❓/➡️ text format is the fallback if the tool errors.
+
 ## Layout
 
 npm workspaces:
@@ -47,6 +51,7 @@ npm workspaces:
 - Attach a sub-issue with `gh api -X POST repos/{owner}/{repo}/issues/N/sub_issues -F sub_issue_id=<database id>` (the `.id` field, not the number)
 - GitHub Pages deploys from `.github/workflows/deploy-pages.yml`; private repos on the free plan cannot use Pages
 - `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`). Regenerate locally with the commands in `scripts/ingest/NOTICE.md` (vendored lineageplanner-salty scripts; also writes `apps/web/public/img/{cards,cm,races}`); scheduled refresh is #18
+- Git over SSH to GitHub hangs intermittently (port 22). Wrap network git in `timeout 60`; on a hang, fetch over HTTPS: `git -c credential.helper='!gh auth git-credential' fetch https://github.com/SaltyShii/StudFinder.git main:refs/remotes/origin/main`
 
 ## Response Constraints
 
@@ -61,7 +66,5 @@ npm workspaces:
 - The reader skims and is always low on tokens: lead with the result, keep it scannable
 
 ## Preferences
-
-`AskUserQuestion` asks every grilling round (up to 4 questions), including when the grilling skill shows a plain-text format; fall back to concise plain text only if the tool is unavailable.
 
 After `/code-review` or `/retro` (or when the user skips the retro), suggest `/ship`.
