@@ -29,7 +29,6 @@ npm workspaces:
 
 - Never copy `saltyuma-tools/SAMPLEdata.json` (the user's real roster export) into this repo, or any file with personal roster data
 - uma.moe API keys stay in the browser; never commit or log them
-- Do not push or create the GitHub remote without asking
 
 ## Git Workflow
 
@@ -39,8 +38,27 @@ npm workspaces:
 4. Commit format: `<type>(<scope>): <short summary>` plus a body on what and why
 5. Push, PRs (`/mattpocock-skills:pr` for the body) and merges only when asked
 
+## Gotchas
+
+- Issue tracker: GitHub Issues. Specs are issues, tickets are sub-issues labelled `ready-for-agent`, blockers use GitHub's native links
+- Read issues with `gh issue view N --json title,body`; plain `gh issue view`, `gh pr merge` and `gh pr edit` error on the Projects classic deprecation, so use `gh api` (REST) for merges and base changes
+- Subagent worktrees start on a stale commit: `git reset --hard <integration branch>`, then `npm install`
+- `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`); automatic refresh is #18
+
+## Response Constraints
+
+- Optimize for minimum output tokens; preserve correctness
+- Answer immediately: no preamble, no restating the question
+- State conclusions directly; don't narrate alternatives before picking one
+- No hedging language ("generally," "it's worth noting") unless the uncertainty itself matters
+- Don't repeat information already stated in this conversation or in context
+- Use lists only when shorter than the prose equivalent; no unnecessary nesting
+- Code before explanation; explain only non-obvious details
+- No summaries, recaps, or follow-up offers at the end
+- The reader skims and is always low on tokens: lead with the result, keep it scannable
+
 ## Preferences
 
-Report concisely.
+`AskUserQuestion` asks every grilling round (up to 4 questions), including when the grilling skill shows a plain-text format; fall back to concise plain text only if the tool is unavailable.
 
-For grilling workflows, ask with the native `AskUserQuestion` tool (rounds of up to 4 questions); fall back to concise plain text only if it is unavailable.
+After `/code-review` or `/retro` (or when the user skips the retro), suggest `/ship`.

@@ -1,0 +1,4 @@
+#!/bin/sh
+# A merge that changes the lockfile leaves node_modules stale; typecheck then fails with misleading JSX errors.
+git diff --name-only ORIG_HEAD HEAD | grep -qx package-lock.json && npm install
+exit 0

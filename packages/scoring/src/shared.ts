@@ -5,7 +5,7 @@ import type { SkillValue } from './skillValue';
 /** Spark name (as in the tier list) to tier. */
 export type TierList = Record<string, Tier>;
 
-// Minimal Roster until the importer lands; pinkSparks exists only so Ace can ignore it.
+// pinkSparks is carried only so the Ace can ignore it.
 export interface Outfit {
 	id: string;
 	name: string;
