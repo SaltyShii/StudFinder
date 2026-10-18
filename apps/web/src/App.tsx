@@ -9,6 +9,7 @@ import { resolveTierList } from '../../../packages/lineage/src/tiers';
 import type { TierList } from '../../../packages/scoring/src/shared';
 import { PickList } from './PickList';
 import { workerRunner, type Runner } from './job';
+import { OwnedFilterSelect, useOwned } from './Owned';
 import { clearRoster, importRoster, loadRoster, saveRoster } from './roster';
 
 const PINK_GROUP: Record<Category, number> = { short: 31, mile: 32, middle: 33, long: 34 };
@@ -45,12 +46,16 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
+	const own = useOwned();
 	const card = data && (data.cards.get(aceId ?? -1) ?? data.cards.values().next().value);
 	const cm = pickCm(new Date(), cmId);
 	const course = data?.courses.get(cm.courseId);
 	// The CM-relevant pink spark is the distance aptitude of the CM course (factor groups 31-34).
 	const pinkGroupId = course ? PINK_GROUP[categoryOf(course.distance)] : 0;
-	const pool = useMemo(() => (data && roster ? candidatePool(data, roster.veterans, card && { aceCardId: card.id, pinkGroupId }) : []), [data, roster, card, pinkGroupId]);
+	const pool = useMemo(
+		() => (data && roster ? candidatePool(data, roster.veterans, card && { aceCardId: card.id, pinkGroupId }) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
+		[data, roster, card, pinkGroupId, own.overrides],
+	);
 	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
 
 	useEffect(() => {
@@ -81,6 +86,7 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 	}
 
 	const name = (id: string) => pool.find((o) => o.id === id)?.name ?? id;
+	const isOwned = (id: string) => pool.find((o) => o.id === id)?.owned ?? false;
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 
 	return (
@@ -112,9 +118,10 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 						<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>
 					))}
 					{busy && <p>Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
-					<PickList title="Ace" testId="ace-card" picks={result?.ace} name={name} data={data} />
-					<PickList title="Core loop" testId="core-card" picks={result?.core} name={name} data={data} />
-					<PickList title="Side loop" testId="side-card" picks={result?.side} name={name} data={data} />
+					<OwnedFilterSelect value={own.filter} onChange={own.setFilter} />
+					<PickList title="Ace" testId="ace-card" picks={result?.ace} name={name} data={data} own={own} isOwned={isOwned} />
+					<PickList title="Core loop" testId="core-card" picks={result?.core} name={name} data={data} own={own} isOwned={isOwned} />
+					<PickList title="Side loop" testId="side-card" picks={result?.side} name={name} data={data} own={own} isOwned={isOwned} />
 				</section>
 			)}
 		</main>
