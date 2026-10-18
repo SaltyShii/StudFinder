@@ -1,0 +1,67 @@
+name: refresh-data
+on:
+  schedule: [{ cron: '17 5 * * *' }]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Regenerate even if the resource version is unchanged
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: pip, cache-dependency-path: scripts/ingest/requirements.txt }
+      - run: npm ci
+      - run: pip install -r scripts/ingest/requirements.txt
+      - name: Fetch and compare resource version
+        id: fetch
+        run: |
+          set -euo pipefail
+          out=$RUNNER_TEMP/candidate; mkdir -p "$out"
+          python3 scripts/ingest/fetch_master.py "$out/master.mdb" > "$out/info.json"
+          new=$(jq -r .resource_version "$out/info.json")
+          old=$(jq -r .meta.resourceVersion apps/web/public/data/game-data.json)
+          echo "committed=$old fetched=$new"
+          if [ "$new" = "$old" ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$new" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and validate candidate
+        if: steps.fetch.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          out=$RUNNER_TEMP/candidate
+          python3 scripts/ingest/build_data.py "$out/master.mdb" "$out/game-data.json" \
+            --resource-version "${{ steps.fetch.outputs.version }}" --app-version "$(jq -r '.app_version // empty' "$out/info.json")"
+          python3 scripts/ingest/fetch_gametora.py "$out/race-extras.json"
+          npx vite-node scripts/ingest/validate-data.ts "$out" apps/web/public/data
+          cp "$out/game-data.json" "$out/race-extras.json" apps/web/public/data/
+          python3 scripts/ingest/fetch_images.py apps/web/public/data/game-data.json apps/web/public/data/race-extras.json apps/web/public/img
+      # GITHUB_TOKEN-created PRs trigger no workflows, so run the PR checks here.
+      - name: Checks
+        if: steps.fetch.outputs.changed == 'true'
+        run: |
+          npm run check
+          npm run build -w apps/web
+      # Set secret PR_TOKEN (PAT, contents + pull-requests write) to also trigger the normal ci workflow on the PR.
+      - uses: peter-evans/create-pull-request@v7
+        if: steps.fetch.outputs.changed == 'true'
+        with:
+          token: ${{ secrets.PR_TOKEN || github.token }}
+          branch: chore/data-refresh
+          add-paths: |
+            apps/web/public/data
+            apps/web/public/img
+          commit-message: 'chore(data): refresh game data to ${{ steps.fetch.outputs.version }}'
+          title: 'chore(data): refresh game data to ${{ steps.fetch.outputs.version }}'
+          body: Automated refresh from the game CDN and GameTora. Validated against committed data; `npm run check` and the web build passed in the workflow.
