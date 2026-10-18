@@ -1,7 +1,4 @@
-import { RaceSolverBuilder, type HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
-import type { RaceSolver } from '@stud-finder/sim/src/RaceSolver';
-
-const BASHIN = 2.5; // metres per length
+import { median, pairedRace, type Scenario } from './pairedRace';
 
 export interface SkillValue {
 	/** % of runs where the skill activated. */
@@ -12,42 +9,11 @@ export interface SkillValue {
 	value: number;
 }
 
-export interface Scenario {
-	horse: HorseDesc;
-	courseId: number;
-	samples?: number;
-	seed?: number;
-}
-
-function median(xs: number[]) {
-	const s = [...xs].sort((a, b) => a - b);
-	const m = s.length >> 1;
-	return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
-
-/** Runs the horse with and without the skill on the same seed, and measures the gap when the first one finishes. */
-export function skillValue(skillId: string, { horse, courseId, samples = 100, seed = 1 }: Scenario): SkillValue {
-	const make = (withSkill: boolean) => {
-		const b = new RaceSolverBuilder(samples).seed(seed).course(courseId).horse(horse);
-		if (withSkill) b.addSkill(skillId);
-		return { b, g: b.build() };
-	};
-	const base = make(false);
-	const test = make(true);
-	const distance = base.b._course.distance;
-
-	const gains: number[] = [];
-	for (let i = 0; i < samples; i++) {
-		const a = base.g.next().value as RaceSolver;
-		const t = test.g.next().value as RaceSolver;
-		while (a.pos < distance && t.pos < distance) {
-			a.step(1 / 15);
-			t.step(1 / 15);
-		}
-		if (t.usedSkills.has(skillId)) gains.push((t.pos - a.pos) / BASHIN);
-	}
-
-	const proc = gains.length / samples;
+/** Paired race for one skill; proc and lengths are read over the runs where it activated. */
+export function skillValue(skillId: string, scenario: Scenario): SkillValue {
+	const runs = pairedRace([skillId], scenario);
+	const gains = runs.filter((r) => r.activated).map((r) => r.lengths);
+	const proc = gains.length / runs.length;
 	if (!gains.length) return { proc, lengths: { min: 0, avg: 0, median: 0, max: 0 }, value: 0 };
 	const med = median(gains);
 	return {
