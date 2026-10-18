@@ -23,6 +23,25 @@ test('Ace ranks outfits by inherited skill value, ignoring pink sparks', () => {
 	expect(d.assumesPosition).toBe(true); // 10071 has order_rate in its condition
 });
 
+test('all modes credit only what other owned outfits lack', () => {
+	const r: Roster = {
+		outfits: [
+			{ id: 'own', name: 'Own', owned: true, skillIds: ['10071'], whiteSparks: ['Ramp Up'] },
+			{ id: 'dup', name: 'Dup', owned: false, skillIds: ['10071'], whiteSparks: ['Ramp Up'] },
+			{ id: 'new', name: 'New', owned: false, skillIds: ['10071', '10081'], whiteSparks: ['Ramp Up', 'Uma Stan'] },
+		],
+	};
+	const rec = recommend(r, { ...preset, tierList: { 'Ramp Up': 'T2', 'Uma Stan': 'T0' } });
+	for (const mode of [rec.ace, rec.side]) {
+		const by = Object.fromEntries(mode.map((p) => [p.outfitId, p]));
+		expect(by.dup.detail).toEqual([]);
+		expect(by.new.detail.map((d) => d.skillId)).toEqual(['10081']);
+	}
+	const core = Object.fromEntries(rec.core.map((p) => [p.outfitId, p.score]));
+	expect(core.dup).toBe(0);
+	expect(core.new).toBeCloseTo(1); // only Uma Stan (T0) is new
+});
+
 test('same seed and samples give identical output', () => {
 	expect(recommend(roster, preset)).toEqual(recommend(roster, preset));
 });

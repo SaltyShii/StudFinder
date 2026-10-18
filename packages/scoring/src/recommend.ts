@@ -53,6 +53,13 @@ const assumesPosition = (id: string) =>
 
 const TOP = 5;
 
+// What the other owned outfits already supply; the candidate itself never counts.
+// shortcut: compared per exact skill id / spark name, so a higher-rarity version of a skill is a different id and is credited in full.
+export function supplied(outfits: Outfit[], self: Outfit) {
+	const others = outfits.filter((o) => o.owned && o.id !== self.id);
+	return { skills: new Set(others.flatMap((o) => o.skillIds)), sparks: new Set(others.flatMap((o) => o.whiteSparks ?? [])) };
+}
+
 export function recommend(roster: Roster, { samples = 100, seed = 1, tierList, ...cm }: CmPreset): Recommendation {
 	const cache = new Map<string, SkillDetail>();
 	const detailOf = (skillId: string) => {
@@ -62,7 +69,7 @@ export function recommend(roster: Roster, { samples = 100, seed = 1, tierList, .
 	};
 	const ace = roster.outfits
 		.map((o): Pick => {
-			const detail = [...new Set(o.skillIds)].map(detailOf); // duplicates are not credited twice
+			const detail = [...new Set(o.skillIds)].filter((id) => !supplied(roster.outfits, o).skills.has(id)).map(detailOf); // duplicates are not credited twice
 			const score = detail.reduce((s, d) => s + d.value, 0);
 			const best = detail.reduce<SkillDetail | undefined>((b, d) => (!b || d.value > b.value ? d : b), undefined);
 			const reason = best ? `${best.proc.toFixed(0)}% proc, ${best.lengths.median.toFixed(2)} median lengths from skill ${best.skillId}` : 'no inheritable skills';

@@ -6,8 +6,8 @@ const preset = { courseId: 10101, horse, samples: 5, seed: 7 };
 const SKILL = '200012';
 const roster: Roster = {
 	outfits: [
-		{ id: 'plain', name: 'Plain', owned: true, skillIds: [SKILL] },
-		{ id: 'pink', name: 'Pink', owned: true, skillIds: [SKILL], pinkSparks: 3 },
+		{ id: 'plain', name: 'Plain', owned: false, skillIds: [SKILL] },
+		{ id: 'pink', name: 'Pink', owned: false, skillIds: [SKILL], pinkSparks: 3 },
 		{ id: 'affine', name: 'Affine', owned: false, skillIds: [SKILL], pinkSparks: 3, affinity: 100 },
 		{ id: 'empty', name: 'Empty', owned: true, skillIds: [] },
 	],

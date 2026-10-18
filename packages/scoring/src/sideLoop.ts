@@ -1,6 +1,6 @@
 import { FactorType } from '@stud-finder/lineage/src/types';
 import { chanceAny, procChance } from '@stud-finder/lineage/src/inheritance';
-import type { Outfit, Pick, SkillDetail } from './recommend';
+import { supplied, type Outfit, type Pick, type SkillDetail } from './recommend';
 
 // Invented: lengths-equivalent of landing the CM pink spark (aptitude up); tune against real runs.
 const PINK_LENGTHS = 1;
@@ -15,7 +15,7 @@ export function sideLoopPicks(outfits: Outfit[], detailOf: (id: string) => Skill
 				const p = procChance(type, stars, aff);
 				return chanceAny([p, p]);
 			};
-			const detail = [...new Set(o.skillIds)].map(detailOf);
+			const detail = [...new Set(o.skillIds)].filter((id) => !supplied(outfits, o).skills.has(id)).map(detailOf);
 			const skillP = inspire(FactorType.Skill, SKILL_STARS);
 			const pinkP = o.pinkSparks ? inspire(FactorType.Aptitude, o.pinkSparks) : 0;
 			const score = skillP * detail.reduce((s, d) => s + d.value, 0) + pinkP * PINK_LENGTHS;

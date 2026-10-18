@@ -1,5 +1,5 @@
 import { TIER_VALUE, type Tier } from '@stud-finder/lineage/src/tiers';
-import type { Outfit, Pick } from './recommend';
+import { supplied, type Outfit, type Pick } from './recommend';
 
 /** Spark name (as in the tier list) to tier. */
 export type TierList = Record<string, Tier>;
@@ -10,7 +10,7 @@ const DIRT_CREDIT = 0.25;
 export function coreLoopPicks(outfits: Outfit[], tierList: TierList, top: number): Pick[] {
 	return outfits
 		.map((o): Pick => {
-			const tiered = [...new Set(o.whiteSparks ?? [])].filter((n) => n in tierList);
+			const tiered = [...new Set(o.whiteSparks ?? [])].filter((n) => n in tierList && !supplied(outfits, o).sparks.has(n));
 			const dirt = o.dirtSparks ?? 0;
 			const score = tiered.reduce((s, n) => s + TIER_VALUE[tierList[n]], 0) + dirt * DIRT_CREDIT;
 			const best = tiered.reduce<string | undefined>((b, n) => (!b || TIER_VALUE[tierList[n]] > TIER_VALUE[tierList[b]] ? n : b), undefined);
