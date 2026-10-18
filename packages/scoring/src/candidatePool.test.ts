@@ -18,6 +18,6 @@ test('pool is every Global card, owned ones marked', () => {
 
 test('hard-to-train unowned outfit is still listed first when it scores high', () => {
 	const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
-	const { ace } = recommend({ outfits: candidatePool(data, owned) }, { courseId: 10101, horse, samples: 30, seed: 7 });
+	const { ace } = recommend({ outfits: candidatePool(data, owned) }, { courseId: 10101, ace: horse, samples: 30, seed: 7 });
 	expect(ace[0]).toMatchObject({ outfitId: '2', owned: false });
 });

@@ -1,5 +1,5 @@
 import data from './data/cm-presets.json';
-import type { CmPreset } from './recommend';
+import type { CmPreset } from './shared';
 
 /** Champions Meeting preset, from saltyuma-tools umalator-global (confirmed=false means a predicted date). */
 export interface Cm {
@@ -9,7 +9,15 @@ export interface Cm {
 	courseId: number;
 	confirmed?: boolean;
 }
-export const CMS = data as unknown as Cm[];
+function parseCms(raw: unknown): Cm[] {
+	if (!Array.isArray(raw)) throw new Error('cm-presets.json must be an array');
+	return raw.map((c: unknown, i) => {
+		const r = c as Partial<Cm> | null;
+		if (!r || typeof r.id !== 'number' || typeof r.name !== 'string' || typeof r.date !== 'string' || typeof r.courseId !== 'number') throw new Error(`cm-presets.json entry ${i} is not a valid CM preset`);
+		return r as Cm;
+	});
+}
+export const CMS = parseCms(data);
 
 /** Override wins; otherwise the first CM on or after `today`, else the latest known. */
 export function pickCm(today: Date, overrideId?: number, cms: Cm[] = CMS): Cm {
@@ -23,8 +31,8 @@ export function pickCm(today: Date, overrideId?: number, cms: Cm[] = CMS): Cm {
 	return sorted.find((c) => c.date >= day) ?? sorted[sorted.length - 1];
 }
 
-export function cmPreset(cm: Cm, horse: CmPreset['horse']): CmPreset {
-	return { courseId: cm.courseId, horse };
+export function cmPreset(cm: Cm, ace: CmPreset['ace']): CmPreset {
+	return { courseId: cm.courseId, ace };
 }
 
 const GRADES = 'GFEDCBAS';

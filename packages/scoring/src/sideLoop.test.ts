@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { recommend, type Roster } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
-const preset = { courseId: 10101, horse, samples: 5, seed: 7 };
+const preset = { courseId: 10101, ace: horse, samples: 5, seed: 7 };
 const SKILL = '200012';
 const roster: Roster = {
 	outfits: [

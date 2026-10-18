@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { recommend, type Roster } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
-const preset = { courseId: 10101, horse, samples: 30, seed: 7 };
+const preset = { courseId: 10101, ace: horse, samples: 30, seed: 7 };
 const roster: Roster = {
 	outfits: [
 		{ id: 'a', name: 'Alpha', owned: true, skillIds: ['10071'], pinkSparks: 3 },
@@ -31,7 +31,7 @@ test('all modes credit only what other owned outfits lack', () => {
 			{ id: 'new', name: 'New', owned: false, skillIds: ['10071', '10081'], whiteSparks: ['Ramp Up', 'Uma Stan'] },
 		],
 	};
-	const rec = recommend(r, { ...preset, tierList: { 'Ramp Up': 'T2', 'Uma Stan': 'T0' } });
+	const rec = recommend(r, preset, { 'Ramp Up': 'T2', 'Uma Stan': 'T0' });
 	for (const mode of [rec.ace, rec.side]) {
 		const by = Object.fromEntries(mode.map((p) => [p.outfitId, p]));
 		expect(by.dup.detail).toEqual([]);
@@ -44,4 +44,16 @@ test('all modes credit only what other owned outfits lack', () => {
 
 test('same seed and samples give identical output', () => {
 	expect(recommend(roster, preset)).toEqual(recommend(roster, preset));
+});
+
+test('two owned outfits sharing a skill credit only the first by id', () => {
+	const r: Roster = {
+		outfits: [
+			{ id: 'x2', name: 'X2', owned: true, skillIds: ['10071'] },
+			{ id: 'x1', name: 'X1', owned: true, skillIds: ['10071'] },
+		],
+	};
+	const by = Object.fromEntries(recommend(r, preset).ace.map((p) => [p.outfitId, p]));
+	expect(by.x1.detail.map((d) => d.skillId)).toEqual(['10071']);
+	expect(by.x2.detail).toEqual([]);
 });

@@ -1,46 +1,11 @@
-import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import skills from '@stud-finder/sim/src/data/skill_data.json';
 import { sideLoopPicks } from './sideLoop';
-import { coreLoopPicks, type TierList } from './coreLoop';
-import { skillValue, type SkillValue } from './skillValue';
+import { coreLoopPicks } from './coreLoop';
+import { skillValue } from './skillValue';
+import { rank, supplied, type CmPreset, type Pick, type Roster, type SkillDetail, type TierList } from './shared';
 
-// Minimal Roster until the importer lands; pinkSparks exists only so Ace can ignore it.
-export interface Outfit {
-	id: string;
-	name: string;
-	owned: boolean;
-	/** Skills this outfit would pass on to the Ace. */
-	skillIds: string[];
-	/** Stars (1-3) of the CM-relevant pink spark; Ace ignores it, side loop scores it. */
-	pinkSparks?: number;
-	/** Affinity with the target lineage; raises inheritance chances (side loop). */
-	affinity?: number;
-	/** Core loop inputs; blue sparks are deliberately not modelled. */
-	whiteSparks?: string[];
-	dirtSparks?: number;
-}
-export interface Roster {
-	outfits: Outfit[];
-}
-export interface CmPreset {
-	courseId: number;
-	horse: HorseDesc;
-	samples?: number;
-	seed?: number;
-	tierList?: TierList;
-}
-export interface SkillDetail extends SkillValue {
-	skillId: string;
-	/** Value rests on the sim's default position assumption. */
-	assumesPosition: boolean;
-}
-export interface Pick {
-	outfitId: string;
-	owned: boolean;
-	score: number;
-	reason: string;
-	detail: SkillDetail[];
-}
+export type { CmPreset, Outfit, Pick, Roster, SkillDetail, TierList } from './shared';
+
 export interface Recommendation {
 	ace: Pick[];
 	core: Pick[];
@@ -48,33 +13,32 @@ export interface Recommendation {
 }
 
 const POSITION = /order|overtake|behind|infront|blocked/;
-const assumesPosition = (id: string) =>
-	((skills as unknown as Record<string, { alternatives: { condition: string }[] }>)[id]?.alternatives ?? []).some((a) => POSITION.test(a.condition));
-
 const TOP = 5;
 
-// What the other owned outfits already supply; the candidate itself never counts.
-// shortcut: compared per exact skill id / spark name, so a higher-rarity version of a skill is a different id and is credited in full.
-export function supplied(outfits: Outfit[], self: Outfit) {
-	const others = outfits.filter((o) => o.owned && o.id !== self.id);
-	return { skills: new Set(others.flatMap((o) => o.skillIds)), sparks: new Set(others.flatMap((o) => o.whiteSparks ?? [])) };
+// The vendored JSON is untyped at runtime, so narrow it instead of casting.
+function assumesPosition(id: string): boolean {
+	const skill: unknown = (skills as Record<string, unknown>)[id];
+	if (skill === undefined) return false;
+	const alts = typeof skill === 'object' && skill !== null ? (skill as { alternatives?: unknown }).alternatives : undefined;
+	if (!Array.isArray(alts)) throw new Error(`Skill ${id} has no alternatives array in skill_data.json`);
+	return alts.some((a: unknown) => typeof a === 'object' && a !== null && POSITION.test(String((a as { condition?: unknown }).condition)));
 }
 
-export function recommend(roster: Roster, { samples = 100, seed = 1, tierList, ...cm }: CmPreset): Recommendation {
+export function recommend(roster: Roster, { samples = 100, seed = 1, ace: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
 	const cache = new Map<string, SkillDetail>();
 	const detailOf = (skillId: string) => {
 		let d = cache.get(skillId);
-		if (!d) cache.set(skillId, (d = { skillId, ...skillValue(skillId, { ...cm, samples, seed }), assumesPosition: assumesPosition(skillId) }));
+		if (!d) cache.set(skillId, (d = { skillId, ...skillValue(skillId, { ...cm, horse, samples, seed }), assumesPosition: assumesPosition(skillId) }));
 		return d;
 	};
-	const ace = roster.outfits
+	const aces = roster.outfits
 		.map((o): Pick => {
-			const detail = [...new Set(o.skillIds)].filter((id) => !supplied(roster.outfits, o).skills.has(id)).map(detailOf); // duplicates are not credited twice
+			const have = supplied(roster.outfits, o).skills;
+			const detail = [...new Set(o.skillIds)].filter((id) => !have.has(id)).map(detailOf); // duplicates are not credited twice
 			const score = detail.reduce((s, d) => s + d.value, 0);
 			const best = detail.reduce<SkillDetail | undefined>((b, d) => (!b || d.value > b.value ? d : b), undefined);
 			const reason = best ? `${best.proc.toFixed(0)}% proc, ${best.lengths.median.toFixed(2)} median lengths from skill ${best.skillId}` : 'no inheritable skills';
 			return { outfitId: o.id, owned: o.owned, score, reason, detail };
-		})
-		.sort((a, b) => b.score - a.score || a.outfitId.localeCompare(b.outfitId));
-	return { ace: ace.slice(0, TOP), core: tierList ? coreLoopPicks(roster.outfits, tierList, TOP) : [], side: sideLoopPicks(roster.outfits, detailOf, TOP) };
+		});
+	return { ace: rank(aces, TOP), core: tierList ? coreLoopPicks(roster.outfits, tierList, TOP) : [], side: sideLoopPicks(roster.outfits, detailOf, TOP) };
 }
