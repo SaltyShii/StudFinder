@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { STYLES as STYLE_LABELS } from '../../../packages/lineage/src/config';
-import { buildAce, categoryOf, defaultTargetStats, PINK_GROUP, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { buildAce, categoryOf, defaultTargetStats, PINK_GROUP, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatePool } from '../../../packages/scoring/src/candidatePool';
 import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
@@ -12,8 +11,6 @@ import { PickList } from './PickList';
 import { workerRunner, type Runner } from './job';
 import { OwnedFilterSelect, useOwned } from './Owned';
 import { clearRoster, importRoster, loadCm, loadRoster, saveCm, saveRoster } from './roster';
-
-const styleLabel = (s: Style) => STYLE_LABELS.find((l) => l.key === s)?.label ?? s;
 
 // Every skill name of an entry maps to its tier; resolved entries are sorted best first.
 function tierListOf(data: GameData, style: Style): TierList {
@@ -116,7 +113,7 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 						{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
 					</select></label>
 					<label>Style <select name="style" value={style} onChange={(e) => setStyle(e.currentTarget.value as Style)}>
-						{STYLES.map((s) => <option value={s}>{styleLabel(s)}</option>)}
+						{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
 					</select></label>
 					{defaults && <fieldset><legend>Target stats</legend>{STATS.map((k) => (
 						<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>

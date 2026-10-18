@@ -3,6 +3,8 @@ import type { Aptitudes } from '@stud-finder/lineage/src/types';
 
 export const CATEGORIES = ['short', 'mile', 'middle', 'long'] as const;
 export const STYLES = ['nige', 'senko', 'sashi', 'oikomi'] as const;
+/** Global names for UI copy; the ids stay internal. */
+export const STYLE_LABEL = { nige: 'Front Runner', senko: 'Pace Chaser', sashi: 'Late Surger', oikomi: 'End Closer' } as const;
 export type Category = (typeof CATEGORIES)[number];
 export type Style = (typeof STYLES)[number];
 export interface TargetStats {
