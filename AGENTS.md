@@ -8,14 +8,14 @@ Stud Finder answers one question: which uma should I train next as a great-grand
 
 npm workspaces:
 - `packages/sim`: race simulator, vendored from saltyuma-tools `uma-skill-tools/` (GPL-3.0). Sync manually; keep local patches small (sim is not strict-clean, so it is type-checked non-strict via `packages/scoring/tsconfig.json`).
-- `packages/lineage`: inheritance, affinity, rules, vendored from lineageplanner-salty (MIT). `goals.ts`, `optimizer.ts`, `loop.ts` still score a fixed trainee and need rewriting.
-- `packages/scoring`: skill value = proc % x median lengths gained (median over runs where the skill activated), per slot mode.
+- `packages/lineage`: inheritance, affinity, rules, vendored from lineageplanner-salty (MIT). `goals.ts`, `optimizer.ts`, `loop.ts` score a fixed trainee and are unused; slot-mode scoring in `packages/scoring` replaces them.
+- `packages/scoring`: `recommend()` ranks outfits per slot mode; skill value = proc % x median lengths gained (median over runs where the skill activated).
 - `apps/web`: UI (not yet created).
 
 ## Tooling
 
-- `npm install`, `npm test` (Vitest, tests sit next to source as `*.test.ts`), `npm run typecheck`
-- Gates before every commit: `npm run typecheck && npm test`
+- Gate before every commit: `npm run check` (lint, typecheck, test). `npm install` points git at `.githooks/pre-commit`, which runs it; CI runs it too
+- Tests sit next to source as `*.test.ts`
 - Root `tsconfig.json` is `strict` (lineage, web); `packages/scoring/tsconfig.json` is non-strict because it pulls in the vendored sim
 
 ## Code Standards
@@ -35,7 +35,7 @@ npm workspaces:
 
 1. Branch from `main`: `git checkout -b <type>/name` (`feature/`, `fix/`, `chore/`, `docs/`)
 2. One logical change per commit; when in doubt, go smaller
-3. Run the gates before committing
+3. Run `npm run check` before committing
 4. Commit format: `<type>(<scope>): <short summary>` plus a body on what and why
 5. Push, PRs (`/mattpocock-skills:pr` for the body) and merges only when asked
 

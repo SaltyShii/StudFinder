@@ -19,11 +19,11 @@ export interface Scenario {
 	seed?: number;
 }
 
-const median = (xs: number[]) => {
+function median(xs: number[]) {
 	const s = [...xs].sort((a, b) => a - b);
 	const m = s.length >> 1;
 	return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-};
+}
 
 /** Runs the horse with and without the skill on the same seed, and measures the gap when the first one finishes. */
 export function skillValue(skillId: string, { horse, courseId, samples = 100, seed = 1 }: Scenario): SkillValue {
