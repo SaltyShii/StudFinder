@@ -13,8 +13,8 @@ test('picks the next CM by date, override wins', () => {
 
 test('distance aptitude outweighs style aptitude', () => {
 	const r = rankStyles([
-		{ strategy: 'Nige', distanceAptitude: 'B', strategyAptitude: 'A' },
-		{ strategy: 'Sasi', distanceAptitude: 'A', strategyAptitude: 'D' },
+		{ strategy: 'Nige', distanceAptitude: 'B', strategyAptitude: 'B' },
+		{ strategy: 'Sasi', distanceAptitude: 'A', strategyAptitude: 'C' },
 	]);
 	expect(r[0].strategy).toBe('Sasi');
 });
