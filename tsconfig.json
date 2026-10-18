@@ -10,7 +10,9 @@
     "skipLibCheck": true,
     "preserveConstEnums": true,
     "noEmit": true,
-    "strict": true
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
   },
   "include": ["packages/lineage/src", "apps/*/src"]
 }
