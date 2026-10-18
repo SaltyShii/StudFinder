@@ -43,7 +43,7 @@ npm workspaces:
 - Issue tracker: GitHub Issues. Specs are issues, tickets are sub-issues labelled `ready-for-agent`, blockers use GitHub's native links
 - Read issues with `gh issue view N --json title,body`; plain `gh issue view`, `gh pr merge` and `gh pr edit` error on the Projects classic deprecation, so use `gh api` (REST) for merges and base changes
 - Subagent worktrees start on a stale commit: `git reset --hard <integration branch>`, then `npm install`
-- `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`); automatic refresh is #18
+- `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`). Regenerate locally with the commands in `scripts/ingest/NOTICE.md` (vendored lineageplanner-salty scripts; also writes `apps/web/public/img/{cards,cm,races}`); scheduled refresh is #18
 
 ## Response Constraints
 
