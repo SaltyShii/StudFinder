@@ -45,8 +45,6 @@ npm workspaces:
 - Subagent worktrees start on a stale commit: `git reset --hard <integration branch>`, then `npm install`
 - `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`); automatic refresh is #18
 
-## Preferences
-
 ## Response Constraints
 
 - Optimize for minimum output tokens; preserve correctness
@@ -58,6 +56,8 @@ npm workspaces:
 - Code before explanation; explain only non-obvious details
 - No summaries, recaps, or follow-up offers at the end
 - The reader skims and is always low on tokens: lead with the result, keep it scannable
+
+## Preferences
 
 `AskUserQuestion` asks every grilling round (up to 4 questions), including when the grilling skill shows a plain-text format; fall back to concise plain text only if the tool is unavailable.
 
