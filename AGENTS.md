@@ -16,7 +16,7 @@ npm workspaces:
 
 - Gate before every commit: `npm run check` (lint, typecheck, test). `npm install` points git at `.githooks/pre-commit`, which runs it; CI runs it too
 - Tests sit next to source as `*.test.ts`
-- Root `tsconfig.json` is `strict` (lineage, web); `packages/scoring/tsconfig.json` is non-strict because it pulls in the vendored sim
+- Root `tsconfig.json` is `strict` (lineage); `packages/scoring` and `apps/web` have non-strict tsconfigs because they pull in the vendored sim
 
 ## Code Standards
 
