@@ -34,7 +34,7 @@ export function recommend(roster: Roster, { samples = 100, seed = 1, ace: horse,
 	const aces = roster.outfits
 		.map((o): Pick => {
 			const have = supplied(roster.outfits, o).skills;
-			const detail = [...new Set(o.skillIds)].filter((id) => !have.has(id)).map(detailOf); // duplicates are not credited twice
+			const detail = [...new Set(o.skillIds)].filter((id) => !have.has(id) && !horse.skills?.includes(id)).map(detailOf); // duplicates are not credited twice
 			const score = detail.reduce((s, d) => s + d.value, 0);
 			const best = detail.reduce<SkillDetail | undefined>((b, d) => (!b || d.value > b.value ? d : b), undefined);
 			const reason = best ? `${best.proc.toFixed(0)}% proc, ${best.lengths.median.toFixed(2)} median lengths from skill ${best.skillId}` : 'no inheritable skills';

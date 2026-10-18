@@ -3,14 +3,16 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2023", "DOM"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"],
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "preserveConstEnums": true,
     "noEmit": true,
-    "strict": true
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
   },
-  "include": ["packages/lineage/src", "apps/*/src"]
+  "include": ["packages/lineage/src"]
 }

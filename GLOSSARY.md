@@ -39,6 +39,14 @@ Grandparents and parents built specifically for one upcoming CM, carrying the CM
 The final trainee run for the CM; it ignores pink sparks and spark chance and only maximizes inherited relevant skills, measured in lengths gained.
 _Avoid_: trainee (when meaning the final CM runner)
 
+**Target stats**:
+The stat line the user aims for when training the Ace, entered on top of a recommended default. The untrained Ace has no real stats, so skill value is measured on a runner with these.
+_Avoid_: ace stats (the Ace has none before its run)
+
+**Running style**:
+How the runner paces a race, named as on Global: Front Runner (nige), Pace Chaser (senko), Late Surger (sashi), End Closer (oikomi). Internal ids stay nige/senko/sashi/oikomi; lineage `goals.ts` uses shorter Front/Pace/Late/End labels internally.
+_Avoid_: nige/senko/sashi/oikomi (in UI copy), strategy
+
 **Spark**:
 An inheritable bonus on a veteran, passed to the trainee. Pink sparks raise an aptitude, blue sparks raise a stat, green sparks give a unique skill, white sparks give general skills.
 _Avoid_: factor
