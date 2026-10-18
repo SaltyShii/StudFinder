@@ -236,7 +236,7 @@ export function buildAdjustedStats(baseStats: HorseParameters, course: CourseDat
 	});
 }
 
-export const enum SkillTarget {
+export enum SkillTarget {
 	Self = 1,
 	All = 2,
 	InFov = 4,

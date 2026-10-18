@@ -137,13 +137,13 @@ export interface RaceState {
 
 export type DynamicCondition = (state: RaceState) => boolean;
 
-export const enum Perspective {
+export enum Perspective {
 	Self = 1,
 	Other = 2,
 	Any = 3
 }
 
-export const enum SkillType {
+export enum SkillType {
 	Noop = 0,
 	SpeedUp = 1,
 	StaminaUp = 2,
@@ -163,9 +163,9 @@ export const enum SkillType {
 	ExtendEvolvedDuration = 42
 }
 
-export const enum SkillRarity { White = 1, Gold, Unique, Evolution = 6 }
+export enum SkillRarity { White = 1, Gold, Unique, Evolution = 6 }
 
-export const enum PositionKeepState {
+export enum PositionKeepState {
 	None = 0,
 	PaceUp = 1,
 	PaceDown = 2,
@@ -184,7 +184,7 @@ export function getPositionKeepStateName(state: PositionKeepState): string {
 	}
 }
 
-export const enum PosKeepMode { None, Approximate, Virtual }
+export enum PosKeepMode { None, Approximate, Virtual }
 
 export function getPosKeepModeName(mode: PosKeepMode): string {
 	switch (mode) {
@@ -195,7 +195,7 @@ export function getPosKeepModeName(mode: PosKeepMode): string {
 	}
 }
 
-export const enum DurationScalingType {
+export enum DurationScalingType {
 	Direct = 1,
 	MultiplyDistanceDiffTop = 2,
 	MultiplyRemainHpType1 = 3,

@@ -28,7 +28,7 @@ interface Token<T,U> {
 	nud(state: ParserState<T,U>): Node<T,U>
 }
 
-export const enum NodeType { Int, Cond, Op };
+export enum NodeType { Int, Cond, Op };
 export type Node<ConditionT = Condition, OperatorT = Operator> = {type: NodeType.Int, value: number} | {type: NodeType.Cond, cond: ConditionT} | {type: NodeType.Op, op: OperatorT};
 
 type ParserState<T,U> = {current: Token<T,U>, next: Token<T,U>, tokens: Iterator<Token<T,U>>};

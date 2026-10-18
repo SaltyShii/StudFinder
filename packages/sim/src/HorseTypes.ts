@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
-export const enum Strategy { Nige = 1, Senkou, Sasi, Oikomi, Oonige }
-export const enum Aptitude { S, A, B, C, D, E, F, G }
+export enum Strategy { Nige = 1, Senkou, Sasi, Oikomi, Oonige }
+export enum Aptitude { S, A, B, C, D, E, F, G }
 
 export interface HorseParameters {
 	readonly speed: number

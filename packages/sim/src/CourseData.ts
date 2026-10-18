@@ -1,10 +1,10 @@
 import { strict as assert } from 'node:assert';
 
 export type Phase = 0 | 1 | 2 | 3;
-export const enum Surface { Turf = 1, Dirt }
-export const enum DistanceType { Short = 1, Mile, Mid, Long }
-export const enum Orientation { Clockwise = 1, Counterclockwise, UnusedOrientation, NoTurns }
-export const enum ThresholdStat { Speed = 1, Stamina, Power, Guts, Int }
+export enum Surface { Turf = 1, Dirt }
+export enum DistanceType { Short = 1, Mile, Mid, Long }
+export enum Orientation { Clockwise = 1, Counterclockwise, UnusedOrientation, NoTurns }
+export enum ThresholdStat { Speed = 1, Stamina, Power, Guts, Int }
 
 export interface CourseData {
 	readonly raceTrackId: number
