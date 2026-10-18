@@ -5,6 +5,7 @@ class FakeWorker {
 	static last: FakeWorker;
 	onmessage: (e: { data: unknown }) => void = () => {};
 	onerror: (e: { message: string }) => void = () => {};
+	onmessageerror: () => void = () => {};
 	terminated = false;
 	postMessage = vi.fn();
 	terminate() { this.terminated = true; }
@@ -27,7 +28,7 @@ it('forwards progress, then the result, and terminates', () => {
 });
 
 it('reports worker errors, thrown messages and malformed messages', () => {
-	for (const fire of [(w: FakeWorker) => w.onerror({ message: 'boom' }), (w: FakeWorker) => w.onmessage({ data: { error: 'boom' } }), (w: FakeWorker) => w.onmessage({ data: 'junk' })]) {
+	for (const fire of [(w: FakeWorker) => w.onerror({ message: 'boom' }), (w: FakeWorker) => w.onmessage({ data: { error: 'boom' } }), (w: FakeWorker) => w.onmessage({ data: 'junk' }), (w: FakeWorker) => w.onmessageerror()]) {
 		const { calls, w } = start();
 		fire(w);
 		expect(calls.error).toHaveLength(1);

@@ -23,6 +23,7 @@ export function workerRunner<In, Out, P = never>(make: () => Worker): JobRunner<
 			else fail(new Error(m.error));
 		};
 		w.onerror = (e) => fail(new Error(e.message || 'Worker failed'));
+		w.onmessageerror = () => fail(new Error('Worker result could not be read'));
 		w.postMessage(input);
 		return () => w.terminate();
 	};

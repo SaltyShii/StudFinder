@@ -57,8 +57,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		const ace = aceForCourse(card, course, style, target);
 		return { roster: { outfits: pool }, preset: cmPreset(cm, ace), tierList };
 	}, [data, pool, card, course, style, target, cmId, tierList]);
-	const onError = (e: Error) => setError(e.message);
-	const { result, busy, stale, cancel } = useJob(run, job, { onError });
+	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
 	// Needs no Ace or Target stats, so it runs as soon as a Roster and CM course exist.
 	const veteranJob = useMemo<VeteranJob | null>(() => {
@@ -68,7 +67,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		return { veterans: roster.veterans, courseId: cm.courseId, uniqueSkills };
 	}, [roster, course, cmId, data]);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
-	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true, onError });
+	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });
+	const shownError = error || jobError?.message || vs.error?.message;
 
 	async function onFile(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
@@ -93,7 +93,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 			<h1>Stud Finder</h1>
 			<p>Your export is read in this browser only and never sent anywhere.</p>
 			<input type="file" accept=".json,application/json" onChange={onFile} />
-			{error && <p role="alert">{error}</p>}
+			{shownError && <p role="alert">{shownError}</p>}
 			{roster && (
 				<section>
 					<h2>Roster</h2>

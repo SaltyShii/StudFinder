@@ -190,7 +190,7 @@ it('gives the same ranking for the same inputs', () => {
 	expect(compute(job)).toEqual(compute(job));
 });
 
-it('shows a worker error, stops the busy state and keeps the previous result', async () => {
+it('shows a worker error, stops the busy state, drops the old result and clears the error on the next success', async () => {
 	let fail = false;
 	const r: Runner = (job, _p, done, onError) => { if (fail) onError(new Error('worker crashed')); else done(compute(job)); return () => {}; };
 	render(<App loadData={async () => data} run={r} runVeterans={noV} />, root);
@@ -203,5 +203,10 @@ it('shows a worker error, stops the busy state and keeps the previous result', a
 	await act(() => { style.dispatchEvent(new Event('change')); });
 	expect(root.querySelector('[role=alert]')?.textContent).toBe('worker crashed');
 	expect(root.textContent).not.toContain('Computing');
-	expect(root.querySelectorAll('[data-testid=ace-card]').length).toBe(before);
+	expect(root.querySelectorAll('[data-testid=ace-card]').length).toBe(0);
+	expect(before).toBeGreaterThan(0);
+	fail = false;
+	style.value = 'oikomi';
+	await act(() => { style.dispatchEvent(new Event('change')); });
+	expect(root.querySelector('[role=alert]')).toBeNull();
 });
