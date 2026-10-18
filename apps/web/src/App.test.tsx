@@ -44,6 +44,12 @@ it('renders the ace list after importing an export, with expandable skill detail
 	expect(cards[0].querySelector('details')!.textContent).toMatch(/Synthetic Skill.*%.*position/s);
 });
 
+it('renders the core loop and side loop lists beside the ace list', async () => {
+	render(<App loadData={async () => data} run={inline} />, root);
+	await importFile();
+	for (const id of ['ace-card', 'core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(3);
+});
+
 it('recomputes when an input changes and cancel stops the running job', async () => {
 	const jobs: Job[] = [];
 	let cancelled = 0;
