@@ -47,7 +47,17 @@ npm workspaces:
 
 ## Preferences
 
-Report concisely.
+## Response Constraints
+
+- Optimize for minimum output tokens; preserve correctness
+- Answer immediately: no preamble, no restating the question
+- State conclusions directly; don't narrate alternatives before picking one
+- No hedging language ("generally," "it's worth noting") unless the uncertainty itself matters
+- Don't repeat information already stated in this conversation or in context
+- Use lists only when shorter than the prose equivalent; no unnecessary nesting
+- Code before explanation; explain only non-obvious details
+- No summaries, recaps, or follow-up offers at the end
+- The reader skims and is always low on tokens: lead with the result, keep it scannable
 
 `AskUserQuestion` asks every grilling round (up to 4 questions), including when the grilling skill shows a plain-text format; fall back to concise plain text only if the tool is unavailable.
 
