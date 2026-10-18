@@ -31,3 +31,15 @@ test('stats are the veteran own', () => {
 	const weak = scoreVeterans([vet(1, { skillIds: [10071] })], opts)[0];
 	expect(strong.lengthsGained).not.toBe(weak.lengthsGained);
 });
+
+test('duplicate outfits are labelled rows; low aptitude is scored and exposed; progress reports', () => {
+	const calls: number[][] = [];
+	const low = { ...aptitudes, turf: 1, middle: 1, mile: 1 };
+	const r = scoreVeterans([vet(1, { rankScore: 5000 }), vet(2, { rankScore: 6000, createdAt: '2026-02-02', aptitudes: low })], { ...opts, onProgress: (d, t) => calls.push([d, t]) });
+	expect(r).toHaveLength(2);
+	expect(new Set(r.map((x) => x.label)).size).toBe(2);
+	const b = r.find((x) => x.trainedId === 2)!;
+	expect(b.label).toContain('6000');
+	expect(b.aptitude.surface).toBe(1);
+	expect(calls).toEqual([[1, 2], [2, 2]]);
+});
