@@ -1,2 +1,12 @@
 node_modules
 dist
+coverage
+*.tsbuildinfo
+*.log
+.env
+.env.*
+.DS_Store
+.claude/settings.local.json
+# real roster exports must never be committed
+SAMPLEdata.json
+*roster*.json

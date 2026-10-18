@@ -4,6 +4,5 @@
   "private": true,
   "license": "GPL-3.0-or-later",
   "type": "module",
-  "scripts": { "test": "vitest run" },
-  "devDependencies": { "vitest": "^2.1.8", "typescript": "^5.6.3" }
+  "dependencies": { "@stud-finder/sim": "*" }
 }
