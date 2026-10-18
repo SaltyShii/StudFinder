@@ -83,8 +83,8 @@ namespace StaminaSyoubu {
 		if (distance < 2101) return 0.0;
 		else if (distance < 2201) return 0.5;
 		else if (distance < 2401) return 1.0;
-		else if (distance < 2601) return 1.2;
-		else return 1.5;
+		else if (distance < 2601) return 1.5;
+		else return 1.8;
 	}
 
 	export function calcApproximateModifier(stamina: number, distance: number) {

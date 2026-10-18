@@ -1027,7 +1027,7 @@ export class RaceSolver {
 				this.posKeepSpeedCoef = 1.04;
 				break;
 			case PositionKeepState.PaceDown:
-				this.posKeepSpeedCoef = 0.915; // 0.945x in mid-race post 1st-anniversary
+				this.posKeepSpeedCoef = this.phase == 1 ? 0.945 : 0.915;
 				break;
 			default:
 				this.posKeepSpeedCoef = 1.0;
@@ -1212,11 +1212,10 @@ export class RaceSolver {
 		this.targetSpeed += this.modifiers.targetSpeed.acc + this.modifiers.targetSpeed.err;
 
 		if (this.isDownhillMode) {
-			this.targetSpeed += 0.3 + this.slopePer / 100000.0;
+			this.targetSpeed += 0.3 + Math.abs(this.slopePer) / 100000.0;
 		} else if (this.hillIdx != -1 && this.slopePer > 0) {
 			// recalculating this every frame is actually measurably faster than calculating the penalty for each slope ahead of time, somehow
 			this.targetSpeed -= this.slopePer / 10000.0 * 200.0 / this.horse.power;
-			this.targetSpeed = Math.max(this.targetSpeed, this.minSpeed);
 		}
 
 		if (this.competeFight) {
@@ -1231,6 +1230,9 @@ export class RaceSolver {
 			const moveLaneModifier = Math.sqrt(0.0002 * this.horse.power);
 			this.targetSpeed += moveLaneModifier;
 		}
+
+		// client clamps target speed to fixed bounds; minSpeed only floors current speed
+		this.targetSpeed = Math.min(Math.max(this.targetSpeed, 13.0), 30.0);
 	}
 
 	applyForces() {
