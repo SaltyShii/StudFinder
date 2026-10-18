@@ -38,7 +38,7 @@ interface Props {
 export function UmaCard({ testId, cardId, name, headline, chips = [], meta, caveats = [], best, children }: Props) {
 	return (
 		<li class={best ? 'card best' : 'card'} data-testid={testId} data-best={best || undefined}>
-			<Portrait cardId={cardId} />
+			<Portrait key={cardId} cardId={cardId} />
 			<div class="card-body">
 				<strong>{name}</strong>
 				<div class="headline">{headline}</div>
