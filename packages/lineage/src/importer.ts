@@ -72,15 +72,13 @@ export function parseExport(input: unknown, data: GameData, sourceName = "export
 
   list.forEach((entry, idx) => {
     if (!entry || typeof entry !== "object") {
-      warnings.push(`Entry ${idx} is not an object and was skipped.`);
-      return;
+      throw new ImportError(`Entry ${idx} is not an object: the export is malformed.`);
     }
     const r = entry as Json;
     const trainedId = num(r.trained_chara_id);
     const cardId = num(r.card_id);
     if (trainedId === null || cardId === null) {
-      warnings.push(`Entry ${idx} has no trained_chara_id/card_id and was skipped.`);
-      return;
+      throw new ImportError(`Entry ${idx} has no trained_chara_id/card_id: the export is malformed.`);
     }
     if (seen.has(trainedId)) {
       warnings.push(`Duplicate veteran ${trainedId} skipped.`);
