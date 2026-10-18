@@ -8,16 +8,16 @@ Recommending which umas a player should train next, as parents in a lineage, for
 A character, e.g. one trainable horse girl, independent of which version of her is used.
 _Avoid_: horse, character (when the version matters)
 
-**Outfit**:
-A specific version of an uma (e.g. a different release or costume) with its own aptitudes, skills and rarity.
-_Avoid_: skin, variant
+**Version**:
+A specific release of an uma (e.g. one of Oguri Cap's two) with its own aptitudes, skills and rarity. The game data calls it a card.
+_Avoid_: outfit, skin, variant, card (clashes with support cards)
 
 **Veteran**:
 A completed training run of an uma, owned by the player, carrying sparks and parents of its own.
 _Avoid_: save, build
 
 **Roster**:
-The set of umas and outfits a player owns, persisted between sessions.
+The veterans a player imported from an export, persisted between sessions.
 
 **Parent**:
 A veteran placed directly above the trainee in a lineage.
@@ -30,7 +30,7 @@ A grandparent's parent in a lineage; no official game name.
 _Avoid_: ggp (in prose; abbreviation only)
 
 **Core loop**:
-The long-lived foundation line of great-grandparents, kept strong across CMs by preserving high-tier general sparks and dirt sparks for affinity.
+The long-lived foundation line of great-grandparents, kept strong across CMs by preserving high-tier general sparks. A great-grandparent must carry dirt sparks (a requirement, not something to maximise): they raise the dirt aptitude of the grandparents built from it, which lifts affinity the most.
 
 **Side loop**:
 Grandparents and parents built specifically for one upcoming CM, carrying the CM's relevant pink spark plus general lineage skills and CM skills.
@@ -56,7 +56,7 @@ An inheritable bonus on a veteran, passed to the trainee. Pink sparks raise an a
 _Avoid_: factor
 
 **Affinity**:
-How compatible a trainee and its lineage are; it raises spark chance. Dirt sparks are kept in the core loop for this reason.
+How compatible a trainee and its lineage are; it raises spark chance.
 _Avoid_: compatibility (in UI copy)
 
 **Tier list**:
@@ -80,5 +80,5 @@ _Avoid_: lengths gained (when meaning the whole set; that term is per skill, ove
 **CM preset**:
 The course, season and conditions of a specific Champions Meeting, used to pick the course and rank styles.
 
-**Candidate pool**:
-Every outfit available on Global, owned or not, that can be recommended. Owned outfits are marked.
+**Candidate**:
+A veteran considered as a parent. It brings itself and its own two parents (the Ace's grandparents), and all three inspire with their own sparks and affinity. Only veterans are scored: a version you have not trained does not exist as a parent.

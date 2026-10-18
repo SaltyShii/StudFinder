@@ -5,23 +5,31 @@ import type { SkillValue } from './skillValue';
 /** Spark name (as in the tier list) to tier. */
 export type TierList = Record<string, Tier>;
 
-// pinkSparks is carried only so the Ace can ignore it.
-export interface Outfit {
-	id: string;
+/** A white skill spark on a horse. */
+export interface SkillSpark {
+	skillId: string;
 	name: string;
-	owned: boolean;
-	/** Skills this outfit would pass on to the Ace. */
-	skillIds: string[];
-	/** Stars (1-3) of the CM-relevant pink spark; Ace ignores it, side loop scores it. */
-	pinkSparks?: number;
-	/** Affinity with the target lineage; raises inheritance chances (side loop). */
-	affinity?: number;
-	/** Core loop inputs; blue sparks are deliberately not modelled. */
-	whiteSparks?: string[];
-	dirtSparks?: number;
+	stars: number;
+}
+/** One horse a veteran brings into the Ace's lineage: itself as a parent, or one of its two parents as a grandparent. */
+export interface LineageHorse {
+	/** Affinity with the Ace; sets this horse's chance to inspire. */
+	affinity: number;
+	/** Stars of the CM-relevant pink spark (0 = none). */
+	pinkStars: number;
+	/** Total stars of its dirt pink sparks. */
+	dirtStars: number;
+	skills: SkillSpark[];
+}
+/** A veteran considered as a parent: itself first, then its own two parents (the Ace's grandparents). */
+export interface Candidate {
+	id: string;
+	/** Version name plus what tells two veterans of one version apart. */
+	name: string;
+	horses: LineageHorse[];
 }
 export interface Roster {
-	outfits: Outfit[];
+	candidates: Candidate[];
 }
 export interface CmPreset {
 	courseId: number;
@@ -36,21 +44,12 @@ export interface SkillDetail extends SkillValue {
 	assumesPosition: boolean;
 }
 export interface Pick {
-	outfitId: string;
-	owned: boolean;
+	candidateId: string;
 	score: number;
 	reason: string;
 	detail: SkillDetail[];
 }
 
-// What the other owned outfits already supply; the candidate itself never counts.
-// Tie rule: an owned candidate is only redundant against owned outfits with a lower id, so two owned outfits sharing a skill credit the first one.
-// shortcut: compared per exact skill id / spark name, so a higher-rarity version of a skill is a different id and is credited in full.
-export function supplied(outfits: Outfit[], self: Outfit) {
-	const others = outfits.filter((o) => o.owned && o.id !== self.id && (!self.owned || o.id < self.id));
-	return { skills: new Set(others.flatMap((o) => o.skillIds)), sparks: new Set(others.flatMap((o) => o.whiteSparks ?? [])) };
-}
-
 export function rank(picks: Pick[], top: number): Pick[] {
-	return picks.sort((a, b) => b.score - a.score || a.outfitId.localeCompare(b.outfitId)).slice(0, top);
+	return picks.sort((a, b) => b.score - a.score || a.candidateId.localeCompare(b.candidateId)).slice(0, top);
 }

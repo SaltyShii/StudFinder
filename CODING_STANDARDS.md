@@ -1,0 +1,5 @@
+# Coding Standards
+
+Read during review.
+
+- Check a suspected defect against the existing tests, `GLOSSARY.md` and code comments before reporting it; documented design decisions (for example the Ace run ignoring spark chance) are not defects.

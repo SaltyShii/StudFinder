@@ -2,9 +2,9 @@ import skills from '@stud-finder/sim/src/data/skill_data.json';
 import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillValue } from './skillValue';
-import { rank, supplied, type CmPreset, type Pick, type Roster, type SkillDetail, type TierList } from './shared';
+import { rank, type CmPreset, type Pick, type Roster, type SkillDetail, type TierList } from './shared';
 
-export type { CmPreset, Outfit, Pick, Roster, SkillDetail, TierList } from './shared';
+export type { Candidate, CmPreset, LineageHorse, Pick, Roster, SkillDetail, SkillSpark, TierList } from './shared';
 
 export interface Recommendation {
 	ace: Pick[];
@@ -31,14 +31,15 @@ export function recommend(roster: Roster, { samples = 100, seed = 1, ace: horse,
 		if (!d) cache.set(skillId, (d = { skillId, ...skillValue(skillId, { ...cm, horse, samples, seed }), assumesPosition: assumesPosition(skillId) }));
 		return d;
 	};
-	const aces = roster.outfits
-		.map((o): Pick => {
-			const have = supplied(roster.outfits, o).skills;
-			const detail = [...new Set(o.skillIds)].filter((id) => !have.has(id) && !horse.skills?.includes(id)).map(detailOf); // duplicates are not credited twice
+	// Ignores spark chance on purpose: it counts every distinct skill the veteran and its parents carry.
+	const aces = roster.candidates
+		.map((c): Pick => {
+			const ids = [...new Set(c.horses.flatMap((h) => h.skills.map((s) => s.skillId)))].filter((id) => !horse.skills?.includes(id));
+			const detail = ids.map(detailOf);
 			const score = detail.reduce((s, d) => s + d.value, 0);
 			const best = detail.reduce<SkillDetail | undefined>((b, d) => (!b || d.value > b.value ? d : b), undefined);
 			const reason = best ? `${best.proc.toFixed(0)}% proc, ${best.lengths.median.toFixed(2)} median lengths from skill ${best.skillId}` : 'no inheritable skills';
-			return { outfitId: o.id, owned: o.owned, score, reason, detail };
+			return { candidateId: c.id, score, reason, detail };
 		});
-	return { ace: rank(aces, TOP), core: tierList ? coreLoopPicks(roster.outfits, tierList, TOP) : [], side: sideLoopPicks(roster.outfits, detailOf, TOP) };
+	return { ace: rank(aces, TOP), core: tierList ? coreLoopPicks(roster.candidates, tierList, TOP) : [], side: sideLoopPicks(roster.candidates, detailOf, TOP, horse.skills) };
 }

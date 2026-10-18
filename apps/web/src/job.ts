@@ -21,7 +21,7 @@ export interface Job {
 	preset: CmPreset;
 	tierList?: TierList;
 }
-// shortcut: recommend() is synchronous, so progress is a busy flag, not a percentage; split per outfit if it gets slow.
+// shortcut: recommend() is synchronous, so progress is a busy flag, not a percentage; split per candidate if it gets slow.
 export type Runner = JobRunner<Job, Recommendation>;
 
 export function compute({ roster, preset, tierList }: Job): Recommendation {

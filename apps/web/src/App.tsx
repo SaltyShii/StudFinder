@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { aceForCourse, categoryOf, defaultTargetStats, pinkGroupOf, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
-import { candidatePool } from '../../../packages/scoring/src/candidatePool';
+import { candidatesOf } from '../../../packages/scoring/src/candidates';
 import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
 import { resolveTierList } from '../../../packages/lineage/src/tiers';
 import type { TierList } from '../../../packages/scoring/src/shared';
@@ -12,8 +12,7 @@ import type { Job, Runner, VeteranJob, VeteranRunner } from './job';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
-import { OwnedFilterSelect, useOwned } from './Owned';
-import { clearRoster, importRoster, loadCm, loadRoster, saveCm, saveRoster } from './roster';
+import { clearRoster, importRoster, loadCm, loadRoster, loadUseBorrowed, saveCm, saveRoster, saveUseBorrowed } from './roster';
 
 // Every skill name of an entry maps to its tier; resolved entries are sorted best first.
 function tierListOf(data: GameData, style: Style): TierList {
@@ -35,28 +34,28 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [data, setData] = useState<GameData | null>(null);
 	const [error, setError] = useState('');
 	const [cmId, setCmId] = useState<number>(() => loadCm(localStorage, CMS.map((c) => c.id)) ?? pickCm(new Date()).id);
+	const [useBorrowed, setUseBorrowed] = useState(() => loadUseBorrowed(localStorage));
 	const [aceId, setAceId] = useState<number | null>(null);
 	const [style, setStyle] = useState<Style>('senko');
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
-	const own = useOwned();
 	const card = data && aceId != null ? data.cards.get(aceId) : undefined;
 	const cm = pickCm(new Date(), cmId);
 	const course = data?.courses.get(cm.courseId);
 	const pinkGroupId = course ? pinkGroupOf(course.distance) : 0;
-	const pool = useMemo(
-		() => (data && roster && card ? candidatePool(data, roster.veterans, { aceCardId: card.id, pinkGroupId }) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
-		[data, roster, card, pinkGroupId, own.overrides],
+	const candidates = useMemo(
+		() => (data && roster && card ? candidatesOf(data, useBorrowed ? [...roster.veterans, ...roster.borrowed] : roster.veterans, { aceCardId: card.id, pinkGroupId }) : []),
+		[data, roster, card, pinkGroupId, useBorrowed],
 	);
 	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
 
 	const job = useMemo<Job | null>(() => {
-		if (!data || !card || !course || !pool.length) return null;
+		if (!data || !card || !course || !candidates.length) return null;
 		const ace = aceForCourse(card, course, style, target);
-		return { roster: { outfits: pool }, preset: cmPreset(cm, ace), tierList };
-	}, [data, pool, card, course, style, target, cmId, tierList]);
+		return { roster: { candidates }, preset: cmPreset(cm, ace), tierList };
+	}, [data, candidates, card, course, style, target, cmId, tierList]);
 	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
 	// Needs no Ace or Target stats, so it runs as soon as a Roster and CM course exist.
@@ -85,7 +84,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		}
 	}
 
-	const outfits = useMemo(() => new Map(pool.map((o) => [o.id, o])), [pool]);
+	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 
 	return (
@@ -98,7 +97,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 				<section>
 					<h2>Roster</h2>
 					<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
-					<button onClick={() => { clearRoster(localStorage); setRoster(null); own.clear(); }}>Clear data</button>
+					<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
+					<button onClick={() => { clearRoster(localStorage); setRoster(null); setUseBorrowed(false); }}>Clear data</button>
 				</section>
 			)}
 			{roster && data && (
@@ -107,7 +107,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); }}>
 						{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 					</select></label>
-					<label>Ace outfit <select name="ace" value={card?.id ?? ''} onChange={(e) => setAceId(Number(e.currentTarget.value))}>
+					<label>Ace version <select name="ace" value={card?.id ?? ''} onChange={(e) => setAceId(Number(e.currentTarget.value))}>
 						<option value="" disabled>Choose an Ace</option>
 						{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
 					</select></label>
@@ -119,10 +119,9 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					))}</fieldset>}
 					{!card && <p>Choose an Ace to see recommendations.</p>}
 					{busy && <p>Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
-					<OwnedFilterSelect value={own.filter} onChange={own.setFilter} />
-					<PickList title="Ace" testId="ace-card" picks={result?.ace} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
-					<PickList title="Core loop" testId="core-card" picks={result?.core} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
-					<PickList title="Side loop" testId="side-card" picks={result?.side} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
+					<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} stale={stale} data={data} />
+					<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} stale={stale} data={data} />
+					<PickList title="Side loop" testId="side-card" picks={result?.side} candidates={byId} stale={stale} data={data} />
 					<VeteranList scores={vs.result} progress={vs.progress} stale={vs.stale} data={data} onCancel={vs.cancel} />
 				</section>
 			)}

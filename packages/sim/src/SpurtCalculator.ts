@@ -203,7 +203,10 @@ export function findOptimalSpurt(
 	// Generate candidates between base and max speed
 	const candidates: SpurtCandidate[] = [];
 	
-	for (let speed = baseSpeed; speed <= maxSpeed; speed += speedIncrement) {
+	// client order: max speed downward, capped at 100 candidates
+	for (let i = 0; i < 100; ++i) {
+		const speed = maxSpeed - i * speedIncrement;
+		if (speed < baseSpeed) break;
 		const spurtDist = calculateSpurtDistance(
 			currentHp, currentPosition, courseDistance,
 			speed, baseSpeed, baseSpeedCourse, groundCoef, gutsModifier

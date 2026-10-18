@@ -18,7 +18,7 @@ test('overriding one stat leaves the others at their defaults', () => {
 	expect({ ...over, speed: 0 }).toEqual({ ...base, speed: 0 });
 });
 
-test('aptitudes come from the outfit and the unique skill is in the baseline', () => {
+test('aptitudes come from the version and the unique skill is in the baseline', () => {
 	const ace = buildAce({ aptitudes, style: 'senko', category: 'mile', surface: 'turf', uniqueSkillId: '100071' });
 	expect([ace.distanceAptitude, ace.surfaceAptitude, ace.strategyAptitude]).toEqual(['A', 'S', 'A']);
 	expect(ace.strategy).toBe('Senkou');
@@ -27,7 +27,7 @@ test('aptitudes come from the outfit and the unique skill is in the baseline', (
 
 test('recommend runs from a built Ace', () => {
 	const ace = buildAce({ aptitudes, style: 'senko', category: 'mile', surface: 'turf' });
-	const r = recommend({ outfits: [{ id: 'a', name: 'A', owned: true, skillIds: ['10071'] }] }, { courseId: 10101, ace, samples: 10 });
+	const r = recommend({ candidates: [{ id: 'a', name: 'A', horses: [{ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [{ skillId: '10071', name: 'S', stars: 3 }] }] }] }, { courseId: 10101, ace, samples: 10 });
 	expect(r.ace[0].score).toBeGreaterThan(0);
 });
 
