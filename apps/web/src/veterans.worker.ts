@@ -1,4 +1,4 @@
-import { computeVeterans, type VeteranJob, type VeteranMessage } from './job';
+import { computeVeterans, type VeteranProgress } from './job';
+import { serveJob } from './jobRunner';
 
-const w = self as unknown as { postMessage(m: VeteranMessage): void; onmessage: (e: MessageEvent<VeteranJob>) => void };
-w.onmessage = (e) => w.postMessage({ result: computeVeterans(e.data, (done, total) => w.postMessage({ progress: [done, total] })) });
+serveJob<Parameters<typeof computeVeterans>[0], ReturnType<typeof computeVeterans>, VeteranProgress>((job, onProgress) => computeVeterans(job, (done, total) => onProgress([done, total])));

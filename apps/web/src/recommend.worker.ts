@@ -1,3 +1,4 @@
-import { compute, type Job } from './job';
+import { compute } from './job';
+import { serveJob } from './jobRunner';
 
-self.onmessage = (e: MessageEvent<Job>) => (self as unknown as Worker).postMessage(compute(e.data));
+serveJob(compute);
