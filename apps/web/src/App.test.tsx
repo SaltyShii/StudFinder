@@ -35,11 +35,18 @@ async function importFile() {
 	await flush();
 }
 
+async function pickAce(id = '100101') {
+	const sel = root.querySelector('select[name=ace]') as HTMLSelectElement;
+	sel.value = id;
+	await act(() => { sel.dispatchEvent(new Event('change')); });
+}
+
 it('renders the ace list after importing an export, with expandable skill detail', async () => {
 	render(<App loadData={async () => data} run={inline} />, root);
 	await importFile();
+	await pickAce();
 	const cards = [...root.querySelectorAll('[data-testid=ace-card]')];
-	expect(cards.length).toBe(3);
+	expect(cards.length).toBe(2);
 	expect(cards[0].textContent).toContain('Test Stud');
 	expect(cards[0].querySelector('details')!.textContent).toMatch(/Synthetic Skill.*%.*position/s);
 });
@@ -47,7 +54,8 @@ it('renders the ace list after importing an export, with expandable skill detail
 it('renders the core loop and side loop lists beside the ace list', async () => {
 	render(<App loadData={async () => data} run={inline} />, root);
 	await importFile();
-	for (const id of ['ace-card', 'core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(3);
+	await pickAce();
+	for (const id of ['ace-card', 'core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(2);
 });
 
 it('badges owned outfits, filters without recomputing, and persists manual owned toggles', async () => {
@@ -55,6 +63,7 @@ it('badges owned outfits, filters without recomputing, and persists manual owned
 	const counting: Runner = (job, done) => { jobs.push(job); done(compute(job)); return () => {}; };
 	render(<App loadData={async () => data} run={counting} />, root);
 	await importFile();
+	await pickAce();
 	const cards = () => [...root.querySelectorAll('[data-testid=ace-card]')];
 	const owned = () => cards().filter((c) => c.querySelector('[data-testid=owned-badge]'));
 	expect(owned().length).toBe(1); // Dud, from the export
@@ -62,22 +71,27 @@ it('badges owned outfits, filters without recomputing, and persists manual owned
 
 	const before = jobs.length;
 	const filter = root.querySelector('select[name=owned-filter]') as HTMLSelectElement;
-	for (const [v, n] of [['owned', 1], ['not-owned', 2], ['all', 3]] as const) {
+	for (const [v, n] of [['owned', 1], ['not-owned', 1], ['all', 2]] as const) {
 		filter.value = v;
 		await act(() => { filter.dispatchEvent(new Event('change')); });
 		expect(cards().length).toBe(n);
+		for (const id of ['core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(n);
 	}
 	expect(jobs.length).toBe(before);
 
+	const scoreOf = (n: string) => cards().find((c) => c.textContent!.includes(n))!.querySelector('em')!.previousSibling!.textContent;
+	const dudBefore = scoreOf('Test Dud');
 	const stud = cards().find((c) => c.textContent!.includes('Test Stud'))!;
 	await act(() => { (stud.querySelector('input[name=owned-toggle]') as HTMLInputElement).click(); });
 	expect(jobs.length).toBe(before + 1);
+	expect(scoreOf('Test Dud')).toBe(dudBefore); // Dud has no skills, unaffected
 	expect(owned().length).toBe(2);
 
 	render(null, root);
 	render(<App loadData={async () => data} run={counting} />, root);
 	await flush();
 	await flush();
+	await pickAce();
 	expect(owned().length).toBe(2); // survives reload
 });
 
@@ -87,6 +101,7 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 	const manual: Runner = (job) => { jobs.push(job); return () => { cancelled++; }; };
 	render(<App loadData={async () => data} run={manual} />, root);
 	await importFile();
+	await pickAce();
 	expect(jobs).toHaveLength(1);
 	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
 	style.value = 'nige';
@@ -96,6 +111,32 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 	await act(() => { (root.querySelector('button[name=cancel]') as HTMLButtonElement).click(); });
 	expect(cancelled).toBe(2);
 	expect(root.textContent).not.toContain('Computing');
+});
+
+it('shows a prompt and runs no job until an Ace is chosen, and marks lists stale on restart', async () => {
+	const jobs: Job[] = [];
+	const manual: Runner = (job) => { jobs.push(job); return () => {}; };
+	render(<App loadData={async () => data} run={manual} />, root);
+	await importFile();
+	expect(jobs).toHaveLength(0);
+	expect(root.textContent).toContain('Choose an Ace');
+	await pickAce();
+	expect(jobs).toHaveLength(1);
+	expect(root.textContent).toContain('outdated');
+	expect(jobs[0].roster.outfits.map((o) => o.id)).not.toContain('100101');
+});
+
+it('persists the CM override and clears owned overrides with Clear data', async () => {
+	render(<App loadData={async () => data} run={inline} />, root);
+	await importFile();
+	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
+	cm.value = String(CMS[0].id);
+	await act(() => { cm.dispatchEvent(new Event('change')); });
+	expect(localStorage.getItem('stud-finder:cm')).toContain(String(CMS[0].id));
+	localStorage.setItem('stud-finder:owned', JSON.stringify({ version: 1, overrides: { 1: true } }));
+	await act(() => { (root.querySelector('button:not([name])') as HTMLButtonElement).click(); });
+	expect(localStorage.getItem('stud-finder:owned')).toBeNull();
+	expect(localStorage.getItem('stud-finder:cm')).toBeNull();
 });
 
 it('gives the same ranking for the same inputs', () => {

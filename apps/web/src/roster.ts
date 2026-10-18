@@ -15,8 +15,26 @@ export function saveRoster(storage: Storage, roster: ImportResult): void {
 	storage.setItem(KEY, JSON.stringify({ version: VERSION, roster }));
 }
 
+const CM_KEY = 'stud-finder:cm';
+
+export function saveCm(storage: Storage, id: number): void {
+	storage.setItem(CM_KEY, JSON.stringify({ version: VERSION, id }));
+}
+
+/** The stored CM override, or null when absent, stale-versioned, malformed or no longer a known preset. */
+export function loadCm(storage: Storage, known: number[]): number | null {
+	try {
+		const raw: unknown = JSON.parse(storage.getItem(CM_KEY) ?? 'null');
+		const { version, id } = (raw ?? {}) as { version?: unknown; id?: unknown };
+		return version === VERSION && typeof id === 'number' && known.includes(id) ? id : null;
+	} catch {
+		return null;
+	}
+}
+
 export function clearRoster(storage: Storage): void {
 	storage.removeItem(KEY);
+	storage.removeItem(CM_KEY);
 }
 
 export function loadRoster(storage: Storage): ImportResult | null {

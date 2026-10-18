@@ -10,7 +10,7 @@ npm workspaces:
 - `packages/sim`: race simulator, vendored from saltyuma-tools `uma-skill-tools/` (GPL-3.0). Sync manually; keep local patches small (sim is not strict-clean, so it is type-checked non-strict via `packages/scoring/tsconfig.json`).
 - `packages/lineage`: inheritance, affinity, rules, vendored from lineageplanner-salty (MIT). `goals.ts`, `optimizer.ts`, `loop.ts` score a fixed trainee and are unused; slot-mode scoring in `packages/scoring` replaces them.
 - `packages/scoring`: `recommend()` ranks outfits per slot mode; skill value = proc % x median lengths gained (median over runs where the skill activated).
-- `apps/web`: UI (not yet created).
+- `apps/web`: Preact UI; Web Worker runs `recommend()`, roster and settings persist in localStorage (versioned).
 
 ## Tooling
 

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { buildAce, defaultTargetStats, STYLES, type Category, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { STYLES as STYLE_LABELS } from '../../../packages/lineage/src/config';
+import { buildAce, categoryOf, defaultTargetStats, PINK_GROUP, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatePool } from '../../../packages/scoring/src/candidatePool';
 import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
@@ -10,9 +11,9 @@ import type { TierList } from '../../../packages/scoring/src/shared';
 import { PickList } from './PickList';
 import { workerRunner, type Runner } from './job';
 import { OwnedFilterSelect, useOwned } from './Owned';
-import { clearRoster, importRoster, loadRoster, saveRoster } from './roster';
+import { clearRoster, importRoster, loadCm, loadRoster, saveCm, saveRoster } from './roster';
 
-const PINK_GROUP: Record<Category, number> = { short: 31, mile: 32, middle: 33, long: 34 };
+const styleLabel = (s: Style) => STYLE_LABELS.find((l) => l.key === s)?.label ?? s;
 
 // Every skill name of an entry maps to its tier; resolved entries are sorted best first.
 function tierListOf(data: GameData, style: Style): TierList {
@@ -23,10 +24,6 @@ function tierListOf(data: GameData, style: Style): TierList {
 
 const STATS = ['speed', 'stamina', 'power', 'guts', 'wisdom'] as const;
 
-function categoryOf(distance: number): Category {
-	return distance <= 1400 ? 'short' : distance <= 1800 ? 'mile' : distance <= 2400 ? 'middle' : 'long';
-}
-
 interface Props {
 	loadData?: () => Promise<GameData>;
 	run?: Runner;
@@ -36,24 +33,26 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 	const [roster, setRoster] = useState<ImportResult | null>(() => loadRoster(localStorage));
 	const [data, setData] = useState<GameData | null>(null);
 	const [error, setError] = useState('');
-	const [cmId, setCmId] = useState<number>(() => pickCm(new Date()).id);
+	const [cmId, setCmId] = useState<number>(() => loadCm(localStorage, CMS.map((c) => c.id)) ?? pickCm(new Date()).id);
 	const [aceId, setAceId] = useState<number | null>(null);
 	const [style, setStyle] = useState<Style>('senko');
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
 	const [result, setResult] = useState<Recommendation | null>(null);
 	const [busy, setBusy] = useState(false);
-	const [cancel, setCancel] = useState<() => void>(() => () => {});
+	const [stale, setStale] = useState(false);
+	const cancelRef = useRef<() => void>(() => {});
+	const jobId = useRef(0);
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
 	const own = useOwned();
-	const card = data && (data.cards.get(aceId ?? -1) ?? data.cards.values().next().value);
+	const card = data && aceId != null ? data.cards.get(aceId) : undefined;
 	const cm = pickCm(new Date(), cmId);
 	const course = data?.courses.get(cm.courseId);
 	// The CM-relevant pink spark is the distance aptitude of the CM course (factor groups 31-34).
 	const pinkGroupId = course ? PINK_GROUP[categoryOf(course.distance)] : 0;
 	const pool = useMemo(
-		() => (data && roster ? candidatePool(data, roster.veterans, card && { aceCardId: card.id, pinkGroupId }) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
+		() => (data && roster && card ? candidatePool(data, roster.veterans, { aceCardId: card.id, pinkGroupId }) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
 		[data, roster, card, pinkGroupId, own.overrides],
 	);
 	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
@@ -64,9 +63,14 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 			aptitudes: card.aptitudes, style, category: categoryOf(course.distance), surface: course.ground === 2 ? 'dirt' : 'turf', target,
 			uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId),
 		});
+		const id = ++jobId.current;
 		setBusy(true);
-		const stop = run({ roster: { outfits: pool }, preset: cmPreset(cm, ace), tierList }, (r) => { setResult(r); setBusy(false); });
-		setCancel(() => () => { stop(); setBusy(false); });
+		setStale(true);
+		const stop = run({ roster: { outfits: pool }, preset: cmPreset(cm, ace), tierList }, (r) => {
+			if (id !== jobId.current) return; // a newer job owns busy and result
+			setResult(r); setBusy(false); setStale(false);
+		});
+		cancelRef.current = () => { stop(); if (id === jobId.current) setBusy(false); };
 		return stop; // restart: drop the stale job when inputs change
 	}, [data, pool, card, course, style, target, cmId, tierList]);
 
@@ -85,8 +89,7 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 		}
 	}
 
-	const name = (id: string) => pool.find((o) => o.id === id)?.name ?? id;
-	const isOwned = (id: string) => pool.find((o) => o.id === id)?.owned ?? false;
+	const outfits = useMemo(() => new Map(pool.map((o) => [o.id, o])), [pool]);
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 
 	return (
@@ -99,29 +102,31 @@ export function App({ loadData = loadGameData, run = workerRunner }: Props) {
 				<section>
 					<h2>Roster</h2>
 					<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
-					<button onClick={() => { clearRoster(localStorage); setRoster(null); setResult(null); }}>Clear data</button>
+					<button onClick={() => { clearRoster(localStorage); setRoster(null); setResult(null); own.clear(); }}>Clear data</button>
 				</section>
 			)}
 			{roster && data && (
 				<section>
 					<h2>Ace</h2>
-					<label>CM <select name="cm" value={cmId} onChange={(e) => setCmId(Number(e.currentTarget.value))}>
+					<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); }}>
 						{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 					</select></label>
-					<label>Ace outfit <select name="ace" value={card?.id} onChange={(e) => setAceId(Number(e.currentTarget.value))}>
+					<label>Ace outfit <select name="ace" value={card?.id ?? ''} onChange={(e) => setAceId(Number(e.currentTarget.value))}>
+						<option value="" disabled>Choose an Ace</option>
 						{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
 					</select></label>
 					<label>Style <select name="style" value={style} onChange={(e) => setStyle(e.currentTarget.value as Style)}>
-						{STYLES.map((s) => <option>{s}</option>)}
+						{STYLES.map((s) => <option value={s}>{styleLabel(s)}</option>)}
 					</select></label>
-					{defaults && STATS.map((k) => (
+					{defaults && <fieldset><legend>Target stats</legend>{STATS.map((k) => (
 						<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>
-					))}
-					{busy && <p>Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
+					))}</fieldset>}
+					{!card && <p>Choose an Ace to see recommendations.</p>}
+					{busy && <p>Computing... <button name="cancel" onClick={() => cancelRef.current()}>Cancel</button></p>}
 					<OwnedFilterSelect value={own.filter} onChange={own.setFilter} />
-					<PickList title="Ace" testId="ace-card" picks={result?.ace} name={name} data={data} own={own} isOwned={isOwned} />
-					<PickList title="Core loop" testId="core-card" picks={result?.core} name={name} data={data} own={own} isOwned={isOwned} />
-					<PickList title="Side loop" testId="side-card" picks={result?.side} name={name} data={data} own={own} isOwned={isOwned} />
+					<PickList title="Ace" testId="ace-card" picks={result?.ace} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
+					<PickList title="Core loop" testId="core-card" picks={result?.core} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
+					<PickList title="Side loop" testId="side-card" picks={result?.side} outfits={outfits} stale={stale} data={data} show={own.show} onToggle={own.toggle} />
 				</section>
 			)}
 		</main>
