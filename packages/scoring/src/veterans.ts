@@ -2,7 +2,7 @@ import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { RaceSolverBuilder, type HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { RaceSolver } from '@stud-finder/sim/src/RaceSolver';
 import type { Veteran } from '@stud-finder/lineage/src/types';
-import { buildAce, categoryOf, STYLES, type Style } from './ace';
+import { buildAce, categoryOf, STYLES, surfaceOf, type Style } from './ace';
 import { assumesPosition } from './recommend';
 import { skillValue } from './skillValue';
 import type { SkillDetail } from './shared';
@@ -71,7 +71,7 @@ function gained(horse: HorseDesc, skillIds: string[], courseId: number, samples:
 export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, seed = 1, uniqueSkills, onProgress }: VeteranScoreOptions): AceVeteranScore[] {
 	const course = new RaceSolverBuilder(1).course(courseId)._course;
 	const category = categoryOf(course.distance);
-	const surface = course.surface === 2 ? 'dirt' : 'turf';
+	const surface = surfaceOf(course.surface);
 	const scored = veterans.map((v, i) => {
 		const style = CAREER_STYLE[v.runningStyle - 1] ?? STYLES.reduce((b, s) => (v.aptitudes[s] > v.aptitudes[b] ? s : b));
 		const horse: HorseDesc = {

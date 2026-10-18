@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { buildAce, categoryOf, defaultTargetStats, PINK_GROUP, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { aceForCourse, categoryOf, defaultTargetStats, pinkGroupOf, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatePool } from '../../../packages/scoring/src/candidatePool';
 import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
 import { resolveTierList } from '../../../packages/lineage/src/tiers';
@@ -45,8 +45,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const card = data && aceId != null ? data.cards.get(aceId) : undefined;
 	const cm = pickCm(new Date(), cmId);
 	const course = data?.courses.get(cm.courseId);
-	// The CM-relevant pink spark is the distance aptitude of the CM course (factor groups 31-34).
-	const pinkGroupId = course ? PINK_GROUP[categoryOf(course.distance)] : 0;
+	const pinkGroupId = course ? pinkGroupOf(course.distance) : 0;
 	const pool = useMemo(
 		() => (data && roster && card ? candidatePool(data, roster.veterans, { aceCardId: card.id, pinkGroupId }) : []).map((o) => ({ ...o, owned: own.overrides[o.id] ?? o.owned })),
 		[data, roster, card, pinkGroupId, own.overrides],
@@ -55,10 +54,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 
 	const job = useMemo<Job | null>(() => {
 		if (!data || !card || !course || !pool.length) return null;
-		const ace = buildAce({
-			aptitudes: card.aptitudes, style, category: categoryOf(course.distance), surface: course.ground === 2 ? 'dirt' : 'turf', target,
-			uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId),
-		});
+		const ace = aceForCourse(card, course, style, target);
 		return { roster: { outfits: pool }, preset: cmPreset(cm, ace), tierList };
 	}, [data, pool, card, course, style, target, cmId, tierList]);
 	const onError = (e: Error) => setError(e.message);
