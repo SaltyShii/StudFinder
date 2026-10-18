@@ -36,7 +36,7 @@ npm workspaces:
 2. One logical change per commit; when in doubt, go smaller
 3. Run `npm run check` before committing
 4. Commit format: `<type>(<scope>): <short summary>` plus a body on what and why
-5. Push, PRs (`/mattpocock-skills:pr` for the body) and merges only when asked
+5. Push, PRs (`/mattpocock-skills:pr` for the body) and merges only when asked; approving a PR in `/ship` also approves its merge once checks are green
 
 ## Gotchas
 
