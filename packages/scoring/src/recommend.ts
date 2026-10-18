@@ -16,7 +16,7 @@ const POSITION = /order|overtake|behind|infront|blocked/;
 const TOP = 5;
 
 // The vendored JSON is untyped at runtime, so narrow it instead of casting.
-function assumesPosition(id: string): boolean {
+export function assumesPosition(id: string): boolean {
 	const skill: unknown = (skills as Record<string, unknown>)[id];
 	if (skill === undefined) return false;
 	const alts = typeof skill === 'object' && skill !== null ? (skill as { alternatives?: unknown }).alternatives : undefined;
