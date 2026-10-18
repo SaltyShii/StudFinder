@@ -1,21 +1,22 @@
 import { expect, test } from 'vitest';
-import { recommend, type Roster } from './recommend';
+import { recommend, type Candidate, type LineageHorse, type Roster } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, ace: horse, samples: 30, seed: 7 };
+const horseOf = (skills: string[] = [], o: Partial<LineageHorse> = {}): LineageHorse => ({ affinity: 0, pinkStars: 0, dirtStars: 1, skills: skills.map((skillId) => ({ skillId, name: `S${skillId}`, stars: 3 })), ...o });
+const cand = (id: string, ...horses: LineageHorse[]): Candidate => ({ id, name: id, horses });
 const roster: Roster = {
-	outfits: [
-		{ id: 'a', name: 'Alpha', owned: true, skillIds: ['10071'], pinkSparks: 3 },
-		{ id: 'b', name: 'Beta', owned: false, skillIds: [] },
-		{ id: 'c', name: 'Gamma', owned: false, skillIds: ['10071', '10071'] },
+	candidates: [
+		cand('a', horseOf(['10071'], { pinkStars: 3 })),
+		cand('b', horseOf()),
+		cand('c', horseOf(['10071', '10071'])),
 	],
 };
 
-test('Ace ranks outfits by inherited skill value, ignoring pink sparks', () => {
+test('Ace ranks veterans by inherited skill value, ignoring pink sparks', () => {
 	const { ace } = recommend(roster, preset);
-	expect(ace[0].outfitId).toBe('a');
-	expect(ace.map((p) => p.outfitId)).toContain('b');
 	expect(ace[0].score).toBeGreaterThan(ace[ace.length - 1].score);
+	expect(ace.map((p) => p.candidateId)).toContain('b');
 	expect(ace[0].reason).toMatch(/lengths/);
 	const d = ace[0].detail[0];
 	expect(d.proc).toBeGreaterThan(0);
@@ -23,49 +24,17 @@ test('Ace ranks outfits by inherited skill value, ignoring pink sparks', () => {
 	expect(d.assumesPosition).toBe(true); // 10071 has order_rate in its condition
 });
 
-test('all modes credit only what other owned outfits lack', () => {
-	const r: Roster = {
-		outfits: [
-			{ id: 'own', name: 'Own', owned: true, skillIds: ['10071'], whiteSparks: ['Ramp Up'] },
-			{ id: 'dup', name: 'Dup', owned: false, skillIds: ['10071'], whiteSparks: ['Ramp Up'] },
-			{ id: 'new', name: 'New', owned: false, skillIds: ['10071', '10081'], whiteSparks: ['Ramp Up', 'Uma Stan'] },
-		],
-	};
-	const rec = recommend(r, preset, { 'Ramp Up': 'T2', 'Uma Stan': 'T0' });
-	for (const mode of [rec.ace, rec.side]) {
-		const by = Object.fromEntries(mode.map((p) => [p.outfitId, p]));
-		expect(by.dup.detail).toEqual([]);
-		expect(by.new.detail.map((d) => d.skillId)).toEqual(['10081']);
-	}
-	const core = Object.fromEntries(rec.core.map((p) => [p.outfitId, p.score]));
-	expect(core.dup).toBe(0);
-	expect(core.new).toBeCloseTo(1); // only Uma Stan (T0) is new
+test('a skill already in the Ace baseline (its unique skill) is not credited again', () => {
+	const withUnique = { ...preset, ace: { ...horse, skills: ['10071'] } };
+	expect(recommend({ candidates: [cand('x', horseOf(['10071']))] }, withUnique).ace[0].score).toBe(0);
+});
+
+test("the Ace counts the skills of the veteran and of its parents, each once", () => {
+	const lineage = cand('v', horseOf(['10071']), horseOf(['10071', '10081']));
+	const detail = recommend({ candidates: [lineage] }, preset).ace[0].detail;
+	expect(detail.map((d) => d.skillId).sort()).toEqual(['10071', '10081']);
 });
 
 test('same seed and samples give identical output', () => {
 	expect(recommend(roster, preset)).toEqual(recommend(roster, preset));
-});
-
-test('marking an outfit owned lowers the marginal score of others sharing its skill', () => {
-	const score = (aOwned: boolean) => recommend({ outfits: roster.outfits.map((o) => (o.id === 'a' ? { ...o, owned: aOwned } : o)) }, preset).ace.find((p) => p.outfitId === 'c')!.score;
-	expect(score(false)).toBeGreaterThan(0);
-	expect(score(true)).toBe(0);
-});
-
-test('a skill already in the Ace baseline (its unique skill) is not credited again', () => {
-	const withUnique = { ...preset, ace: { ...horse, skills: ['10071'] } };
-	const r: Roster = { outfits: [{ id: 'x', name: 'X', owned: false, skillIds: ['10071'] }] };
-	expect(recommend(r, withUnique).ace[0].score).toBe(0);
-});
-
-test('two owned outfits sharing a skill credit only the first by id', () => {
-	const r: Roster = {
-		outfits: [
-			{ id: 'x2', name: 'X2', owned: true, skillIds: ['10071'] },
-			{ id: 'x1', name: 'X1', owned: true, skillIds: ['10071'] },
-		],
-	};
-	const by = Object.fromEntries(recommend(r, preset).ace.map((p) => [p.outfitId, p]));
-	expect(by.x1.detail.map((d) => d.skillId)).toEqual(['10071']);
-	expect(by.x2.detail).toEqual([]);
 });

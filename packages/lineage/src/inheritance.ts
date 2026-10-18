@@ -113,6 +113,10 @@ export const RED_PROC_POINTS = ACTIVE_RULES.aptitude.procPoints;
  * points (1–5 each) add up, and the turn's grade gain follows gradesFromPoints.
  * The point distribution is not known, so `min` assumes every proc gives 1 point
  * and `max` assumes 5 (ESTIMATE; the guide marks the 1–5 values as inference).
+ *
+ * Decision (owner): for the mid-run proc chance of a dirt (or any aptitude) spark, rank and decide on `min`, the lower
+ * bound. It matches uma.guide, which counts one grade per proc and says the real chance is a little higher. Show `max`
+ * only as the optimistic end of the range.
  */
 export function aptitudeChance(start: number, goal: number, perTurnChances: number[]): { min: number; max: number } {
   const target = Math.min(goal, GRADE_S);

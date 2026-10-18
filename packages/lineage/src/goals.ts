@@ -249,7 +249,7 @@ export function evaluate(pc: PlanContext, p1: Veteran, p2: Veteran): Lineage {
       const range = aptitudeChance(start, g.grade, pinks.map((s) => s.chance));
       return {
         goal: g, key: goalKey(g), label, color: "pink",
-        inherit: range.min,
+        inherit: range.min, // lower bound on purpose (owner decision, see aptitudeChance): rank on it, `inheritMax` is only the optimistic end
         inheritMax: range.max,
         spark: null,
         hits: pinks.map(({ slot, stars, chance }) => ({ slot, stars, chance })),

@@ -17,13 +17,21 @@ const data = new GameData({
 		100201: { id: 100201, charaId: 1002, name: 'Stud', title: 'Test', aptitudes: apt, uniqueSkillId: null, skillIds: [10071] },
 		100301: { id: 100301, charaId: 1003, name: 'Dud', title: 'Test', aptitudes: apt, uniqueSkillId: null, skillIds: [] },
 	},
-	skills: { 10071: { id: 10071, name: 'Synthetic Skill' } }, factors: {}, relations: { points: {}, members: {}, ranks: [] },
+	skills: { 10071: { id: 10071, name: 'Synthetic Skill' } }, factors: {
+		1201: { id: 1201, groupId: 12, type: 2, stars: 1, name: 'Dirt', targets: [], skillId: null },
+		1202: { id: 1202, groupId: 4001, type: 4, stars: 3, name: 'Synthetic Spark', targets: [], skillId: 10071 },
+	}, relations: { points: {}, members: {}, ranks: [] },
 	saddles: {}, tracks: {}, courses, races: [],
 } as unknown as RawGameData);
 
 const inline: Runner = (job, _p, done) => { done(compute(job)); return () => {}; };
 const noV: VeteranRunner = () => () => {};
-const exportText = JSON.stringify([{ trained_chara_id: 1, card_id: 100301, succession_chara_array: [] }]);
+// Both carry a dirt spark, so the core loop (great-grandparents need one) lists them; Stud also carries a skill spark.
+const exportText = JSON.stringify([
+	// Dud's first parent is a friend's rental (owner_viewer_id), so the export also holds one borrowed veteran.
+	{ trained_chara_id: 1, card_id: 100301, factor_id_array: [1201], succession_chara_array: [{ position_id: 10, card_id: 100201, owner_viewer_id: 777, factor_id_array: [1201] }] },
+	{ trained_chara_id: 2, card_id: 100201, factor_id_array: [1201, 1202], succession_chara_array: [] },
+]);
 const flush = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
 
 let root: HTMLElement;
@@ -59,41 +67,32 @@ it('renders the core loop and side loop lists beside the ace list', async () => 
 	for (const id of ['ace-card', 'core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(2);
 });
 
-it('badges owned outfits, filters without recomputing, and persists manual owned toggles', async () => {
-	const jobs: Job[] = [];
-	const counting: Runner = (job, _p, done) => { jobs.push(job); done(compute(job)); return () => {}; };
-	render(<App loadData={async () => data} run={counting} runVeterans={noV} />, root);
+it('lists exactly the veterans of the roster, with no owned controls', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	const cards = () => [...root.querySelectorAll('[data-testid=ace-card]')];
-	const owned = () => cards().filter((c) => c.querySelector('[data-testid=owned-badge]'));
-	expect(owned().length).toBe(1); // Dud, from the export
-	expect(owned()[0].textContent).toContain('Test Dud');
+	const names = [...root.querySelectorAll('[data-testid=ace-card]')].map((c) => c.querySelector('strong')!.textContent);
+	expect(names).toHaveLength(2);
+	expect(names.every((n) => n!.includes('Rank score'))).toBe(true);
+	expect(root.querySelector('input[name=owned-toggle]')).toBeNull();
+	expect(root.querySelector('select[name=owned-filter]')).toBeNull();
+});
 
-	const before = jobs.length;
-	const filter = root.querySelector('select[name=owned-filter]') as HTMLSelectElement;
-	for (const [v, n] of [['owned', 1], ['not-owned', 1], ['all', 2]] as const) {
-		filter.value = v;
-		await act(() => { filter.dispatchEvent(new Event('change')); });
-		expect(cards().length).toBe(n);
-		for (const id of ['core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(n);
-	}
-	expect(jobs.length).toBe(before);
-
-	const scoreOf = (n: string) => cards().find((c) => c.textContent!.includes(n))!.querySelector('em')!.previousSibling!.textContent;
-	const dudBefore = scoreOf('Test Dud');
-	const stud = cards().find((c) => c.textContent!.includes('Test Stud'))!;
-	await act(() => { (stud.querySelector('input[name=owned-toggle]') as HTMLInputElement).click(); });
-	expect(jobs.length).toBe(before + 1);
-	expect(scoreOf('Test Dud')).toBe(dudBefore); // Dud has no skills, unaffected
-	expect(owned().length).toBe(2);
-
-	render(null, root);
-	render(<App loadData={async () => data} run={counting} runVeterans={noV} />, root);
-	await flush();
-	await flush();
+it('scores borrowed veterans only when the toggle is on, and remembers it', async () => {
+	const jobs: Job[] = [];
+	const manual: Runner = (job) => { jobs.push(job); return () => {}; };
+	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
+	await importFile();
 	await pickAce();
-	expect(owned().length).toBe(2); // survives reload
+	expect(root.textContent).toContain('1 borrowed');
+	expect(jobs.at(-1)!.roster.candidates.map((c) => c.id)).toEqual(['1', '2']);
+	const box = root.querySelector('input[name=use-borrowed]') as HTMLInputElement;
+	await act(() => { box.click(); });
+	const ids = jobs.at(-1)!.roster.candidates.map((c) => c.id);
+	expect(ids).toHaveLength(3);
+	expect(ids.some((id) => Number(id) < 0)).toBe(true);
+	expect(jobs.at(-1)!.roster.candidates.find((c) => Number(c.id) < 0)!.name).toContain('borrowed from 777');
+	expect(localStorage.getItem('stud-finder:use-borrowed')).toContain('true');
 });
 
 it('recomputes when an input changes and cancel stops the running job', async () => {
@@ -124,10 +123,10 @@ it('shows a prompt and runs no job until an Ace is chosen, and marks lists stale
 	await pickAce();
 	expect(jobs).toHaveLength(1);
 	expect(root.textContent).toContain('outdated');
-	expect(jobs[0].roster.outfits.map((o) => o.id)).not.toContain('100101');
+	expect(jobs[0].roster.candidates.map((c) => c.id)).toEqual(['1', '2']);
 });
 
-it('persists the CM override and clears owned overrides with Clear data', async () => {
+it('persists the CM override, and Clear data drops it and the owned toggles of earlier versions', async () => {
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
@@ -186,7 +185,7 @@ it('drops scores on cancel so they do not look current', async () => {
 });
 
 it('gives the same ranking for the same inputs', () => {
-	const job = { roster: { outfits: [{ id: 'a', name: 'A', owned: false, skillIds: ['10071'] }] }, preset: { courseId: CMS[0].courseId, ace: { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const, samples: 20 } };
+	const job = { roster: { candidates: [{ id: 'a', name: 'A', horses: [{ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [{ skillId: '10071', name: 'S', stars: 3 }] }] }] }, preset: { courseId: CMS[0].courseId, ace: { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const, samples: 20 } };
 	expect(compute(job)).toEqual(compute(job));
 });
 

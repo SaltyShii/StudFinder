@@ -32,9 +32,28 @@ export function loadCm(storage: Storage, known: number[]): number | null {
 	}
 }
 
+const BORROW_KEY = 'stud-finder:use-borrowed';
+
+export function saveUseBorrowed(storage: Storage, on: boolean): void {
+	storage.setItem(BORROW_KEY, JSON.stringify({ version: VERSION, on }));
+}
+
+/** Whether friends' borrowed veterans are scored too; off when absent, stale-versioned or malformed. */
+export function loadUseBorrowed(storage: Storage): boolean {
+	try {
+		const raw: unknown = JSON.parse(storage.getItem(BORROW_KEY) ?? 'null');
+		const { version, on } = (raw ?? {}) as { version?: unknown; on?: unknown };
+		return version === VERSION && on === true;
+	} catch {
+		return false;
+	}
+}
+
 export function clearRoster(storage: Storage): void {
 	storage.removeItem(KEY);
 	storage.removeItem(CM_KEY);
+	storage.removeItem(BORROW_KEY);
+	storage.removeItem('stud-finder:owned'); // manual owned toggles of an earlier version, which no longer exist
 }
 
 export function loadRoster(storage: Storage): ImportResult | null {
