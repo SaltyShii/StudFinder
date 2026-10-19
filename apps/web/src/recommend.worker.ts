@@ -1,4 +1,4 @@
-import { compute } from './job';
+import { computeRecommend } from './recommend.job';
 import { serveJob } from './jobRunner';
 
-serveJob(compute);
+serveJob(computeRecommend);

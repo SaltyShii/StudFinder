@@ -1,7 +1,8 @@
-import type { Job, VeteranJob, VeteranProgress, Runner, VeteranRunner } from './job';
+import type { RecommendJob, RecommendRunner } from './recommend.job';
+import type { VeteranJob, VeteranProgress, VeteranRunner } from './veterans.job';
 import { workerRunner } from './jobRunner';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 
-export const recommendRunner: Runner = workerRunner<Job, Recommendation>(() => new Worker(new URL('./recommend.worker.ts', import.meta.url), { type: 'module' }));
+export const recommendRunner: RecommendRunner = workerRunner<RecommendJob, Recommendation>(() => new Worker(new URL('./recommend.worker.ts', import.meta.url), { type: 'module' }));
 export const veteranRunner: VeteranRunner = workerRunner<VeteranJob, AceVeteranScore[], VeteranProgress>(() => new Worker(new URL('./veterans.worker.ts', import.meta.url), { type: 'module' }));
