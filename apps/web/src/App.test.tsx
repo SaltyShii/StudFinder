@@ -159,7 +159,7 @@ it('scores veterans without an Ace, reruns on CM change, and cancels', async () 
 });
 
 it('shows top 5 Ace veterans, expands to all, and notes ranking is relative only', async () => {
-	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 2, aptitude: { surface: 7, distance: 7 }, lengthsGained: 1, gap: i, detail: [], assumesPosition: false });
+	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 2, aptitude: { surface: 7, distance: 7 }, setLengthsGained: 1, gap: i, detail: [], assumesPosition: false });
 	const seven: VeteranRunner = (_j, _p, done) => { done([0, 1, 2, 3, 4, 5, 6].map(score)); return () => {}; };
 	render(<App loadData={async () => data} run={inline} runVeterans={seven} />, root);
 	await importFile();
@@ -174,7 +174,7 @@ it('shows top 5 Ace veterans, expands to all, and notes ranking is relative only
 });
 
 it('renders veteran cards with portrait, best flag, grade chips and caveats, and survives a missing portrait', async () => {
-	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 2, aptitude: { surface: 7, distance: 6 }, lengthsGained: 1, gap: i, detail: [], assumesPosition: i === 0 });
+	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 2, aptitude: { surface: 7, distance: 6 }, setLengthsGained: 1, gap: i, detail: [], assumesPosition: i === 0 });
 	const two: VeteranRunner = (_j, _p, done) => { done([score(0), score(1)]); return () => {}; };
 	render(<App loadData={async () => data} run={inline} runVeterans={two} />, root);
 	await importFile();
@@ -202,7 +202,7 @@ it('shows a portrait on pick cards', async () => {
 });
 
 it('drops scores on cancel so they do not look current', async () => {
-	const score = { trainedId: 1, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 0, aptitude: { surface: 7, distance: 7 }, lengthsGained: 1, gap: 0, detail: [], assumesPosition: false };
+	const score = { trainedId: 1, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 0, aptitude: { surface: 7, distance: 7 }, setLengthsGained: 1, gap: 0, detail: [], assumesPosition: false };
 	let first = true;
 	const r: VeteranRunner = (_j, _p, done) => { if (first) { first = false; done([score]); } return () => {}; };
 	render(<App loadData={async () => data} run={inline} runVeterans={r} />, root);

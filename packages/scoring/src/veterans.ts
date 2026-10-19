@@ -18,7 +18,7 @@ export interface AceVeteranScore {
 	/** Aptitude grades (1 = G ... 8 = S) for the CM's surface and distance. */
 	aptitude: { surface: number; distance: number };
 	/** Median lengths gained by the full skill set over the same runner with no skills, same seed. */
-	lengthsGained: number;
+	setLengthsGained: number;
 	/** Equipped skills the sim has no data for, so they add nothing to the score. */
 	skillsNotSimulated: number;
 	/** Lengths behind the best Ace veteran (0 for the best). */
@@ -54,16 +54,16 @@ export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, se
 		const ids = equipped.filter((id) => id in skillData); // skills the sim does not know are skipped
 		// Per-skill detail is each skill alone on the skill-less runner; the headline is the whole set together.
 		const detail = ids.map((skillId) => skillDetail(skillId, { horse, courseId, samples, seed }));
-		const lengthsGained = median(pairedRace(ids, { horse, courseId, samples, seed }).map((r) => r.lengths)); // Set lengths gained: all runs
+		const setLengthsGained = median(pairedRace(ids, { horse, courseId, samples, seed }).map((r) => r.lengths)); // all runs, procced or not
 		onProgress?.(i + 1, veterans.length);
 		return {
 			trainedId: v.trainedId, cardId: v.cardId, style, rankScore: v.rankScore, createdAt: v.createdAt,
 			aptitude: { surface: v.aptitudes[surface], distance: v.aptitudes[category] },
-			lengthsGained, skillsNotSimulated: equipped.length - ids.length, gap: 0, detail,
+			setLengthsGained, skillsNotSimulated: equipped.length - ids.length, gap: 0, detail,
 			assumesPosition: detail.some((d) => d.assumesPosition),
 		};
 	});
-	scored.sort((a, b) => b.lengthsGained - a.lengthsGained || a.trainedId - b.trainedId);
-	const best = scored[0]?.lengthsGained ?? 0;
-	return scored.map((s) => ({ ...s, gap: best - s.lengthsGained }));
+	scored.sort((a, b) => b.setLengthsGained - a.setLengthsGained || a.trainedId - b.trainedId);
+	const best = scored[0]?.setLengthsGained ?? 0;
+	return scored.map((s) => ({ ...s, gap: best - s.setLengthsGained }));
 }
