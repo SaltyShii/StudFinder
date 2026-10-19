@@ -32,7 +32,7 @@ test('recommend runs from a built Ace', () => {
 });
 
 test('aceForCourse reads surface, distance and unique skill from the course and card', () => {
-	const ace = aceForCourse({ aptitudes, uniqueSkillId: 1001 }, { distance: 2000, ground: 2 }, 'senko', { speed: 1234 });
+	const ace = aceForCourse({ aptitudes, uniqueSkillId: 1001 }, { distance: 2000, surface: 'dirt' }, 'senko', { speed: 1234 });
 	expect(ace).toMatchObject({ speed: 1234, surfaceAptitude: 'E', distanceAptitude: 'A', skills: ['1001'] });
 	expect(pinkGroupOf(2000)).toBe(33);
 });

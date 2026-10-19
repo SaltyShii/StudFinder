@@ -1,7 +1,7 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { Card, Course, ImportResult } from '../../../packages/lineage/src/types';
 import { resolveTierList } from '../../../packages/lineage/src/tiers';
-import { aceForCourse, pinkGroupOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { aceForCourse, pinkGroupOf, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
@@ -27,7 +27,7 @@ export function candidatesFor(data: GameData, roster: ImportResult, card: Card, 
 /** Null until there is a CM course and at least one candidate. */
 export function buildJob(candidates: Candidate[], cm: Cm, card: Card, course: Course | undefined, style: Style, target: Partial<TargetStats>, tierList: TierList): RecommendJob | null {
 	if (!course || !candidates.length) return null;
-	return { roster: { candidates }, preset: cmPreset(cm, aceForCourse(card, course, style, target)), tierList };
+	return { roster: { candidates }, preset: cmPreset(cm, aceForCourse(card, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target)), tierList };
 }
 
 /** Needs no Ace or Target stats. Null until game data is loaded, so unique skills are never missing from a run. */

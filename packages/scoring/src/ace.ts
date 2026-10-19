@@ -1,5 +1,6 @@
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
-import type { Aptitudes, Card, Course } from '@stud-finder/lineage/src/types';
+import type { Aptitudes, Card } from '@stud-finder/lineage/src/types';
+import type { CourseFacts } from './courseFacts';
 
 export const CATEGORIES = ['short', 'mile', 'middle', 'long'] as const;
 export const STYLES = ['nige', 'senko', 'sashi', 'oikomi'] as const;
@@ -75,9 +76,9 @@ export function buildAce({ aptitudes, style, category, surface, target, uniqueSk
 }
 
 /** The untrained Ace for a CM course: the card's aptitudes and unique skill, the given style, recommended stats unless overridden. */
-export function aceForCourse(card: Pick<Card, 'aptitudes' | 'uniqueSkillId'>, course: Pick<Course, 'distance' | 'ground'>, style: Style, target?: Partial<TargetStats>): HorseDesc {
+export function aceForCourse(card: Pick<Card, 'aptitudes' | 'uniqueSkillId'>, course: CourseFacts, style: Style, target?: Partial<TargetStats>): HorseDesc {
 	return buildAce({
-		aptitudes: card.aptitudes, style, category: categoryOf(course.distance), surface: surfaceOf(course.ground), target,
+		aptitudes: card.aptitudes, style, category: categoryOf(course.distance), surface: course.surface, target,
 		uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId),
 	});
 }
