@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { aceForCourse, buildAce, CATEGORIES, defaultTargetStats, pinkGroupOf, STYLES } from './ace';
+import { aceForCourse, buildAce, CATEGORIES, defaultTargetStats, gradeLetter, pinkGroupOf, STYLES } from './ace';
 import { recommend } from './recommend';
 
 const aptitudes = { turf: 8, dirt: 3, short: 4, mile: 7, middle: 7, long: 5, nige: 2, senko: 7, sashi: 6, oikomi: 1 };
@@ -35,4 +35,9 @@ test('aceForCourse reads surface, distance and unique skill from the course and 
 	const ace = aceForCourse({ aptitudes, uniqueSkillId: 1001 }, { distance: 2000, ground: 2 }, 'senko', { speed: 1234 });
 	expect(ace).toMatchObject({ speed: 1234, surfaceAptitude: 'E', distanceAptitude: 'A', skills: ['1001'] });
 	expect(pinkGroupOf(2000)).toBe(33);
+});
+
+test('gradeLetter maps 1-8 to G-S and falls back to G', () => {
+	expect([1, 4, 8].map(gradeLetter)).toEqual(['G', 'D', 'S']);
+	expect([0, 9].map(gradeLetter)).toEqual(['G', 'G']);
 });

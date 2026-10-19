@@ -34,17 +34,3 @@ export function pickCm(today: Date, overrideId?: number, cms: Cm[] = CMS): Cm {
 export function cmPreset(cm: Cm, ace: CmPreset['ace']): CmPreset {
 	return { courseId: cm.courseId, ace };
 }
-
-const GRADES = 'GFEDCBAS';
-export interface StyleCandidate {
-	strategy: string;
-	distanceAptitude: string;
-	strategyAptitude: string;
-}
-const DISTANCE_WEIGHT = 2; // distance aptitude matters more than style aptitude
-
-/** Best first; ties keep input order. */
-export function rankStyles(candidates: StyleCandidate[]): StyleCandidate[] {
-	const score = (c: StyleCandidate) => DISTANCE_WEIGHT * GRADES.indexOf(c.distanceAptitude) + GRADES.indexOf(c.strategyAptitude);
-	return [...candidates].sort((a, b) => score(b) - score(a));
-}
