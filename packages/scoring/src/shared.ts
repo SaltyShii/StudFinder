@@ -28,7 +28,7 @@ export interface Candidate {
 	name: string;
 	horses: LineageHorse[];
 }
-export interface Roster {
+export interface CandidateList {
 	candidates: Candidate[];
 }
 export interface CmPreset {

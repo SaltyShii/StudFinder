@@ -1,11 +1,11 @@
 import { expect, test } from 'vitest';
-import { recommend, type Candidate, type LineageHorse, type Roster } from './recommend';
+import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, ace: horse, samples: 30, seed: 7 };
 const horseOf = (skills: string[] = [], o: Partial<LineageHorse> = {}): LineageHorse => ({ affinity: 0, pinkStars: 0, dirtStars: 1, skills: skills.map((skillId) => ({ skillId, name: `S${skillId}`, stars: 3 })), ...o });
 const cand = (id: string, ...horses: LineageHorse[]): Candidate => ({ id, name: id, horses });
-const roster: Roster = {
+const roster: CandidateList = {
 	candidates: [
 		cand('a', horseOf(['10071'], { pinkStars: 3 })),
 		cand('b', horseOf()),

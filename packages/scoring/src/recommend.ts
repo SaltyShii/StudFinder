@@ -1,9 +1,9 @@
 import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillDetail } from './skillDetail';
-import { rank, type CmPreset, type Pick, type Roster, type SkillDetail, type TierList } from './shared';
+import { rank, type CmPreset, type Pick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
-export type { Candidate, CmPreset, LineageHorse, Pick, Roster, SkillDetail, SkillSpark, TierList } from './shared';
+export type { Candidate, CmPreset, LineageHorse, Pick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
 export interface Recommendation {
 	ace: Pick[];
@@ -13,7 +13,7 @@ export interface Recommendation {
 
 const TOP = 5;
 
-export function recommend(roster: Roster, { samples = 100, seed = 1, ace: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
+export function recommend(roster: CandidateList, { samples = 100, seed = 1, ace: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
 	const cache = new Map<string, SkillDetail>();
 	const detailOf = (skillId: string) => {
 		let d = cache.get(skillId);

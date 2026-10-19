@@ -1,8 +1,8 @@
-import { recommend, type CmPreset, type Recommendation, type Roster, type TierList } from '../../../packages/scoring/src/recommend';
+import { recommend, type CmPreset, type Recommendation, type CandidateList, type TierList } from '../../../packages/scoring/src/recommend';
 import type { JobRunner } from './jobRunner';
 
 export interface RecommendJob {
-	roster: Roster;
+	roster: CandidateList;
 	preset: CmPreset;
 	tierList?: TierList;
 }
