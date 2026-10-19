@@ -67,4 +67,4 @@ npm workspaces:
 
 ## Preferences
 
-After `/code-review`, offer to fix its findings (the flag-less `mattpocock-skills:code-review` only reports), then suggest `/ship`. After `/retro` (or when the user skips it), suggest `/ship`.
+After `/mattpocock-skills:code-review`, offer to fix its findings (it only reports), then suggest `/ship`. After `/mattpocock-skills:retro` (or when the user skips it), suggest `/ship`. Always write the full `mattpocock-skills:` name; the bare `/code-review` is a different, built-in command.
