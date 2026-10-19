@@ -4,7 +4,7 @@ import type { Course, RawGameData } from '../../../packages/lineage/src/types';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { compute } from './job';
+import { computeRecommend } from './recommend.job';
 import { buildJob, buildVeteranJob, candidatesFor, cardIdsOf, tierListOf } from './jobs';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
@@ -29,16 +29,16 @@ const course = data.courses.get(cm.courseId);
 const ace = data.cards.get(100101)!;
 const jobFor = (candidates: Candidate[], c: Course | undefined) => buildJob(candidates, cm, ace, c, 'senko', {}, tierListOf(data, 'senko'));
 
-it('builds a Job that the real recommend() accepts', () => {
+it('builds a RecommendJob that the real recommend() accepts', () => {
 	const candidates = candidatesFor(data, roster, ace, course, false);
 	expect(candidates).toHaveLength(1);
 	expect(cardIdsOf(roster).get('2')).toBe(100201);
 	const job = jobFor(candidates, course)!;
 	job.preset.samples = 5;
-	expect(compute(job).ace[0].candidateId).toBe(candidates[0].id);
+	expect(computeRecommend(job).ace[0].candidateId).toBe(candidates[0].id);
 });
 
-it('has no Job without candidates or a course, but still lists candidates without a course', () => {
+it('has no RecommendJob without candidates or a course, but still lists candidates without a course', () => {
 	expect(jobFor([], course)).toBeNull();
 	expect(jobFor(candidatesFor(data, roster, ace, course, false), undefined)).toBeNull();
 	expect(candidatesFor(data, roster, ace, undefined, false)).toHaveLength(1);

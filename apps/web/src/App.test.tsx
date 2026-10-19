@@ -6,7 +6,8 @@ import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { CMS } from '../../../packages/scoring/src/cm';
 import { App } from './App';
-import { compute, type Job, type Runner, type VeteranJob, type VeteranRunner } from './job';
+import { computeRecommend, type RecommendJob, type RecommendRunner } from './recommend.job';
+import type { VeteranJob, VeteranRunner } from './veterans.job';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 const courses = Object.fromEntries(CMS.map((c) => [c.courseId, { id: c.courseId, trackId: 1, distance: 2000, ground: 1, turn: 1 }]));
@@ -24,7 +25,7 @@ const data = new GameData({
 	saddles: {}, tracks: {}, courses, races: [],
 } as unknown as RawGameData);
 
-const inline: Runner = (job, _p, done) => { done(compute(job)); return () => {}; };
+const inline: RecommendRunner = (job, _p, done) => { done(computeRecommend(job)); return () => {}; };
 const noV: VeteranRunner = () => () => {};
 // Both carry a dirt spark, so the core loop (great-grandparents need one) lists them; Stud also carries a skill spark.
 const exportText = JSON.stringify([
@@ -79,8 +80,8 @@ it('lists exactly the veterans of the roster, with no owned controls', async () 
 });
 
 it('scores borrowed veterans only when the toggle is on, and remembers it', async () => {
-	const jobs: Job[] = [];
-	const manual: Runner = (job) => { jobs.push(job); return () => {}; };
+	const jobs: RecommendJob[] = [];
+	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };
 	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
@@ -96,9 +97,9 @@ it('scores borrowed veterans only when the toggle is on, and remembers it', asyn
 });
 
 it('recomputes when an input changes and cancel stops the running job', async () => {
-	const jobs: Job[] = [];
+	const jobs: RecommendJob[] = [];
 	let cancelled = 0;
-	const manual: Runner = (job) => { jobs.push(job); return () => { cancelled++; }; };
+	const manual: RecommendRunner = (job) => { jobs.push(job); return () => { cancelled++; }; };
 	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
@@ -114,8 +115,8 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 });
 
 it('shows a prompt and runs no job until an Ace is chosen, and marks lists stale on restart', async () => {
-	const jobs: Job[] = [];
-	const manual: Runner = (job) => { jobs.push(job); return () => {}; };
+	const jobs: RecommendJob[] = [];
+	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };
 	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
 	expect(jobs).toHaveLength(0);
@@ -215,12 +216,12 @@ it('drops scores on cancel so they do not look current', async () => {
 
 it('gives the same ranking for the same inputs', () => {
 	const job = { roster: { candidates: [{ id: 'a', name: 'A', horses: [{ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [{ skillId: '10071', name: 'S', stars: 3 }] }] }] }, preset: { courseId: CMS[0].courseId, ace: { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const, samples: 20 } };
-	expect(compute(job)).toEqual(compute(job));
+	expect(computeRecommend(job)).toEqual(computeRecommend(job));
 });
 
 it('shows a worker error, stops the busy state, drops the old result and clears the error on the next success', async () => {
 	let fail = false;
-	const r: Runner = (job, _p, done, onError) => { if (fail) onError(new Error('worker crashed')); else done(compute(job)); return () => {}; };
+	const r: RecommendRunner = (job, _p, done, onError) => { if (fail) onError(new Error('worker crashed')); else done(computeRecommend(job)); return () => {}; };
 	render(<App loadData={async () => data} run={r} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();

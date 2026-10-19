@@ -5,7 +5,8 @@ import { categoryOf, defaultTargetStats, STYLE_LABEL, STYLES, type Style, type T
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
 import { PickList } from './PickList';
-import type { Runner, VeteranRunner } from './job';
+import type { RecommendRunner } from './recommend.job';
+import type { VeteranRunner } from './veterans.job';
 import { buildJob, buildVeteranJob, candidatesFor, cardIdsOf, tierListOf } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
@@ -24,7 +25,7 @@ const STATS = ['speed', 'stamina', 'power', 'guts', 'wisdom'] as const;
 
 interface Props {
 	loadData?: () => Promise<GameData>;
-	run?: Runner;
+	run?: RecommendRunner;
 	runVeterans?: VeteranRunner;
 }
 

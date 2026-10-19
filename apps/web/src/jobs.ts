@@ -5,7 +5,8 @@ import { aceForCourse, pinkGroupOf, type Style, type TargetStats } from '../../.
 import { candidatesOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
-import type { Job, VeteranJob } from './job';
+import type { RecommendJob } from './recommend.job';
+import type { VeteranJob } from './veterans.job';
 
 // Every skill name of an entry maps to its tier; resolved entries are sorted best first.
 export function tierListOf(data: GameData, style: Style): TierList {
@@ -24,7 +25,7 @@ export function candidatesFor(data: GameData, roster: ImportResult, card: Card, 
 }
 
 /** Null until there is a CM course and at least one candidate. */
-export function buildJob(candidates: Candidate[], cm: Cm, card: Card, course: Course | undefined, style: Style, target: Partial<TargetStats>, tierList: TierList): Job | null {
+export function buildJob(candidates: Candidate[], cm: Cm, card: Card, course: Course | undefined, style: Style, target: Partial<TargetStats>, tierList: TierList): RecommendJob | null {
 	if (!course || !candidates.length) return null;
 	return { roster: { candidates }, preset: cmPreset(cm, aceForCourse(card, course, style, target)), tierList };
 }
