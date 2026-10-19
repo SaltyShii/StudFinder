@@ -51,6 +51,10 @@ _Avoid_: ace stats (the Ace has none before its run)
 How the runner paces a race, named as on Global: Front Runner (nige), Pace Chaser (senko), Late Surger (sashi), End Closer (oikomi). Internal ids stay nige/senko/sashi/oikomi; lineage `goals.ts` uses shorter Front/Pace/Late/End labels internally.
 _Avoid_: nige/senko/sashi/oikomi (in UI copy), strategy
 
+**Aptitude grade**:
+How well a veteran suits a surface, distance or running style, from G (lowest) to S (highest). The data stores it as a number 1–8; the letter is what the player sees and what the race sim takes.
+_Avoid_: rank, rating
+
 **Spark**:
 An inheritable bonus on a veteran, passed to the trainee. Pink sparks raise an aptitude, blue sparks raise a stat, green sparks give a unique skill, white sparks give general skills.
 _Avoid_: factor
