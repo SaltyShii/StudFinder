@@ -1,2 +1,3 @@
 #!/bin/sh
-npm run check
+# quiet on success: the log is only worth reading when a gate fails
+out=$(npm run check 2>&1) || { printf '%s\n' "$out"; exit 1; }

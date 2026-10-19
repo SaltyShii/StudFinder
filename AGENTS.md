@@ -38,7 +38,7 @@ npm workspaces:
 
 1. Branch from `main`: `git checkout -b <type>/name` (`feature/`, `fix/`, `chore/`, `docs/`)
 2. One logical change per commit; when in doubt, go smaller
-3. Run `npm run check` before committing
+3. The pre-commit hook runs `npm run check` and prints only on failure; run it yourself only to iterate
 4. Commit format: `<type>(<scope>): <short summary>` plus a body on what and why
 5. Push, PRs (`/mattpocock-skills:pr` for the body) and merges only when asked; approving a PR in `/ship` also approves its merge once checks are green
 
@@ -67,4 +67,4 @@ npm workspaces:
 
 ## Preferences
 
-After `/code-review`, offer `/code-review --fix` for its findings, then suggest `/ship`. After `/retro` (or when the user skips it), suggest `/ship`.
+After `/code-review`, offer to fix its findings (the flag-less `mattpocock-skills:code-review` only reports), then suggest `/ship`. After `/retro` (or when the user skips it), suggest `/ship`.
