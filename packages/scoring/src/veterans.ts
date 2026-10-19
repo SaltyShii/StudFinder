@@ -2,9 +2,8 @@ import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { RaceSolverBuilder, type HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Veteran } from '@stud-finder/lineage/src/types';
 import { buildAce, categoryOf, STYLES, surfaceOf, type Style } from './ace';
-import { assumesPosition } from './recommend';
+import { skillDetail } from './skillDetail';
 import { median, pairedRace } from './pairedRace';
-import { skillValue } from './skillValue';
 import type { SkillDetail } from './shared';
 
 const CAREER_STYLE: Style[] = ['nige', 'senko', 'sashi', 'oikomi']; // game running_style 1-4
@@ -53,7 +52,7 @@ export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, se
 		const equipped = [...new Set([...v.skillIds, ...(unique == null ? [] : [unique])].map(String))];
 		const ids = equipped.filter((id) => id in skillData); // skills the sim does not know are skipped
 		// Per-skill detail is each skill alone on the skill-less runner; the headline is the whole set together.
-		const detail = ids.map((skillId): SkillDetail => ({ skillId, ...skillValue(skillId, { horse, courseId, samples, seed }), assumesPosition: assumesPosition(skillId) }));
+		const detail = ids.map((skillId) => skillDetail(skillId, { horse, courseId, samples, seed }));
 		const lengthsGained = median(pairedRace(ids, { horse, courseId, samples, seed }).map((r) => r.lengths)); // Set lengths gained: all runs
 		onProgress?.(i + 1, veterans.length);
 		return {
