@@ -27,7 +27,7 @@ test('aptitudes come from the version and the unique skill is in the baseline', 
 
 test('recommend runs from a built Ace', () => {
 	const ace = buildAce({ aptitudes, style: 'senko', category: 'mile', surface: 'turf' });
-	const r = recommend({ candidates: [{ id: 'a', name: 'A', horses: [{ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [{ skillId: '10071', name: 'S', stars: 3 }] }] }] }, { courseId: 10101, ace, samples: 10 });
+	const r = recommend({ candidates: [{ id: 'a', name: 'A', horses: [{ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [{ skillId: '10071', name: 'S', stars: 3 }] }] }] }, { courseId: 10101, runner: ace, samples: 10 });
 	expect(r.ace[0].score).toBeGreaterThan(0);
 });
 

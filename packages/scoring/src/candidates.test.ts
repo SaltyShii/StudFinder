@@ -40,7 +40,7 @@ test('a veteran with no parents or sparks is still a candidate with one empty ho
 
 test('core and side loop score a veteran from its own and its parents sparks', () => {
 	const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
-	const run = (v: Veteran) => recommend({ candidates: candidatesOf(data, [v], opts) }, { courseId: 10101, ace: horse, samples: 5, seed: 1 }, { 'Straightaway Recovery': 'T0' });
+	const run = (v: Veteran) => recommend({ candidates: candidatesOf(data, [v], opts) }, { courseId: 10101, runner: horse, samples: 5, seed: 1 }, { 'Straightaway Recovery': 'T0' });
 	const bare = run(vet(10, 1, []));
 	const rich = run(vet(10, 1, [1, 2, 3], [gp(3, [5]), null]));
 	expect(bare.core).toEqual([]); // no dirt spark: not a great-grandparent

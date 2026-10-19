@@ -31,6 +31,6 @@ export function pickCm(today: Date, overrideId?: number, cms: Cm[] = CMS): Cm {
 	return sorted.find((c) => c.date >= day) ?? sorted[sorted.length - 1];
 }
 
-export function cmPreset(cm: Cm, ace: CmPreset['ace']): CmPreset {
-	return { courseId: cm.courseId, ace };
+export function cmPreset(cm: Cm, runner: CmPreset['runner']): CmPreset {
+	return { courseId: cm.courseId, runner };
 }

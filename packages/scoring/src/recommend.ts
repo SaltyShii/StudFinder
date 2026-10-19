@@ -1,19 +1,19 @@
 import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillDetail } from './skillDetail';
-import { rank, type CmPreset, type Pick, type Roster, type SkillDetail, type TierList } from './shared';
+import { rank, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
-export type { Candidate, CmPreset, LineageHorse, Pick, Roster, SkillDetail, SkillSpark, TierList } from './shared';
+export type { Candidate, CmPreset, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
 export interface Recommendation {
-	ace: Pick[];
-	core: Pick[];
-	side: Pick[];
+	ace: CandidatePick[];
+	core: CandidatePick[];
+	side: CandidatePick[];
 }
 
 const TOP = 5;
 
-export function recommend(roster: Roster, { samples = 100, seed = 1, ace: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
+export function recommend(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
 	const cache = new Map<string, SkillDetail>();
 	const detailOf = (skillId: string) => {
 		let d = cache.get(skillId);
@@ -21,8 +21,8 @@ export function recommend(roster: Roster, { samples = 100, seed = 1, ace: horse,
 		return d;
 	};
 	// Ignores spark chance on purpose: it counts every distinct skill the veteran and its parents carry.
-	const aces = roster.candidates
-		.map((c): Pick => {
+	const aces = candidateList.candidates
+		.map((c): CandidatePick => {
 			const ids = [...new Set(c.horses.flatMap((h) => h.skills.map((s) => s.skillId)))].filter((id) => !horse.skills?.includes(id));
 			const detail = ids.map(detailOf);
 			const score = detail.reduce((s, d) => s + d.value, 0);
@@ -30,5 +30,5 @@ export function recommend(roster: Roster, { samples = 100, seed = 1, ace: horse,
 			const reason = best ? `${best.proc.toFixed(0)}% proc, ${best.lengths.median.toFixed(2)} median lengths from skill ${best.skillId}` : 'no inheritable skills';
 			return { candidateId: c.id, score, reason, detail };
 		});
-	return { ace: rank(aces, TOP), core: tierList ? coreLoopPicks(roster.candidates, tierList, TOP) : [], side: sideLoopPicks(roster.candidates, detailOf, TOP, horse.skills) };
+	return { ace: rank(aces, TOP), core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills) };
 }

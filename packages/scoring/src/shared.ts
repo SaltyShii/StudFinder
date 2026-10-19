@@ -28,13 +28,13 @@ export interface Candidate {
 	name: string;
 	horses: LineageHorse[];
 }
-export interface Roster {
+export interface CandidateList {
 	candidates: Candidate[];
 }
 export interface CmPreset {
 	courseId: number;
-	/** The Ace the CM is simulated for. */
-	ace: HorseDesc;
+	/** The runner the CM is simulated for (a stand-in for the Ace). */
+	runner: HorseDesc;
 	samples?: number;
 	seed?: number;
 }
@@ -43,13 +43,13 @@ export interface SkillDetail extends SkillValue {
 	/** Value rests on the sim's default position assumption. */
 	assumesPosition: boolean;
 }
-export interface Pick {
+export interface CandidatePick {
 	candidateId: string;
 	score: number;
 	reason: string;
 	detail: SkillDetail[];
 }
 
-export function rank(picks: Pick[], top: number): Pick[] {
+export function rank(picks: CandidatePick[], top: number): CandidatePick[] {
 	return picks.sort((a, b) => b.score - a.score || a.candidateId.localeCompare(b.candidateId)).slice(0, top);
 }

@@ -29,7 +29,7 @@ export function VeteranList({ scores, progress, stale, data, onCancel }: Props) 
 						cardId={v.cardId}
 						name={data.cards.get(v.cardId)?.name ?? String(v.cardId)}
 						best={v.gap === 0}
-						headline={<><span class="big">{v.lengthsGained.toFixed(2)}</span> lengths, {v.gap === 0 ? 'best' : `${v.gap.toFixed(2)} behind best`}</>}
+						headline={<><span class="big">{v.setLengthsGained.toFixed(2)}</span> lengths, {v.gap === 0 ? 'best' : `${v.gap.toFixed(2)} behind best`}</>}
 						chips={[STYLE_LABEL[v.style], `surface ${gradeLetter(v.aptitude.surface)}`, `distance ${gradeLetter(v.aptitude.distance)}`]}
 						meta={`Rank score ${v.rankScore}, created ${v.createdAt}`}
 						caveats={[...(v.assumesPosition ? ['assumes default position'] : []), ...(v.skillsNotSimulated > 0 ? [`${v.skillsNotSimulated} skills not simulated`] : [])]}
