@@ -1,25 +1,16 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { aceForCourse, categoryOf, defaultTargetStats, pinkGroupOf, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
-import { candidatesOf } from '../../../packages/scoring/src/candidates';
-import { CMS, cmPreset, pickCm } from '../../../packages/scoring/src/cm';
-import { resolveTierList } from '../../../packages/lineage/src/tiers';
-import type { TierList } from '../../../packages/scoring/src/shared';
+import { categoryOf, defaultTargetStats, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
 import { PickList } from './PickList';
-import type { Job, Runner, VeteranJob, VeteranRunner } from './job';
+import type { Runner, VeteranRunner } from './job';
+import { buildJob, buildVeteranJob } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
 import { clearRoster, importRoster, loadCm, loadRoster, loadUseBorrowed, saveCm, saveRoster, saveUseBorrowed } from './roster';
-
-// Every skill name of an entry maps to its tier; resolved entries are sorted best first.
-function tierListOf(data: GameData, style: Style): TierList {
-	const list: TierList = {};
-	for (const e of resolveTierList(data, style).entries) for (const n of e.skills) list[n] ??= e.tier;
-	return list;
-}
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -52,27 +43,14 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const card = data && aceId != null ? data.cards.get(aceId) : undefined;
 	const cm = pickCm(new Date(), cmId);
 	const course = data?.courses.get(cm.courseId);
-	const pinkGroupId = course ? pinkGroupOf(course.distance) : 0;
-	const candidates = useMemo(
-		() => (data && roster && card ? candidatesOf(data, useBorrowed ? [...roster.veterans, ...roster.borrowed] : roster.veterans, { aceCardId: card.id, pinkGroupId }) : []),
-		[data, roster, card, pinkGroupId, useBorrowed],
+	const { job, candidates, cardIds } = useMemo(
+		() => (data && roster ? buildJob({ data, roster, cmId, aceId, style, target, useBorrowed }) : { job: null, candidates: [], cardIds: new Map<string, number>() }),
+		[data, roster, cmId, aceId, style, target, useBorrowed],
 	);
-	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
-
-	const job = useMemo<Job | null>(() => {
-		if (!data || !card || !course || !candidates.length) return null;
-		const ace = aceForCourse(card, course, style, target);
-		return { roster: { candidates }, preset: cmPreset(cm, ace), tierList };
-	}, [data, candidates, card, course, style, target, cmId, tierList]);
 	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
-	// Needs no Ace or Target stats, so it runs as soon as a Roster and CM course exist.
-	const veteranJob = useMemo<VeteranJob | null>(() => {
-		if (!roster || !course) return null;
-		const uniqueSkills: [number, number][] = [];
-		data?.cards.forEach((c) => { if (c.uniqueSkillId != null) uniqueSkills.push([c.id, c.uniqueSkillId]); });
-		return { veterans: roster.veterans, courseId: cm.courseId, uniqueSkills };
-	}, [roster, course, cmId, data]);
+	// Needs no Ace or Target stats, so it runs as soon as a Roster, game data and CM course exist.
+	const veteranJob = useMemo(() => buildVeteranJob(data, roster, cmId), [data, roster, cmId]);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });
 	const shownError = error || jobError?.message || vs.error?.message;
@@ -93,7 +71,6 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	}
 
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
-	const cardIds = useMemo(() => new Map([...(roster?.veterans ?? []), ...(roster?.borrowed ?? [])].map((v) => [String(v.trainedId), v.cardId])), [roster]);
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 
 	return (
