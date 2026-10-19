@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Close out a coding session. Spawns the change-triage agent, then follows the commit, merge and deploy flow its docs/light/full verdict calls for. Use after /code-review or /retro, or when the user skips the retro.
+description: Close out a coding session. Spawns the change-triage agent, then follows the commit, merge and deploy flow its docs/light/full verdict calls for. Use after /mattpocock-skills:code-review or /mattpocock-skills:retro, or when the user skips the retro.
 ---
 
 # Ship
