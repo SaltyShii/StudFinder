@@ -84,5 +84,15 @@ _Avoid_: lengths gained (when meaning the whole set; that term is per skill, ove
 **CM preset**:
 The course, season and conditions of a specific Champions Meeting, used to pick the course and rank styles.
 
+**Borrowed veteran**:
+A friend's veteran you borrow as a parent; the game allows 5 borrows a day. Scored like any other veteran.
+_Avoid_: rental
+
+**Slot**:
+A place in the lineage a recommendation fills: the Ace veteran, the core loop or the side loop.
+
+**Pick**:
+A candidate ranked for a slot, with its score, the reason and the skill detail behind it.
+
 **Candidate**:
 A veteran considered as a parent. It brings itself and its own two parents (the Ace's grandparents), and all three inspire with their own sparks and affinity. Only veterans are scored: a version you have not trained does not exist as a parent.
