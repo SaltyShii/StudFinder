@@ -33,8 +33,8 @@ export interface CandidateList {
 }
 export interface CmPreset {
 	courseId: number;
-	/** The Ace the CM is simulated for. */
-	ace: HorseDesc;
+	/** The runner the CM is simulated for (a stand-in for the Ace). */
+	runner: HorseDesc;
 	samples?: number;
 	seed?: number;
 }

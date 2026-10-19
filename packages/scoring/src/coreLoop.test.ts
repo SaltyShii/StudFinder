@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
-const preset = { courseId: 10101, ace: horse, samples: 5, seed: 7 };
+const preset = { courseId: 10101, runner: horse, samples: 5, seed: 7 };
 const spark = (name: string) => ({ skillId: '0', name, stars: 3 });
 const horseOf = (o: Partial<LineageHorse> = {}): LineageHorse => ({ affinity: 0, pinkStars: 0, dirtStars: 1, skills: [], ...o });
 const cand = (id: string, ...horses: LineageHorse[]): Candidate => ({ id, name: id, horses });

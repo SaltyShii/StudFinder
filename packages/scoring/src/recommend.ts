@@ -13,7 +13,7 @@ export interface Recommendation {
 
 const TOP = 5;
 
-export function recommend(roster: CandidateList, { samples = 100, seed = 1, ace: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
+export function recommend(roster: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
 	const cache = new Map<string, SkillDetail>();
 	const detailOf = (skillId: string) => {
 		let d = cache.get(skillId);

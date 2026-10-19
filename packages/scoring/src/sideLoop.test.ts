@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
-const preset = { courseId: 10101, ace: horse, samples: 5, seed: 7 };
+const preset = { courseId: 10101, runner: horse, samples: 5, seed: 7 };
 const SKILL = '200012';
 const horseOf = (o: Partial<LineageHorse> = {}): LineageHorse => ({ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [], ...o });
 const carries = (stars: number) => [{ skillId: SKILL, name: 'Spark', stars }];
@@ -47,7 +47,7 @@ test('the veteran parents inspire too, each with its own affinity', () => {
 });
 
 test('skills the Ace already has are not scored', () => {
-	const { side } = recommend({ candidates: [cand('a', horseOf({ skills: carries(3) }))] }, { ...preset, ace: { ...horse, skills: [SKILL] } });
+	const { side } = recommend({ candidates: [cand('a', horseOf({ skills: carries(3) }))] }, { ...preset, runner: { ...horse, skills: [SKILL] } });
 	expect(side[0].score).toBe(0);
 	expect(side[0].detail).toEqual([]);
 });
