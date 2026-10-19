@@ -29,3 +29,10 @@ it('reset (no input) returns to idle', () => {
 	const done = run([{ type: 'start', clear: false }, { type: 'done', result: 1 }]);
 	expect(viewOf(run([{ type: 'reset' }], done))).toMatchObject({ result: null, progress: null, error: null, busy: false, stale: false });
 });
+
+it('cancel after the job settled leaves a result or error current', () => {
+	const done = run([{ type: 'start', clear: false }, { type: 'done', result: 1 }]);
+	expect(viewOf(run([{ type: 'cancel', clear: false }], done))).toMatchObject({ result: 1, busy: false, stale: false });
+	const failed = run([{ type: 'fail', error: new Error('x') }], done);
+	expect(viewOf(run([{ type: 'cancel', clear: false }], failed))).toMatchObject({ result: null, busy: false, stale: false });
+});

@@ -34,7 +34,9 @@ export function jobReducer<Out, P>(s: JobState<Out, P>, a: Action<Out, P>): JobS
 		case 'done': return { ...s, status: 'done', result: a.result };
 		// a result of another input must not pass as current
 		case 'fail': return { ...s, status: 'failed', result: null, error: a.error };
-		case 'cancel': return a.clear ? { ...s, status: 'idle', result: null } : { ...s, status: 'cancelled' };
+		case 'cancel':
+			if (a.clear) return { ...s, status: 'idle', result: null };
+			return s.status === 'running' ? { ...s, status: 'cancelled' } : s; // a settled result is still current
 	}
 }
 
