@@ -1,7 +1,6 @@
-import skills from '@stud-finder/sim/src/data/skill_data.json';
 import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
-import { skillValue } from './skillValue';
+import { skillDetail } from './skillDetail';
 import { rank, type CmPreset, type Pick, type Roster, type SkillDetail, type TierList } from './shared';
 
 export type { Candidate, CmPreset, LineageHorse, Pick, Roster, SkillDetail, SkillSpark, TierList } from './shared';
@@ -12,23 +11,13 @@ export interface Recommendation {
 	side: Pick[];
 }
 
-const POSITION = /order|overtake|behind|infront|blocked/;
 const TOP = 5;
-
-// The vendored JSON is untyped at runtime, so narrow it instead of casting.
-export function assumesPosition(id: string): boolean {
-	const skill: unknown = (skills as Record<string, unknown>)[id];
-	if (skill === undefined) return false;
-	const alts = typeof skill === 'object' && skill !== null ? (skill as { alternatives?: unknown }).alternatives : undefined;
-	if (!Array.isArray(alts)) throw new Error(`Skill ${id} has no alternatives array in skill_data.json`);
-	return alts.some((a: unknown) => typeof a === 'object' && a !== null && POSITION.test(String((a as { condition?: unknown }).condition)));
-}
 
 export function recommend(roster: Roster, { samples = 100, seed = 1, ace: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
 	const cache = new Map<string, SkillDetail>();
 	const detailOf = (skillId: string) => {
 		let d = cache.get(skillId);
-		if (!d) cache.set(skillId, (d = { skillId, ...skillValue(skillId, { ...cm, horse, samples, seed }), assumesPosition: assumesPosition(skillId) }));
+		if (!d) cache.set(skillId, (d = skillDetail(skillId, { ...cm, horse, samples, seed })));
 		return d;
 	};
 	// Ignores spark chance on purpose: it counts every distinct skill the veteran and its parents carry.
