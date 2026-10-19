@@ -43,8 +43,9 @@ export function defaultTargetStats(category: Category, style: Style): TargetStat
 	return { speed: 1100 + (t.speed ?? 0), stamina: STAMINA[category], power: 800 + (t.power ?? 0), guts: 400, wisdom: 400 + (t.wisdom ?? 0) };
 }
 
-const GRADES = 'GFEDCBAS'; // lineage grade 1 = G ... 8 = S
-function grade(n: number) {
+const GRADES = 'GFEDCBAS'; // aptitude grade 1 = G ... 8 = S
+/** Aptitude grade letter for a lineage number; out-of-range falls back to G. */
+export function gradeLetter(n: number) {
 	return GRADES[n - 1] ?? 'G';
 }
 const STRATEGY: Record<Style, string> = { nige: 'Nige', senko: 'Senkou', sashi: 'Sasi', oikomi: 'Oikomi' };
@@ -65,9 +66,9 @@ export function buildAce({ aptitudes, style, category, surface, target, uniqueSk
 		...defaultTargetStats(category, style),
 		...target,
 		strategy: STRATEGY[style],
-		distanceAptitude: grade(aptitudes[category]),
-		surfaceAptitude: grade(aptitudes[surface]),
-		strategyAptitude: grade(aptitudes[style]),
+		distanceAptitude: gradeLetter(aptitudes[category]),
+		surfaceAptitude: gradeLetter(aptitudes[surface]),
+		strategyAptitude: gradeLetter(aptitudes[style]),
 		mood: 2,
 		skills: uniqueSkillId ? [uniqueSkillId] : [],
 	};
