@@ -1,14 +1,14 @@
 import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillDetail } from './skillDetail';
-import { rank, type CmPreset, type Pick, type CandidateList, type SkillDetail, type TierList } from './shared';
+import { rank, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
-export type { Candidate, CmPreset, LineageHorse, Pick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
+export type { Candidate, CmPreset, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
 export interface Recommendation {
-	ace: Pick[];
-	core: Pick[];
-	side: Pick[];
+	ace: CandidatePick[];
+	core: CandidatePick[];
+	side: CandidatePick[];
 }
 
 const TOP = 5;
@@ -22,7 +22,7 @@ export function recommend(roster: CandidateList, { samples = 100, seed = 1, runn
 	};
 	// Ignores spark chance on purpose: it counts every distinct skill the veteran and its parents carry.
 	const aces = roster.candidates
-		.map((c): Pick => {
+		.map((c): CandidatePick => {
 			const ids = [...new Set(c.horses.flatMap((h) => h.skills.map((s) => s.skillId)))].filter((id) => !horse.skills?.includes(id));
 			const detail = ids.map(detailOf);
 			const score = detail.reduce((s, d) => s + d.value, 0);

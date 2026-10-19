@@ -1,6 +1,6 @@
 import { FactorType } from '@stud-finder/lineage/src/types';
 import { chanceAny, procChance } from '@stud-finder/lineage/src/inheritance';
-import { rank, type Candidate, type Pick, type SkillDetail } from './shared';
+import { rank, type Candidate, type CandidatePick, type SkillDetail } from './shared';
 
 // Lengths-equivalent of landing the CM pink spark (aptitude up). The player re-runs the veteran until the pink lands,
 // because the distance aptitude speed boost is too big to settle for less, so a landed pink is worth a fixed amount.
@@ -8,10 +8,10 @@ const PINK_LENGTHS = 1;
 
 // Like uma.guide's roster viewer, only sparks a veteran really carries are scored, at their real stars.
 // Both the veteran and its two parents inspire: each horse rolls its own sparks with its own affinity at both inspirations.
-export function sideLoopPicks(candidates: Candidate[], detailOf: (id: string) => SkillDetail, top: number, aceSkills: string[] = []): Pick[] {
+export function sideLoopPicks(candidates: Candidate[], detailOf: (id: string) => SkillDetail, top: number, aceSkills: string[] = []): CandidatePick[] {
 	return rank(
 		candidates
-		.map((c): Pick => {
+		.map((c): CandidatePick => {
 			const rolls = new Map<string, number[]>();
 			for (const h of c.horses) for (const s of h.skills) rolls.set(s.skillId, [...(rolls.get(s.skillId) ?? []), procChance(FactorType.Skill, s.stars, h.affinity)]);
 			// Skills the Ace already has cannot be inherited.

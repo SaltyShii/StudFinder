@@ -1,11 +1,11 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
-import type { Candidate, Pick } from '../../../packages/scoring/src/recommend';
+import type { Candidate, CandidatePick } from '../../../packages/scoring/src/recommend';
 import { SkillDetails, UmaCard } from './UmaCard';
 
 interface Props {
 	title: string;
 	testId: string;
-	picks: Pick[] | undefined;
+	picks: CandidatePick[] | undefined;
 	candidates: Map<string, Candidate>;
 	/** Candidate id (trained id) to card id, for the portrait. */
 	cardIds: Map<string, number>;

@@ -43,13 +43,13 @@ export interface SkillDetail extends SkillValue {
 	/** Value rests on the sim's default position assumption. */
 	assumesPosition: boolean;
 }
-export interface Pick {
+export interface CandidatePick {
 	candidateId: string;
 	score: number;
 	reason: string;
 	detail: SkillDetail[];
 }
 
-export function rank(picks: Pick[], top: number): Pick[] {
+export function rank(picks: CandidatePick[], top: number): CandidatePick[] {
 	return picks.sort((a, b) => b.score - a.score || a.candidateId.localeCompare(b.candidateId)).slice(0, top);
 }
