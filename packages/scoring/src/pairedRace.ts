@@ -26,6 +26,7 @@ export function median(xs: number[]) {
 
 /** Races the horse without and with the skills on the same seed, once per sample. */
 export function pairedRace(skillIds: string[], { horse, courseId, samples = 100, seed = 1 }: Scenario): PairedRun[] {
+	const { distance } = courseFacts(courseId); // first, so an unknown course id gets its own message
 	const make = (ids: string[]) => {
 		const b = new RaceSolverBuilder(samples).seed(seed).course(courseId).horse(horse);
 		ids.forEach((id) => b.addSkill(id));
@@ -33,7 +34,6 @@ export function pairedRace(skillIds: string[], { horse, courseId, samples = 100,
 	};
 	const base = make([]);
 	const test = make(skillIds);
-	const { distance } = courseFacts(courseId);
 	const runs: PairedRun[] = [];
 	for (let i = 0; i < samples; i++) {
 		const a = base.next().value as RaceSolver;

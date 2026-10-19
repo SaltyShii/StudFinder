@@ -17,3 +17,7 @@ test('no skills never activate and gain nothing', () => {
 test('same inputs give the same result', () => {
 	expect(pairedRace(['10071'], s)).toEqual(pairedRace(['10071'], s));
 });
+
+test('an unknown course id is named, not a sim TypeError', () => {
+	expect(() => pairedRace([], { ...s, courseId: -1 })).toThrow('Unknown course id -1');
+});

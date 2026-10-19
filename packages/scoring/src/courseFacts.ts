@@ -10,7 +10,7 @@ export interface CourseFacts {
 
 /** The one place scoring reads a course out of the sim. */
 export function courseFacts(courseId: number): CourseFacts {
-	if (!(courseId in courses)) throw new Error(`Unknown course id ${courseId}`);
+	if (!Object.hasOwn(courses, courseId)) throw new Error(`Unknown course id ${courseId}`);
 	const c = CourseHelpers.getCourse(courseId);
 	return { distance: c.distance, surface: surfaceOf(c.surface) };
 }
