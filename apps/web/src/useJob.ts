@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useReducer, useRef } from 'preact/hooks';
 import type { JobRunner } from './jobRunner';
 
 interface Options {
@@ -6,33 +6,61 @@ interface Options {
 	clearOnRestart?: boolean;
 }
 
+/** `cancelled` keeps the last result on screen, still stale: the input it answered has moved on. */
+type Status = 'idle' | 'running' | 'done' | 'failed' | 'cancelled';
+export interface JobState<Out, P> {
+	status: Status;
+	result: Out | null;
+	progress: P | null;
+	error: Error | null;
+}
+type Action<Out, P> =
+	| { type: 'reset' }
+	| { type: 'start'; clear: boolean }
+	| { type: 'progress'; progress: P }
+	| { type: 'done'; result: Out }
+	| { type: 'fail'; error: Error }
+	| { type: 'cancel'; clear: boolean };
+
+export function idle<Out, P>(): JobState<Out, P> {
+	return { status: 'idle', result: null, progress: null, error: null };
+}
+
+export function jobReducer<Out, P>(s: JobState<Out, P>, a: Action<Out, P>): JobState<Out, P> {
+	switch (a.type) {
+		case 'reset': return idle();
+		case 'start': return { status: 'running', result: a.clear ? null : s.result, progress: null, error: null };
+		case 'progress': return { ...s, progress: a.progress };
+		case 'done': return { ...s, status: 'done', result: a.result };
+		// a result of another input must not pass as current
+		case 'fail': return { ...s, status: 'failed', result: null, error: a.error };
+		case 'cancel': return a.clear ? { ...s, status: 'idle', result: null } : { ...s, status: 'cancelled' };
+	}
+}
+
+export function viewOf<Out, P>(s: JobState<Out, P>) {
+	return { result: s.result, progress: s.progress, busy: s.status === 'running', stale: s.status === 'running' || s.status === 'cancelled', error: s.error };
+}
+
 /** Runs `run` whenever `input` changes (null = nothing to run); the latest input wins and the older job is cancelled. */
 export function useJob<In, Out, P = never>(run: JobRunner<In, Out, P>, input: In | null, { clearOnRestart = false }: Options = {}) {
-	const [result, setResult] = useState<Out | null>(null);
-	const [progress, setProgress] = useState<P | null>(null);
-	const [busy, setBusy] = useState(false);
-	const [stale, setStale] = useState(false);
-	const [error, setError] = useState<Error | null>(null);
+	const [state, dispatch] = useReducer<JobState<Out, P>, Action<Out, P>>(jobReducer, idle());
 	const cancelRef = useRef<() => void>(() => {});
 
 	useEffect(() => {
-		setProgress(null);
-		setError(null);
 		cancelRef.current = () => {};
-		if (input == null) { setResult(null); setBusy(false); setStale(false); return; }
+		if (input == null) { dispatch({ type: 'reset' }); return; }
 		let live = true;
-		setBusy(true);
-		setStale(true);
-		if (clearOnRestart) setResult(null);
+		dispatch({ type: 'start', clear: clearOnRestart });
 		const stop = run(
 			input,
-			(p) => { if (live) setProgress(p); },
-			(r) => { if (live) { setResult(r); setBusy(false); setStale(false); } },
-			(e) => { if (live) { setBusy(false); setStale(false); setResult(null); setError(e); } }, // a result of another input must not pass as current
+			(progress) => { if (live) dispatch({ type: 'progress', progress }); },
+			(result) => { if (live) dispatch({ type: 'done', result }); },
+			(error) => { if (live) dispatch({ type: 'fail', error }); },
 		);
-		cancelRef.current = () => { live = false; stop(); setBusy(false); if (clearOnRestart) { setStale(false); setResult(null); } };
+		cancelRef.current = () => { live = false; stop(); dispatch({ type: 'cancel', clear: clearOnRestart }); };
 		return () => { live = false; stop(); };
 	}, [run, input, clearOnRestart]);
 
-	return { result, progress, busy, stale, error, cancel: () => cancelRef.current() };
+	return { ...viewOf(state), cancel: () => cancelRef.current() };
 }
