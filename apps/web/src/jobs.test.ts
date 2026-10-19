@@ -1,10 +1,11 @@
 import { expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
-import type { RawGameData } from '../../../packages/lineage/src/types';
-import { CMS } from '../../../packages/scoring/src/cm';
+import type { Course, RawGameData } from '../../../packages/lineage/src/types';
+import { CMS, pickCm } from '../../../packages/scoring/src/cm';
+import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
 import { compute } from './job';
-import { buildJob, buildVeteranJob, type Selection } from './jobs';
+import { buildJob, buildVeteranJob, candidatesFor, cardIdsOf, tierListOf } from './jobs';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 const courses = Object.fromEntries(CMS.map((c) => [c.courseId, { id: c.courseId, trackId: 1, distance: 2000, ground: 1, turn: 1 }]));
@@ -23,25 +24,37 @@ const data = new GameData({
 const roster = importRoster(JSON.stringify([
 	{ trained_chara_id: 2, card_id: 100201, factor_id_array: [1201, 1202], succession_chara_array: [] },
 ]), data);
-const sel: Selection = { data, roster, cmId: CMS[0].id, aceId: 100101, style: 'senko', target: {}, useBorrowed: false };
+const cm = pickCm(new Date(), CMS[0].id);
+const course = data.courses.get(cm.courseId);
+const ace = data.cards.get(100101)!;
+const jobFor = (candidates: Candidate[], c: Course | undefined) => buildJob(candidates, cm, ace, c, 'senko', {}, tierListOf(data, 'senko'));
 
 it('builds a Job that the real recommend() accepts', () => {
-	const { job, candidates, cardIds } = buildJob(sel);
+	const candidates = candidatesFor(data, roster, ace, course, false);
 	expect(candidates).toHaveLength(1);
-	expect(cardIds.get('2')).toBe(100201);
-	expect(job).not.toBeNull();
-	job!.preset.samples = 5;
-	const rec = compute(job!);
-	expect(rec.ace[0].candidateId).toBe(candidates[0].id);
+	expect(cardIdsOf(roster).get('2')).toBe(100201);
+	const job = jobFor(candidates, course)!;
+	job.preset.samples = 5;
+	expect(compute(job).ace[0].candidateId).toBe(candidates[0].id);
 });
 
-it('has no Job without an Ace', () => {
-	expect(buildJob({ ...sel, aceId: null }).job).toBeNull();
+it('has no Job without candidates or a course, but still lists candidates without a course', () => {
+	expect(jobFor([], course)).toBeNull();
+	expect(jobFor(candidatesFor(data, roster, ace, course, false), undefined)).toBeNull();
+	expect(candidatesFor(data, roster, ace, undefined, false)).toHaveLength(1);
+});
+
+it('includes borrowed veterans only when asked', () => {
+	const withBorrowed = importRoster(JSON.stringify([
+		{ trained_chara_id: 1, card_id: 100101, factor_id_array: [1201], succession_chara_array: [{ position_id: 10, card_id: 100201, owner_viewer_id: 777, factor_id_array: [1201, 1202] }] },
+	]), data);
+	expect(withBorrowed.borrowed).toHaveLength(1);
+	expect(candidatesFor(data, withBorrowed, ace, course, true).length).toBeGreaterThan(candidatesFor(data, withBorrowed, ace, course, false).length);
 });
 
 it('veteran job waits for game data and carries unique skills', () => {
-	expect(buildVeteranJob(null, roster, sel.cmId)).toBeNull();
-	const vj = buildVeteranJob(data, roster, sel.cmId)!;
+	expect(buildVeteranJob(null, roster, cm)).toBeNull();
+	const vj = buildVeteranJob(data, roster, cm)!;
 	expect(vj.uniqueSkills).toEqual([[100101, 100101]]);
-	expect(vj.courseId).toBe(CMS[0].courseId);
+	expect(vj.courseId).toBe(cm.courseId);
 });

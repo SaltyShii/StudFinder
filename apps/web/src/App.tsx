@@ -6,7 +6,7 @@ import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
 import { PickList } from './PickList';
 import type { Runner, VeteranRunner } from './job';
-import { buildJob, buildVeteranJob } from './jobs';
+import { buildJob, buildVeteranJob, candidatesFor, cardIdsOf, tierListOf } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
@@ -41,16 +41,16 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
 	const card = data && aceId != null ? data.cards.get(aceId) : undefined;
-	const cm = pickCm(new Date(), cmId);
+	const cm = useMemo(() => pickCm(new Date(), cmId), [cmId]);
 	const course = data?.courses.get(cm.courseId);
-	const { job, candidates, cardIds } = useMemo(
-		() => (data && roster ? buildJob({ data, roster, cmId, aceId, style, target, useBorrowed }) : { job: null, candidates: [], cardIds: new Map<string, number>() }),
-		[data, roster, cmId, aceId, style, target, useBorrowed],
-	);
+	const candidates = useMemo(() => (data && roster && card ? candidatesFor(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
+	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
+	const job = useMemo(() => (card ? buildJob(candidates, cm, card, course, style, target, tierList) : null), [candidates, cm, card, course, style, target, tierList]);
+	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
 	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
 	// Needs no Ace or Target stats, so it runs as soon as a Roster, game data and CM course exist.
-	const veteranJob = useMemo(() => buildVeteranJob(data, roster, cmId), [data, roster, cmId]);
+	const veteranJob = useMemo(() => buildVeteranJob(data, roster, cm), [data, roster, cm]);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });
 	const shownError = error || jobError?.message || vs.error?.message;
