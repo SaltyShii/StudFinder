@@ -1,7 +1,8 @@
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
-import { RaceSolverBuilder, type HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
+import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Veteran } from '@stud-finder/lineage/src/types';
-import { buildAce, categoryOf, STYLES, surfaceOf, type Style } from './ace';
+import { buildAce, categoryOf, STYLES, type Style } from './ace';
+import { courseFacts } from './courseFacts';
 import { skillDetail } from './skillDetail';
 import { median, pairedRace } from './pairedRace';
 import type { SkillDetail } from './shared';
@@ -39,9 +40,9 @@ export interface VeteranScoreOptions {
 
 /** Scores every veteran as herself: own stats, aptitudes, equipped skills, career style; no Target stats. Best first, ties by trained id. */
 export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, seed = 1, uniqueSkills, onProgress }: VeteranScoreOptions): AceVeteranScore[] {
-	const course = new RaceSolverBuilder(1).course(courseId)._course;
+	const course = courseFacts(courseId);
 	const category = categoryOf(course.distance);
-	const surface = surfaceOf(course.surface);
+	const surface = course.surface;
 	const scored = veterans.map((v, i) => {
 		const style = CAREER_STYLE[v.runningStyle - 1] ?? STYLES.reduce((b, s) => (v.aptitudes[s] > v.aptitudes[b] ? s : b));
 		const horse: HorseDesc = {
