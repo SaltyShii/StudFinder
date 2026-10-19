@@ -86,13 +86,13 @@ it('scores borrowed veterans only when the toggle is on, and remembers it', asyn
 	await importFile();
 	await pickAce();
 	expect(root.textContent).toContain('1 borrowed');
-	expect(jobs.at(-1)!.roster.candidates.map((c) => c.id)).toEqual(['1', '2']);
+	expect(jobs.at(-1)!.candidateList.candidates.map((c) => c.id)).toEqual(['1', '2']);
 	const box = root.querySelector('input[name=use-borrowed]') as HTMLInputElement;
 	await act(() => { box.click(); });
-	const ids = jobs.at(-1)!.roster.candidates.map((c) => c.id);
+	const ids = jobs.at(-1)!.candidateList.candidates.map((c) => c.id);
 	expect(ids).toHaveLength(3);
 	expect(ids.some((id) => Number(id) < 0)).toBe(true);
-	expect(jobs.at(-1)!.roster.candidates.find((c) => Number(c.id) < 0)!.name).toContain('borrowed from 777');
+	expect(jobs.at(-1)!.candidateList.candidates.find((c) => Number(c.id) < 0)!.name).toContain('borrowed from 777');
 	expect(localStorage.getItem('stud-finder:use-borrowed')).toContain('true');
 });
 
@@ -124,7 +124,7 @@ it('shows a prompt and runs no job until an Ace is chosen, and marks lists stale
 	await pickAce();
 	expect(jobs).toHaveLength(1);
 	expect(root.textContent).toContain('outdated');
-	expect(jobs[0].roster.candidates.map((c) => c.id)).toEqual(['1', '2']);
+	expect(jobs[0].candidateList.candidates.map((c) => c.id)).toEqual(['1', '2']);
 });
 
 it('persists the CM override, and Clear data drops it and the owned toggles of earlier versions', async () => {
@@ -215,7 +215,7 @@ it('drops scores on cancel so they do not look current', async () => {
 });
 
 it('gives the same ranking for the same inputs', () => {
-	const job = { roster: { candidates: [{ id: 'a', name: 'A', horses: [{ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [{ skillId: '10071', name: 'S', stars: 3 }] }] }] }, preset: { courseId: CMS[0].courseId, runner: { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const, samples: 20 } };
+	const job = { candidateList: { candidates: [{ id: 'a', name: 'A', horses: [{ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [{ skillId: '10071', name: 'S', stars: 3 }] }] }] }, preset: { courseId: CMS[0].courseId, runner: { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const, samples: 20 } };
 	expect(computeRecommend(job)).toEqual(computeRecommend(job));
 });
 

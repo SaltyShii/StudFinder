@@ -27,7 +27,7 @@ export function candidatesFor(data: GameData, roster: ImportResult, card: Card, 
 /** Null until there is a CM course and at least one candidate. */
 export function buildJob(candidates: Candidate[], cm: Cm, card: Card, course: Course | undefined, style: Style, target: Partial<TargetStats>, tierList: TierList): RecommendJob | null {
 	if (!course || !candidates.length) return null;
-	return { roster: { candidates }, preset: cmPreset(cm, aceForCourse(card, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target)), tierList };
+	return { candidateList: { candidates }, preset: cmPreset(cm, aceForCourse(card, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target)), tierList };
 }
 
 /** Needs no Ace or Target stats. Null until game data is loaded, so unique skills are never missing from a run. */

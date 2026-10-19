@@ -6,7 +6,7 @@ const preset = { courseId: 10101, runner: horse, samples: 5, seed: 7 };
 const spark = (name: string) => ({ skillId: '0', name, stars: 3 });
 const horseOf = (o: Partial<LineageHorse> = {}): LineageHorse => ({ affinity: 0, pinkStars: 0, dirtStars: 1, skills: [], ...o });
 const cand = (id: string, ...horses: LineageHorse[]): Candidate => ({ id, name: id, horses });
-const roster: CandidateList = {
+const candidateList: CandidateList = {
 	candidates: [
 		cand('low', horseOf({ skills: [spark('Ramp Up')] })),
 		cand('high', horseOf({ skills: [spark('Uma Stan'), spark('Ramp Up')] })),
@@ -19,7 +19,7 @@ const roster: CandidateList = {
 const tierList = { 'Uma Stan': 'T0', 'Ramp Up': 'T2' } as const;
 
 test('core loop ranks by tier-list sparks and requires a dirt spark', () => {
-	const { core } = recommend(roster, preset, tierList);
+	const { core } = recommend(candidateList, preset, tierList);
 	const by = Object.fromEntries(core.map((p) => [p.candidateId, p]));
 	expect(core[0].candidateId).toBe('high');
 	expect(by.high.score).toBeGreaterThan(by.low.score);
@@ -31,5 +31,5 @@ test('core loop ranks by tier-list sparks and requires a dirt spark', () => {
 });
 
 test('no tier list means no core picks', () => {
-	expect(recommend(roster, preset).core).toEqual([]);
+	expect(recommend(candidateList, preset).core).toEqual([]);
 });

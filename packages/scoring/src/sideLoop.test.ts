@@ -10,7 +10,7 @@ const cand = (id: string, ...horses: LineageHorse[]): Candidate => ({ id, name: 
 const score = (c: Candidate) => recommend({ candidates: [c] }, preset).side[0].score;
 
 test('CM pink spark raises side score; affinity raises it further', () => {
-	const roster: CandidateList = {
+	const candidateList: CandidateList = {
 		candidates: [
 			cand('plain', horseOf({ skills: carries(3) })),
 			cand('pink', horseOf({ skills: carries(3), pinkStars: 3 })),
@@ -18,7 +18,7 @@ test('CM pink spark raises side score; affinity raises it further', () => {
 			cand('empty', horseOf()),
 		],
 	};
-	const by = Object.fromEntries(recommend(roster, preset).side.map((p) => [p.candidateId, p]));
+	const by = Object.fromEntries(recommend(candidateList, preset).side.map((p) => [p.candidateId, p]));
 	expect(by.pink.score).toBeGreaterThan(by.plain.score);
 	expect(by.affine.score).toBeGreaterThan(by.pink.score);
 	expect(by.empty.score).toBe(0);

@@ -5,7 +5,7 @@ const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, s
 const preset = { courseId: 10101, runner: horse, samples: 30, seed: 7 };
 const horseOf = (skills: string[] = [], o: Partial<LineageHorse> = {}): LineageHorse => ({ affinity: 0, pinkStars: 0, dirtStars: 1, skills: skills.map((skillId) => ({ skillId, name: `S${skillId}`, stars: 3 })), ...o });
 const cand = (id: string, ...horses: LineageHorse[]): Candidate => ({ id, name: id, horses });
-const roster: CandidateList = {
+const candidateList: CandidateList = {
 	candidates: [
 		cand('a', horseOf(['10071'], { pinkStars: 3 })),
 		cand('b', horseOf()),
@@ -14,7 +14,7 @@ const roster: CandidateList = {
 };
 
 test('Ace ranks veterans by inherited skill value, ignoring pink sparks', () => {
-	const { ace } = recommend(roster, preset);
+	const { ace } = recommend(candidateList, preset);
 	expect(ace[0].score).toBeGreaterThan(ace[ace.length - 1].score);
 	expect(ace.map((p) => p.candidateId)).toContain('b');
 	expect(ace[0].reason).toMatch(/lengths/);
@@ -36,5 +36,5 @@ test("the Ace counts the skills of the veteran and of its parents, each once", (
 });
 
 test('same seed and samples give identical output', () => {
-	expect(recommend(roster, preset)).toEqual(recommend(roster, preset));
+	expect(recommend(candidateList, preset)).toEqual(recommend(candidateList, preset));
 });
