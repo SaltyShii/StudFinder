@@ -67,4 +67,4 @@ npm workspaces:
 
 ## Preferences
 
-After `/code-review` or `/retro` (or when the user skips the retro), suggest `/ship`.
+After `/code-review`, offer `/code-review --fix` for its findings, then suggest `/ship`. After `/retro` (or when the user skips it), suggest `/ship`.
