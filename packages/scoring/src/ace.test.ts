@@ -37,7 +37,8 @@ test('aceForCourse reads surface, distance and unique skill from the course and 
 	expect(pinkGroupOf(2000)).toBe(33);
 });
 
-test('gradeLetter maps 1-8 to G-S and falls back to G', () => {
+test('gradeLetter maps 1-8 to G-S and throws out of range', () => {
 	expect([1, 4, 8].map(gradeLetter)).toEqual(['G', 'D', 'S']);
-	expect([0, 9].map(gradeLetter)).toEqual(['G', 'G']);
+	expect(() => gradeLetter(0)).toThrow();
+	expect(() => gradeLetter(9)).toThrow();
 });
