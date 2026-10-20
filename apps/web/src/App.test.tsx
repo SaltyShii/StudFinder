@@ -48,7 +48,7 @@ async function importFile() {
 }
 
 async function pickAce(id = '100101') {
-	const sel = root.querySelector('select[name=ace]') as HTMLSelectElement;
+	const sel = root.querySelector('select[name=sim-runner]') as HTMLSelectElement;
 	sel.value = id;
 	await act(() => { sel.dispatchEvent(new Event('change')); });
 }
@@ -105,28 +105,30 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	expect(jobs).toHaveLength(1);
+	jobs.length = 0; cancelled = 0; // the Ace-slot-only job before the pick is not under test
 	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
 	style.value = 'nige';
 	await act(() => { style.dispatchEvent(new Event('change')); });
-	expect(jobs).toHaveLength(2);
+	expect(jobs).toHaveLength(1);
 	expect(cancelled).toBe(1); // the stale job is dropped
 	await act(() => { (root.querySelector('button[name=cancel]') as HTMLButtonElement).click(); });
 	expect(cancelled).toBe(2);
 	expect(root.textContent).not.toContain('Computing');
 });
 
-it('shows a prompt and runs no job until a Sim runner is chosen, and marks lists stale on restart', async () => {
+it('shows a prompt and runs only the Ace slot until a Sim runner is chosen, and marks lists stale on restart', async () => {
 	const jobs: RecommendJob[] = [];
 	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };
 	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
-	expect(jobs).toHaveLength(0);
+	expect(jobs).toHaveLength(1);
+	expect(jobs[0].candidateList.candidates).toEqual([]);
+	expect(jobs[0].owned?.length).toBeGreaterThan(0);
 	expect(root.textContent).toContain('Choose a Sim runner');
 	await pickAce();
-	expect(jobs).toHaveLength(1);
+	expect(jobs).toHaveLength(2);
 	expect(root.textContent).toContain('outdated');
-	expect(jobs[0].candidateList.candidates.map((c) => c.id)).toEqual(['1', '2']);
+	expect(jobs[1].candidateList.candidates.map((c) => c.id)).toEqual(['1', '2']);
 });
 
 it('persists the CM override, and Clear data drops it and the owned toggles of earlier versions', async () => {
@@ -276,7 +278,7 @@ it('returns the Style to the best-ranked one when the Ace or CM changes', async 
 it('labels the selector Sim runner, not Ace', async () => {
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
-	const label = root.querySelector('select[name=ace]')!.closest('label')!;
+	const label = root.querySelector('select[name=sim-runner]')!.closest('label')!;
 	expect(label.firstChild!.textContent).toBe('Sim runner ');
 	expect([...root.querySelectorAll('h2')].map((h) => h.textContent)).toContain('Sim runner');
 });
@@ -321,6 +323,7 @@ it('adds Must-have skills by search or suggestion chip, passes them to the job a
 	expect(listed()).toEqual(['Synthetic Skill remove']);
 	render(null, root);
 	mount();
+	await flush();
 	await flush();
 	expect(listed()).toEqual(['Synthetic Skill remove']);
 });

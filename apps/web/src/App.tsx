@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
+import { GameData, loadGameData, versionName } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
@@ -41,7 +41,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	// Until the player edits, Owned versions are the versions the Roster has a veteran of.
 	const owned = useMemo(() => new Set(ownedChoice ?? roster?.veterans.map((v) => v.cardId) ?? []), [ownedChoice, roster]);
 	const [mustHaves, setMustHaves] = useState<string[]>(() => loadMustHaves(localStorage));
-	const [aceId, setAceId] = useState<number | null>(null);
+	const [simRunnerId, setSimRunnerId] = useState<number | null>(null);
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
@@ -49,7 +49,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
-	const card = data && aceId != null ? data.cards.get(aceId) : undefined;
+	const card = data && simRunnerId != null ? data.cards.get(simRunnerId) : undefined;
 	const cm = useMemo(() => pickCm(new Date(), cmId), [cmId]);
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster && card ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
@@ -68,12 +68,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const veteranJob = useMemo(() => planVeterans(data, roster, cm), [data, roster, cm]);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });
-	// The track's top simulated skills across the Ace veteran picks, best value first.
-	const suggestions = useMemo(() => {
-		const best = new Map<string, number>();
-		for (const d of result?.ace.flatMap((p) => p.detail) ?? []) best.set(d.skillId, Math.max(best.get(d.skillId) ?? 0, d.value));
-		return [...best].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
-	}, [result]);
+	// The track's top simulated skills, best value first.
+	const suggestions = useMemo(() => result?.skills.slice(0, 5).map((d) => d.skillId) ?? [], [result]);
 	const shownError = error || jobError?.message || vs.error?.message;
 
 	async function onFile(e: Event) {
@@ -107,7 +103,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						<h2>Roster</h2>
 						<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
 						<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
-						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setUseBorrowed(false); }}>Clear data</button>
+						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); }}>Clear data</button>
 					</section>
 				)}
 				{roster && data && <OwnedVersions data={data} owned={owned} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />}
@@ -118,9 +114,9 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setStyleChoice(null); setCoreStyleChoice(null); }}>
 							{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 						</select></label>
-						<label>Sim runner <select name="ace" value={card?.id ?? ''} onChange={(e) => { setAceId(Number(e.currentTarget.value)); setStyleChoice(null); setCoreStyleChoice(null); }}>
+						<label>Sim runner <select name="sim-runner" value={card?.id ?? ''} onChange={(e) => { setSimRunnerId(Number(e.currentTarget.value)); setStyleChoice(null); setCoreStyleChoice(null); }}>
 							<option value="" disabled>Choose a Sim runner</option>
-							{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
+							{[...data.cards.values()].map((c) => <option value={c.id}>{versionName(c)}</option>)}
 						</select></label>
 						<label>Style <select name="style" value={style} onChange={(e) => setStyleChoice(e.currentTarget.value as Style)}>
 							{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}

@@ -30,6 +30,8 @@ export interface Recommendation {
 	ace: CandidatePick[];
 	core: CandidatePick[];
 	side: CandidatePick[];
+	/** Every skill simulated for the Sim runner on this track (those the candidates carry), best value first. */
+	skills: SkillDetail[];
 }
 
 const TOP = 5;
@@ -54,9 +56,11 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 		const reason = best ? `${best.proc.toFixed(0)}% proc, ${best.lengths.median.toFixed(2)} median lengths from skill ${best.skillId}` : 'no inheritable skills';
 		return { pick: { candidateId: c.id, score, reason, detail }, supply: stars };
 	});
-	const detailOf = detailerOf(horse);
+	const detailFor = detailerOf(horse);
+	const seen = new Map<string, SkillDetail>();
+	const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
 	const aceSlot = owned.length ? bestAceSlot(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return (cs) => rankAce(cs, mustHaves.length ? cs.length : PARENTS, h, d); }, mustHaves) : null;
-	return { aceSlot, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP, horse.skills) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves) };
+	return { aceSlot, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP, horse.skills) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value) };
 }
 
 // Every version runs the sim runner's Target stats in its own best style, so only aptitudes and the unique skill differ.

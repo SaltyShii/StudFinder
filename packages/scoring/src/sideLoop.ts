@@ -33,6 +33,7 @@ export function sideLoopPicks(candidates: Candidate[], detailOf: (id: string) =>
 	// With Must-haves, spark % of them plus the CM pink ranks first so the veteran can parent the Ace; simulated value (the greedy order) only breaks ties.
 	if (!mustHaves.length) return ranked;
 	const byId = new Map(candidates.map((c) => [c.id, c]));
-	const priority = (p: CandidatePick) => { const hs = byId.get(p.candidateId).horses; return mustHaveChance(hs, mustHaves) + chanceAny(hs.filter((h) => h.pinkStars > 0).map((h) => procChance(FactorType.Aptitude, h.pinkStars, h.affinity))); };
+	// Rounded so float noise between equal chances does not skip the simulated-value tie-break.
+	const priority = (p: CandidatePick) => { const hs = byId.get(p.candidateId)?.horses ?? []; return Math.round((mustHaveChance(hs, mustHaves) + chanceAny(hs.filter((h) => h.pinkStars > 0).map((h) => procChance(FactorType.Aptitude, h.pinkStars, h.affinity)))) * 1e9); };
 	return ranked.sort((a, b) => priority(b) - priority(a)).slice(0, top);
 }

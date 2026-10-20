@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
-import { clearRoster, importRoster, loadRoster, loadTierEdits, saveRoster, saveTierEdits } from './roster';
+import { clearRoster, importRoster, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -59,5 +59,18 @@ it('persists Tier edits and drops stale-versioned or malformed ones', () => {
 	s.setItem('stud-finder:tier-edits', JSON.stringify({ version: 99, edits }));
 	expect(loadTierEdits(s)).toEqual({});
 	s.setItem('stud-finder:tier-edits', JSON.stringify({ version: 1, edits: { sashi: { moved: 3 } } }));
+	expect(loadTierEdits(s)).toEqual({});
+	s.setItem('stud-finder:tier-edits', JSON.stringify({ version: 1, edits: { bogus: edits.sashi } }));
+	expect(loadTierEdits(s)).toEqual({});
+	s.setItem('stud-finder:tier-edits', JSON.stringify({ version: 1, edits: [edits.sashi] }));
+	expect(loadTierEdits(s)).toEqual({});
+});
+
+it('clearing data also drops Must-haves and Tier edits', () => {
+	const s = fakeStorage();
+	saveMustHaves(s, ['10071']);
+	saveTierEdits(s, { sashi: { moved: {}, disabled: ['x'] } });
+	clearRoster(s);
+	expect(loadMustHaves(s)).toEqual([]);
 	expect(loadTierEdits(s)).toEqual({});
 });

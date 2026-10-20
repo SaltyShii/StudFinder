@@ -1,4 +1,4 @@
-import type { GameData } from '../../lineage/src/gameData';
+import { versionName, type GameData } from '../../lineage/src/gameData';
 import { lineageCompat } from '../../lineage/src/compatibility';
 import { FactorType, type Veteran } from '../../lineage/src/types';
 import { categoryOf, type Category } from './ace';
@@ -42,7 +42,7 @@ export function candidatesOf(data: GameData, veterans: Veteran[], t: CandidateTa
 	return veterans.filter((v) => v.cardId !== t.aceCardId).map((v) => {
 		const compat = target == null ? null : lineageCompat(data, target, v, v).parents[0];
 		const card = data.cards.get(v.cardId);
-		const version = card ? `${card.title} ${card.name}`.trim() : String(v.cardId);
+		const version = card ? versionName(card) : String(v.cardId);
 		const label = v.borrowed ? `borrowed from ${v.borrowed.trainerName ?? v.borrowed.trainerId}` : `Rank score ${v.rankScore}, created ${v.createdAt}`;
 		const horses = [horseOf(data, v.cardId, v.factorIds, compat?.affinity ?? 0, t.pinkGroupId)];
 		v.parents.forEach((g, i) => { if (g) horses.push(horseOf(data, g.cardId, g.factorIds, compat?.grandparents[i] ?? 0, t.pinkGroupId)); });

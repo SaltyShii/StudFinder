@@ -53,6 +53,15 @@ it('has no RecommendJob without candidates or a course, but still lists candidat
 	expect(planCandidates(data, roster, ace, undefined, false)).toHaveLength(1);
 });
 
+it('plans the Ace slot without a Sim runner, leaving the veteran lists empty', () => {
+	const candidates = planCandidates(data, roster, ace, course, false);
+	const owned = [{ cardId: ace.id, aptitudes: ace.aptitudes, candidates }];
+	const job = planRecommend(data, [], cm, undefined, course, null, {}, null, owned)?.job;
+	expect(job?.candidateList.candidates).toEqual([]);
+	expect(job?.owned).toBe(owned);
+	expect(planRecommend(data, [], cm, undefined, course, null, {}).job).toBeNull();
+});
+
 it('includes borrowed veterans only when asked', () => {
 	const withBorrowed = importRoster(JSON.stringify([
 		{ trained_chara_id: 1, card_id: 100101, factor_id_array: [1201], succession_chara_array: [{ position_id: 10, card_id: 100201, owner_viewer_id: 777, factor_id_array: [1201, 1202] }] },

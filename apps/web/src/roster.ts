@@ -2,6 +2,7 @@ import type { GameData } from '../../../packages/lineage/src/gameData';
 import { parseExport } from '../../../packages/lineage/src/importer';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
+import { STYLES } from '../../../packages/scoring/src/ace';
 import type { TierEdits } from './jobs';
 
 const KEY = 'stud-finder:roster';
@@ -97,6 +98,7 @@ export function loadTierEdits(storage: Storage): TierEdits {
 		const raw: unknown = JSON.parse(storage.getItem(TIER_EDITS_KEY) ?? 'null');
 		const { version, edits } = (raw ?? {}) as { version?: unknown; edits?: unknown };
 		if (version !== VERSION || !edits || typeof edits !== 'object') return {};
+		if (Array.isArray(edits) || !Object.keys(edits).every((k) => (STYLES as readonly string[]).includes(k))) return {};
 		const ok = Object.values(edits).every((e: { moved?: unknown; disabled?: unknown }) =>
 			!!e && !!e.moved && typeof e.moved === 'object' && Object.values(e.moved).every((t) => typeof t === 'string' && t in TIER_VALUE)
 			&& Array.isArray(e.disabled) && e.disabled.every((n) => typeof n === 'string'));
@@ -111,6 +113,8 @@ export function clearRoster(storage: Storage): void {
 	storage.removeItem(KEY);
 	storage.removeItem(CM_KEY);
 	storage.removeItem(BORROW_KEY);
+	storage.removeItem(MUST_HAVES_KEY);
+	storage.removeItem(TIER_EDITS_KEY);
 	storage.removeItem('stud-finder:owned'); // manual owned toggles of an earlier version, which no longer exist
 }
 

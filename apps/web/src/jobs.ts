@@ -73,7 +73,7 @@ export interface RecommendPlan {
 	style: Style;
 	/** The Core loop's running style: its own choice, else the Sim runner's. */
 	coreStyle: Style;
-	/** Null until there is an Ace, a CM course and at least one candidate. */
+	/** Null until there is a CM course and a Sim runner (or an Owned version) with candidates (or Owned versions). */
 	job: RecommendJob | null;
 	/** Undefined until the CM course is known. */
 	defaults: TargetStats | undefined;
@@ -81,11 +81,13 @@ export interface RecommendPlan {
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, card: Card | undefined, course: Course | undefined, styleChoice: Style | null, target: Partial<TargetStats>, coreStyleChoice: Style | null = null, owned: OwnedVersion[] = [], tierEdits: TierEdits = {}, mustHaves: string[] = []): RecommendPlan {
 	// Manual choice wins; otherwise the best-ranked style for this Ace on the CM course.
-	const style: Style = styleChoice ?? (card && course ? rankStyles(card.aptitudes, categoryOf(course.distance))[0] : 'senko');
+	// The Ace slot needs only Target stats, so without a Sim runner the first Owned version stands in for its aptitudes.
+	const base = card ?? (owned[0] && { aptitudes: owned[0].aptitudes, uniqueSkillId: owned[0].uniqueSkillId == null ? undefined : Number(owned[0].uniqueSkillId) });
+	const style: Style = styleChoice ?? (base && course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 	const coreStyle = coreStyleChoice ?? style;
-	if (!data || !card || !course || !candidates.length) return { style, coreStyle, job: null, defaults };
-	const runner = aceForCourse(card, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
+	if (!data || !base || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
+	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
 	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, mustHaves } };
 }
 

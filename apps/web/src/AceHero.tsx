@@ -1,4 +1,4 @@
-import type { GameData } from '../../../packages/lineage/src/gameData';
+import { versionName, type GameData } from '../../../packages/lineage/src/gameData';
 import { STYLE_LABEL } from '../../../packages/scoring/src/ace';
 import type { AcePick, OwnedVersion } from '../../../packages/scoring/src/recommend';
 import { UmaCard } from './UmaCard';
@@ -14,7 +14,7 @@ interface Props {
 
 function nameOf(data: GameData, id: number) {
 	const c = data.cards.get(id);
-	return c ? `${c.title} ${c.name}`.trim() : String(id);
+	return c ? versionName(c) : String(id);
 }
 
 /** The best Ace: version, running style, 2 parents. Grandparents are the parents' own two parents. */
