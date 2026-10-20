@@ -3,6 +3,7 @@ import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { categoryOf, defaultTargetStats, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
+import { rankStyles } from '../../../packages/scoring/src/styleRank';
 import { formatAge } from './age';
 import { PickList } from './PickList';
 import type { RecommendRunner } from './recommend.job';
@@ -36,7 +37,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [cmId, setCmId] = useState<number>(() => loadCm(localStorage, CMS.map((c) => c.id)) ?? pickCm(new Date()).id);
 	const [useBorrowed, setUseBorrowed] = useState(() => loadUseBorrowed(localStorage));
 	const [aceId, setAceId] = useState<number | null>(null);
-	const [style, setStyle] = useState<Style>('senko');
+	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
@@ -45,6 +46,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const cm = useMemo(() => pickCm(new Date(), cmId), [cmId]);
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster && card ? candidatesFor(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
+	// Manual choice wins; otherwise the best-ranked style for this Ace on the CM course.
+	const style: Style = styleChoice ?? (card && course ? rankStyles(card.aptitudes, categoryOf(course.distance))[0] : 'senko');
 	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
 	const job = useMemo(() => (card ? buildJob(candidates, cm, card, course, style, target, tierList) : null), [candidates, cm, card, course, style, target, tierList]);
 	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
@@ -95,14 +98,14 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					<section class="panel">
 						<CmBanner cmId={cm.id} />
 						<h2>Ace</h2>
-						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); }}>
+						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setStyleChoice(null); }}>
 							{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 						</select></label>
-						<label>Ace version <select name="ace" value={card?.id ?? ''} onChange={(e) => setAceId(Number(e.currentTarget.value))}>
+						<label>Ace version <select name="ace" value={card?.id ?? ''} onChange={(e) => { setAceId(Number(e.currentTarget.value)); setStyleChoice(null); }}>
 							<option value="" disabled>Choose an Ace</option>
 							{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
 						</select></label>
-						<label>Style <select name="style" value={style} onChange={(e) => setStyle(e.currentTarget.value as Style)}>
+						<label>Style <select name="style" value={style} onChange={(e) => setStyleChoice(e.currentTarget.value as Style)}>
 							{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
 						</select></label>
 						{defaults && <fieldset><legend>Target stats</legend>{STATS.map((k) => (

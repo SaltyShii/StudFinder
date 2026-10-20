@@ -239,3 +239,23 @@ it('shows a worker error, stops the busy state, drops the old result and clears 
 	await act(() => { style.dispatchEvent(new Event('change')); });
 	expect(root.querySelector('[role=alert]')).toBeNull();
 });
+
+it('returns the Style to the best-ranked one when the Ace or CM changes', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
+	expect(style.value).toBe('senko'); // best aptitude on a middle-distance course
+	const change = async (name: string, value: string) => {
+		const sel = root.querySelector(`select[name=${name}]`) as HTMLSelectElement;
+		sel.value = value;
+		await act(() => { sel.dispatchEvent(new Event('change')); });
+	};
+	await change('style', 'nige');
+	expect(style.value).toBe('nige');
+	await pickAce('100301');
+	expect(style.value).toBe('senko');
+	await change('style', 'nige');
+	await change('cm', String(CMS[1].id));
+	expect(style.value).toBe('senko');
+});
