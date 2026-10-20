@@ -35,6 +35,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [useBorrowed, setUseBorrowed] = useState(() => loadUseBorrowed(localStorage));
 	const [aceId, setAceId] = useState<number | null>(null);
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
+	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
@@ -43,7 +44,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const cm = useMemo(() => pickCm(new Date(), cmId), [cmId]);
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster && card ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
-	const { style, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target), [data, candidates, cm, card, course, styleChoice, target]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target, coreStyleChoice), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice]);
 	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
 	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
@@ -91,14 +92,17 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					<section class="panel">
 						<CmBanner cmId={cm.id} />
 						<h2>Sim runner</h2>
-						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setStyleChoice(null); }}>
+						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setStyleChoice(null); setCoreStyleChoice(null); }}>
 							{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 						</select></label>
-						<label>Sim runner <select name="ace" value={card?.id ?? ''} onChange={(e) => { setAceId(Number(e.currentTarget.value)); setStyleChoice(null); }}>
+						<label>Sim runner <select name="ace" value={card?.id ?? ''} onChange={(e) => { setAceId(Number(e.currentTarget.value)); setStyleChoice(null); setCoreStyleChoice(null); }}>
 							<option value="" disabled>Choose a Sim runner</option>
 							{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
 						</select></label>
 						<label>Style <select name="style" value={style} onChange={(e) => setStyleChoice(e.currentTarget.value as Style)}>
+							{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
+						</select></label>
+						<label>Core loop style <select name="core-style" value={coreStyle} onChange={(e) => setCoreStyleChoice(e.currentTarget.value as Style)}>
 							{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
 						</select></label>
 						{defaults && <fieldset><legend>Target stats</legend>{STATS.map((k) => (

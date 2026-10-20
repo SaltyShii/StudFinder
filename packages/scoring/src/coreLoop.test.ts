@@ -12,7 +12,7 @@ const candidateList: CandidateList = {
 		cand('high', horseOf({ skills: [spark('Uma Stan'), spark('Ramp Up')] })),
 		cand('dirt', horseOf({ dirtStars: 3 })),
 		cand('nodirt', horseOf({ dirtStars: 0, skills: [spark('Uma Stan')] })),
-		// the parents of a candidate are beyond the Ace's lineage, so their sparks do not count
+		// the candidate's own two parents count: the lineage is the candidate plus its parents
 		cand('parents', horseOf(), horseOf({ skills: [spark('Uma Stan')] })),
 	],
 };
@@ -27,7 +27,8 @@ test('core loop ranks by tier-list sparks and requires a dirt spark', () => {
 	expect(by.dirt.score).toBe(0); // dirt gates, it adds no score
 	expect(by.high.reason).toMatch(/Uma Stan/);
 	expect(by.nodirt).toBeUndefined(); // no dirt spark: not a great-grandparent
-	expect(by.parents.score).toBe(0);
+	// marginal: 'high' already supplies Uma Stan, so check the parents alone
+	expect(recommend({ candidates: [candidateList.candidates[4]] }, preset, tierList).core[0].score).toBeGreaterThan(0);
 });
 
 test('no tier list means no core picks', () => {

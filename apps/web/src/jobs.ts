@@ -28,10 +28,16 @@ export type VeteranRunner = JobRunner<VeteranJob, AceVeteranScore[], VeteranProg
 /** What crosses to the worker: one entry file serves every job, told apart by `kind`. */
 export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'veterans'; job: VeteranJob };
 
+// A Core loop is usable for any CM, so skills tied to a surface, distance or track do not count.
+const CM_BOUND = /(ground_type|distance_type|is_basis_distance|track_id)[=!<>]/;
+
 // Every skill name of an entry maps to its tier; resolved entries are sorted best first.
-function tierListOf(data: GameData, style: Style): TierList {
+function coreTierListOf(data: GameData, style: Style): TierList {
 	const list: TierList = {};
-	for (const e of resolveTierList(data, style).entries) for (const n of e.skills) list[n] ??= e.tier;
+	for (const e of resolveTierList(data, style).entries) {
+		const bound = e.groupIds.some((g) => [...data.skills.values()].some((s) => (s.groupId || s.id) === g && s.conditions?.some((c) => CM_BOUND.test(`${c.pre}&${c.cond}`))));
+		if (!bound) for (const n of e.skills) list[n] ??= e.tier;
+	}
 	return list;
 }
 
@@ -49,19 +55,22 @@ export function planCandidates(data: GameData, roster: ImportResult, card: Card,
 
 export interface RecommendPlan {
 	style: Style;
+	/** The Core loop's running style: its own choice, else the Sim runner's. */
+	coreStyle: Style;
 	/** Null until there is an Ace, a CM course and at least one candidate. */
 	job: RecommendJob | null;
 	/** Undefined until the CM course is known. */
 	defaults: TargetStats | undefined;
 }
 
-export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, card: Card | undefined, course: Course | undefined, styleChoice: Style | null, target: Partial<TargetStats>): RecommendPlan {
+export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, card: Card | undefined, course: Course | undefined, styleChoice: Style | null, target: Partial<TargetStats>, coreStyleChoice: Style | null = null): RecommendPlan {
 	// Manual choice wins; otherwise the best-ranked style for this Ace on the CM course.
 	const style: Style = styleChoice ?? (card && course ? rankStyles(card.aptitudes, categoryOf(course.distance))[0] : 'senko');
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
-	if (!data || !card || !course || !candidates.length) return { style, job: null, defaults };
+	const coreStyle = coreStyleChoice ?? style;
+	if (!data || !card || !course || !candidates.length) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(card, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: tierListOf(data, style) } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: coreTierListOf(data, coreStyle) } };
 }
 
 /** Needs no Ace or Target stats. Null until game data is loaded, so unique skills are never missing from a run. */

@@ -269,3 +269,21 @@ it('labels the selector Sim runner, not Ace', async () => {
 	expect(label.firstChild!.textContent).toBe('Sim runner ');
 	expect([...root.querySelectorAll('h2')].map((h) => h.textContent)).toContain('Sim runner');
 });
+
+it('Core loop style follows the Sim runner style until overridden', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const change = async (name: string, value: string) => {
+		const sel = root.querySelector(`select[name=${name}]`) as HTMLSelectElement;
+		sel.value = value;
+		await act(() => { sel.dispatchEvent(new Event('change')); });
+	};
+	const core = root.querySelector('select[name=core-style]') as HTMLSelectElement;
+	expect(core.value).toBe('senko');
+	await change('style', 'sashi');
+	expect(core.value).toBe('sashi');
+	await change('core-style', 'oikomi');
+	await change('style', 'nige');
+	expect(core.value).toBe('oikomi');
+});
