@@ -42,6 +42,10 @@ export function gradeLetter(n: number) {
 	if (!g) throw new Error(`Unknown aptitude grade ${n}`);
 	return g;
 }
+/** Like gradeLetter, but '?' for out-of-range grades (veteran records with missing aptitude) so the UI never throws. */
+export function gradeLabel(n: number) {
+	return GRADES[n - 1] ?? '?';
+}
 const STRATEGY: Record<Style, string> = { nige: 'Nige', senko: 'Senkou', sashi: 'Sasi', oikomi: 'Oikomi' };
 
 export interface AceInput {

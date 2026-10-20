@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { aceForCourse, buildAce, CATEGORIES, defaultTargetStats, gradeLetter, STYLES, courseFacts, rankStyles, styleScore } from './ace';
+import { aceForCourse, buildAce, CATEGORIES, defaultTargetStats, gradeLabel, gradeLetter, STYLES, courseFacts, rankStyles, styleScore } from './ace';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import { recommend } from './recommend';
 
@@ -63,4 +63,8 @@ test('courseFacts reads distance and surface from the sim course', () => {
 test('courseFacts names an unknown course id', () => {
 	expect(() => courseFacts(-1)).toThrow('Unknown course id -1');
 	expect(() => courseFacts('toString' as unknown as number)).toThrow('Unknown course id toString');
+});
+
+test('gradeLabel shows ? instead of throwing out of range', () => {
+	expect([0, 4, 9, NaN].map(gradeLabel)).toEqual(['?', 'D', '?', '?']);
 });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { GameData, loadGameData, versionName } from '../../../packages/lineage/src/gameData';
+import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
@@ -7,9 +7,10 @@ import { formatAge } from './age';
 import { AceHero } from './AceHero';
 import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
+import { SimRunner } from './SimRunner';
 import { TierEditor } from './TierEditor';
 import { PickList } from './PickList';
-import { cardIdsOf, coreTierListOf, planCandidates, planOwned, planRecommend, planVeterans, type RecommendRunner, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
+import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planOwned, planRecommend, planVeterans, type RecommendJob, type RecommendRunner, type VeteranJob, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
@@ -41,6 +42,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	// Until the player edits, Owned versions are the versions the Roster has a veteran of.
 	const owned = useMemo(() => new Set(ownedChoice ?? roster?.veterans.map((v) => v.cardId) ?? []), [ownedChoice, roster]);
 	const [mustHaves, setMustHaves] = useState<string[]>(() => loadMustHaves(localStorage));
+	// Null is the Generic runner (all A, no unique skill).
 	const [simRunnerId, setSimRunnerId] = useState<number | null>(null);
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
@@ -52,7 +54,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const card = data && simRunnerId != null ? data.cards.get(simRunnerId) : undefined;
 	const cm = useMemo(() => pickCm(new Date(), cmId), [cmId]);
 	const course = data?.courses.get(cm.courseId);
-	const candidates = useMemo(() => (data && roster && card ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
+	const candidates = useMemo(() => (data && roster ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
 	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: ownedVersions, tierEdits, mustHaves }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
@@ -62,12 +64,14 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		setTierEdits(next);
 	};
 	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
-	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
-
-	// Needs no Sim runner or Target stats, so it runs as soon as a Roster, game data and CM course exist.
 	const veteranJob = useMemo(() => planVeterans(data, roster, cm), [data, roster, cm]);
+	// Nothing computes until Run: the jobs run the snapshot taken then, and any later change to `job` marks the results outdated.
+	const [ran, setRan] = useState<{ job: RecommendJob; veteranJob: VeteranJob | null; run: RecommendJob; vRun: VeteranJob | null } | null>(null);
+	const { result, busy, stale: running, error: jobError, cancel } = useJob(run, ran?.run ?? null);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
-	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });
+	const vs = useJob(runVeterans, ran?.vRun ?? null, { clearOnRestart: true });
+	const stale = running || (!!ran && ran.job !== job);
+	const vsStale = vs.stale || (!!ran && ran.veteranJob !== veteranJob);
 	// The track's top simulated skills, best value first.
 	const suggestions = useMemo(() => result?.skills.slice(0, 5).map((d) => d.skillId) ?? [], [result]);
 	const shownError = error || jobError?.message || vs.error?.message;
@@ -103,7 +107,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						<h2>Roster</h2>
 						<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
 						<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
-						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); }}>Clear data</button>
+						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
 					</section>
 				)}
 				{roster && data && <OwnedVersions data={data} owned={owned} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />}
@@ -114,10 +118,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setStyleChoice(null); setCoreStyleChoice(null); }}>
 							{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 						</select></label>
-						<label>Sim runner <select name="sim-runner" value={card?.id ?? ''} onChange={(e) => { setSimRunnerId(Number(e.currentTarget.value)); setStyleChoice(null); setCoreStyleChoice(null); }}>
-							<option value="" disabled>Choose a Sim runner</option>
-							{[...data.cards.values()].map((c) => <option value={c.id}>{versionName(c)}</option>)}
-						</select></label>
+						<SimRunner data={data} cardId={card?.id ?? null} onPick={(id) => { setSimRunnerId(id); setStyleChoice(null); setCoreStyleChoice(null); }} />
 						<label>Style <select name="style" value={style} onChange={(e) => setStyleChoice(e.currentTarget.value as Style)}>
 							{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
 						</select></label>
@@ -129,12 +130,16 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						))}</fieldset>}
 					</section>
 				)}
-				{roster && data && <MustHaves data={data} mustHaves={mustHaves} suggestions={suggestions} onChange={(ids) => { saveMustHaves(localStorage, ids); setMustHaves(ids); }} />}
+				{roster && data && <MustHaves data={data} tiers={applyTierEdit(baseTierList, tierEdits[coreStyle])} mustHaves={mustHaves} suggestions={suggestions} onChange={(ids) => { saveMustHaves(localStorage, ids); setMustHaves(ids); }} />}
 				{roster && data && <TierEditor base={baseTierList} edit={tierEdits[coreStyle]} onChange={editTiers} />}
+				<section class="panel">
+					<button class="primary" name="run" disabled={!job} onClick={() => setRan({ job: job!, veteranJob, run: { ...job! }, vRun: veteranJob && { ...veteranJob } })}>Run</button>
+					{!job && <p class="muted">Import a Roster with Owned versions to run.</p>}
+				</section>
 			</div>
-			{roster && data && (
+			{!ran && <div class="results"><p class="panel empty">Import your roster, set your options, then press Run.</p></div>}
+			{roster && data && ran && (
 				<div class="results">
-					{!card && <p class="panel">Choose a Sim runner to see recommendations.</p>}
 					{busy && <p class="panel">Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
 					<div class="picks">
@@ -144,7 +149,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					<details>
 						<summary>Ace veteran list</summary>
 						<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
-						<VeteranList scores={vs.result} progress={vs.progress} stale={vs.stale} data={data} onCancel={vs.cancel} />
+						<VeteranList scores={vs.result} progress={vs.progress} stale={vsStale} data={data} onCancel={vs.cancel} />
 					</details>
 				</div>
 			)}
