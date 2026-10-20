@@ -269,3 +269,23 @@ it('labels the selector Sim runner, not Ace', async () => {
 	expect(label.firstChild!.textContent).toBe('Sim runner ');
 	expect([...root.querySelectorAll('h2')].map((h) => h.textContent)).toContain('Sim runner');
 });
+
+it('prefills Owned versions from the Roster, lets the player edit them, and persists the edit', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	const boxes = () => [...root.querySelectorAll<HTMLInputElement>('input[name=owned-version]')];
+	expect(boxes().map((b) => [b.value, b.checked])).toEqual([['100101', false], ['100201', true], ['100301', true]]);
+	expect(root.querySelector('.owned-grid img')!.getAttribute('src')).toContain('img/cards/100101.png');
+	await act(() => { boxes()[0].click(); });
+	expect(boxes()[0].checked).toBe(true);
+	expect(localStorage.getItem('stud-finder:owned-versions')).toContain('100101');
+	render(null, root);
+	await act(() => { render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root); });
+	await flush();
+	expect(boxes().map((b) => b.checked)).toEqual([true, true, true]);
+	localStorage.setItem('stud-finder:owned-versions', JSON.stringify({ version: 99, ids: [100101] }));
+	render(null, root);
+	await act(() => { render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root); });
+	await flush();
+	expect(boxes().map((b) => b.checked)).toEqual([false, true, true]);
+});

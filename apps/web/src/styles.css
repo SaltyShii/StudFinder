@@ -111,3 +111,7 @@ details > summary { cursor: pointer; color: var(--accent); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip { padding: 1px 8px; font-size: 0.8rem; background: var(--accent-soft); border-radius: 999px; }
 .caveat { font-size: 0.85rem; color: var(--muted); font-style: italic; }
+
+.owned-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 4px; max-height: 20rem; overflow-y: auto; }
+.owned-grid label { position: relative; display: block; }
+.owned-grid input { position: absolute; top: 2px; left: 2px; }

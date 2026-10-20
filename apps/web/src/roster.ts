@@ -49,7 +49,25 @@ export function loadUseBorrowed(storage: Storage): boolean {
 	}
 }
 
+const OWNED_KEY = 'stud-finder:owned-versions';
+
+export function saveOwnedVersions(storage: Storage, ids: number[]): void {
+	storage.setItem(OWNED_KEY, JSON.stringify({ version: VERSION, ids }));
+}
+
+/** Card ids the player ticked, or null (use the Roster prefill) when absent, stale-versioned or malformed. */
+export function loadOwnedVersions(storage: Storage): number[] | null {
+	try {
+		const raw: unknown = JSON.parse(storage.getItem(OWNED_KEY) ?? 'null');
+		const { version, ids } = (raw ?? {}) as { version?: unknown; ids?: unknown };
+		return version === VERSION && Array.isArray(ids) && ids.every((i) => typeof i === 'number') ? ids : null;
+	} catch {
+		return null;
+	}
+}
+
 export function clearRoster(storage: Storage): void {
+	storage.removeItem(OWNED_KEY);
 	storage.removeItem(KEY);
 	storage.removeItem(CM_KEY);
 	storage.removeItem(BORROW_KEY);
