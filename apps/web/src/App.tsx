@@ -5,6 +5,7 @@ import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../pack
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
 import { AceHero } from './AceHero';
+import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { TierEditor } from './TierEditor';
 import { PickList } from './PickList';
@@ -12,7 +13,7 @@ import { cardIdsOf, coreTierListOf, planCandidates, planOwned, planRecommend, pl
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadCm, loadOwnedVersions, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadCm, loadOwnedVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -39,6 +40,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [ownedChoice, setOwnedChoice] = useState<number[] | null>(() => loadOwnedVersions(localStorage));
 	// Until the player edits, Owned versions are the versions the Roster has a veteran of.
 	const owned = useMemo(() => new Set(ownedChoice ?? roster?.veterans.map((v) => v.cardId) ?? []), [ownedChoice, roster]);
+	const [mustHaves, setMustHaves] = useState<string[]>(() => loadMustHaves(localStorage));
 	const [aceId, setAceId] = useState<number | null>(null);
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
@@ -52,7 +54,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster && card ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
@@ -66,6 +68,12 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const veteranJob = useMemo(() => planVeterans(data, roster, cm), [data, roster, cm]);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });
+	// The track's top simulated skills across the Ace veteran picks, best value first.
+	const suggestions = useMemo(() => {
+		const best = new Map<string, number>();
+		for (const d of result?.ace.flatMap((p) => p.detail) ?? []) best.set(d.skillId, Math.max(best.get(d.skillId) ?? 0, d.value));
+		return [...best].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
+	}, [result]);
 	const shownError = error || jobError?.message || vs.error?.message;
 
 	async function onFile(e: Event) {
@@ -125,6 +133,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						))}</fieldset>}
 					</section>
 				)}
+				{roster && data && <MustHaves data={data} mustHaves={mustHaves} suggestions={suggestions} onChange={(ids) => { saveMustHaves(localStorage, ids); setMustHaves(ids); }} />}
 				{roster && data && <TierEditor base={baseTierList} edit={tierEdits[coreStyle]} onChange={editTiers} />}
 			</div>
 			{roster && data && (

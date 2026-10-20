@@ -299,6 +299,32 @@ it('Core loop style follows the Sim runner style until overridden', async () => 
 	expect(core.value).toBe('oikomi');
 });
 
+it('adds Must-have skills by search or suggestion chip, passes them to the job and persists them', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };
+	const mount = () => render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root);
+	mount();
+	await importFile();
+	await pickAce();
+	const chips = () => [...root.querySelectorAll<HTMLButtonElement>('button[data-testid=must-have-suggestion]')];
+	expect(chips().map((c) => c.textContent)).toEqual(['Synthetic Skill']);
+	await act(() => { chips()[0].click(); });
+	const listed = () => [...root.querySelectorAll('[data-testid=must-have]')].map((e) => e.textContent);
+	expect(listed()).toEqual(['Synthetic Skill remove']);
+	expect(jobs[jobs.length - 1].mustHaves).toEqual(['10071']);
+	await act(() => { root.querySelector<HTMLButtonElement>('[data-testid=must-have] button')!.click(); });
+	expect(listed()).toEqual([]);
+	const search = root.querySelector('input[name=must-have-search]') as HTMLInputElement;
+	search.value = 'synth';
+	await act(() => { search.dispatchEvent(new Event('input')); });
+	await act(() => { root.querySelector<HTMLButtonElement>('button[data-testid=must-have-result]')!.click(); });
+	expect(listed()).toEqual(['Synthetic Skill remove']);
+	render(null, root);
+	mount();
+	await flush();
+	expect(listed()).toEqual(['Synthetic Skill remove']);
+});
+
 it('prefills Owned versions from the Roster, lets the player edit them, and persists the edit', async () => {
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();

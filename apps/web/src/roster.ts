@@ -68,6 +68,23 @@ export function loadOwnedVersions(storage: Storage): number[] | null {
 	}
 }
 
+const MUST_HAVES_KEY = 'stud-finder:must-haves';
+
+export function saveMustHaves(storage: Storage, ids: string[]): void {
+	storage.setItem(MUST_HAVES_KEY, JSON.stringify({ version: VERSION, ids }));
+}
+
+/** Must-have skill ids; empty when absent, stale-versioned or malformed. */
+export function loadMustHaves(storage: Storage): string[] {
+	try {
+		const raw: unknown = JSON.parse(storage.getItem(MUST_HAVES_KEY) ?? 'null');
+		const { version, ids } = (raw ?? {}) as { version?: unknown; ids?: unknown };
+		return version === VERSION && Array.isArray(ids) && ids.every((i) => typeof i === 'string') ? ids : [];
+	} catch {
+		return [];
+	}
+}
+
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
 
 export function saveTierEdits(storage: Storage, edits: TierEdits): void {
