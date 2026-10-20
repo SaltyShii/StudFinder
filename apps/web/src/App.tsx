@@ -90,12 +90,12 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 				{roster && data && (
 					<section class="panel">
 						<CmBanner cmId={cm.id} />
-						<h2>Ace</h2>
+						<h2>Sim runner</h2>
 						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setStyleChoice(null); }}>
 							{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 						</select></label>
-						<label>Ace version <select name="ace" value={card?.id ?? ''} onChange={(e) => { setAceId(Number(e.currentTarget.value)); setStyleChoice(null); }}>
-							<option value="" disabled>Choose an Ace</option>
+						<label>Sim runner <select name="ace" value={card?.id ?? ''} onChange={(e) => { setAceId(Number(e.currentTarget.value)); setStyleChoice(null); }}>
+							<option value="" disabled>Choose a Sim runner</option>
 							{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
 						</select></label>
 						<label>Style <select name="style" value={style} onChange={(e) => setStyleChoice(e.currentTarget.value as Style)}>
@@ -109,7 +109,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 			</div>
 			{roster && data && (
 				<div class="results">
-					{!card && <p class="panel">Choose an Ace to see recommendations.</p>}
+					{!card && <p class="panel">Choose a Sim runner to see recommendations.</p>}
 					{busy && <p class="panel">Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<div class="picks">
 						<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} cardIds={cardIds} stale={stale} data={data} />

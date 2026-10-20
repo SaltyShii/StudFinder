@@ -116,13 +116,13 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 	expect(root.textContent).not.toContain('Computing');
 });
 
-it('shows a prompt and runs no job until an Ace is chosen, and marks lists stale on restart', async () => {
+it('shows a prompt and runs no job until a Sim runner is chosen, and marks lists stale on restart', async () => {
 	const jobs: RecommendJob[] = [];
 	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };
 	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
 	expect(jobs).toHaveLength(0);
-	expect(root.textContent).toContain('Choose an Ace');
+	expect(root.textContent).toContain('Choose a Sim runner');
 	await pickAce();
 	expect(jobs).toHaveLength(1);
 	expect(root.textContent).toContain('outdated');
@@ -260,4 +260,12 @@ it('returns the Style to the best-ranked one when the Ace or CM changes', async 
 	await change('style', 'nige');
 	await change('cm', String(CMS[1].id));
 	expect(style.value).toBe('senko');
+});
+
+it('labels the selector Sim runner, not Ace', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	const label = root.querySelector('select[name=ace]')!.closest('label')!;
+	expect(label.firstChild!.textContent).toBe('Sim runner ');
+	expect([...root.querySelectorAll('h2')].map((h) => h.textContent)).toContain('Sim runner');
 });
