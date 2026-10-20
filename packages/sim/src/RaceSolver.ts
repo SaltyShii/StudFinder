@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 
+import { ConserveSections, creditPerSecond, releaseAccel, releaseDuration } from './ConservePower';
 import { Strategy, Aptitude, HorseParameters, StrategyHelpers } from './HorseTypes';
 import { CourseData, CourseHelpers, Phase } from './CourseData';
 import { Region } from './Region';
@@ -304,6 +305,11 @@ export class RaceSolver {
 	skillWisdomCheck: boolean
 	rushedKakari: boolean
 
+	// Conserve power: null power stat means the horse has none
+	conservePowerStat: number | null
+	conservedPower: number
+	conserveReleased: boolean
+
 	// Rushed state
 	isRushed: boolean
 	hasBeenRushed: boolean  // Track if horse has already been rushed this race (can only happen once)
@@ -397,6 +403,7 @@ export class RaceSolver {
 			endCloser: number
 		},
 		laneMovement?: boolean,
+		conservePowerStat?: number,
 	}) {
 		// clone since green skills may modify the stat values
 		this.horse = Object.assign({}, params.horse);
@@ -463,6 +470,10 @@ export class RaceSolver {
 		//init timer
 		this.speedUpProbability = params.speedUpProbability != null ? params.speedUpProbability : 100
 		
+		this.conservePowerStat = params.conservePowerStat ?? null;
+		this.conservedPower = 0;
+		this.conserveReleased = false;
+
 		// Initialize rushed state
 		this.isRushed = false;
 		this.hasBeenRushed = false;
@@ -690,6 +701,7 @@ export class RaceSolver {
 		this.updateCompeteFight();
 		this.updateLeadCompetition();
 		this.updateLastSpurtState();
+		this.updateConservePower(dt);
 		this.updateTargetSpeed();
 		this.applyForces();
 		if (this.laneMovementEnabled) {
@@ -1198,6 +1210,22 @@ export class RaceSolver {
 		}
 		if (this.pos >= this.lastSpurtTransition) {
 			this.isLastSpurt = true;
+		}
+	}
+
+	updateConservePower(dt: number) {
+		if (this.conservePowerStat === null || this.conserveReleased) return;
+		if (this.isLastSpurt) {
+			this.conserveReleased = true;
+			const modifier = releaseAccel(this.conservePowerStat, this.horse.strategy, this.course.distanceType);
+			const duration = releaseDuration(this.conservedPower, this.course.distance);
+			this.modifiers.accel.add(modifier);
+			this.activeAccelSkills.push({skillId: 'asitame', perspective: Perspective.Self, durationTimer: this.getNewTimer(-duration), modifier});
+			this.onSkillActivate(this, 'asitame', Perspective.Self);
+		} else if (this.pos < this.sectionLength * ConserveSections) {
+			// reductions apply from the event onward ("after"), once per race
+			const activity = (this.leadCompetitionStart !== null ? 0.95 : 1) * (this.hasBeenRushed ? 0.8 : 1);
+			this.conservedPower += creditPerSecond(this.horse.strategy, this.positionKeepState === PositionKeepState.PaceDown) * activity * dt;
 		}
 	}
 
