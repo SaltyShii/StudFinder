@@ -6,11 +6,17 @@ const preset = { courseId: 10101, runner: horse, samples: 5, seed: 7 };
 const S1 = '200012';
 const S2 = '200022';
 const tierList = { [S1]: 'T0', [S2]: 'T0' } as const;
-const sp = (id: string, stars: number) => ({ skillId: id, name: id, stars });
-const cand = (id: string, ...skills: LineageHorse['skills']): Candidate => ({ id, name: id, horses: [{ affinity: 50, pinkStars: id === 'a-lead' ? 3 : 0, dirtStars: 1, skills }] }); // the lead's pink keeps it ranked first
+function sp(id: string, stars: number) {
+	return { skillId: id, name: id, stars };
+}
+// the lead's pink keeps it ranked first
+function cand(id: string, ...skills: LineageHorse['skills']): Candidate {
+	return { id, name: id, horses: [{ affinity: 50, pinkStars: id === 'a-lead' ? 3 : 0, dirtStars: 1, skills }] };
+}
 const MODES = ['ace', 'core', 'side'] as const;
-const scoreOf = (mode: (typeof MODES)[number], cs: Candidate[], id: string, runner = horse) =>
-	recommend({ candidates: cs }, { ...preset, runner }, tierList)[mode].find((p) => p.candidateId === id)!.score;
+function scoreOf(mode: (typeof MODES)[number], cs: Candidate[], id: string, runner = horse) {
+	return recommend({ candidates: cs }, { ...preset, runner }, tierList)[mode].find((p) => p.candidateId === id)!.score;
+}
 
 for (const mode of MODES) {
 	test(`${mode}: a skill a better pick already supplies at that tier adds nothing`, () => {

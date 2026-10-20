@@ -53,7 +53,7 @@ export interface CandidatePick {
 /** Stars each skill is already supplied at; the Ace baseline counts as Infinity. */
 export type Supplied = Map<string, number>;
 
-export function baselineOf(aceSkills: string[] = []): Supplied {
+export function aceSupply(aceSkills: string[] = []): Supplied {
 	return new Map(aceSkills.map((id) => [id, Infinity]));
 }
 
@@ -62,19 +62,20 @@ export function newShare(stars: number, supplied = 0): number {
 	return Math.max(0, stars - supplied) / stars;
 }
 
-export function maxStars(sparks: { skillId: string; stars: number }[]): Supplied {
+/** Best stars per spark, keyed by skill id or (as the tier list is) by name. */
+export function maxStars(sparks: SkillSpark[], key: 'skillId' | 'name' = 'skillId'): Supplied {
 	const m: Supplied = new Map();
-	for (const s of sparks) m.set(s.skillId, Math.max(m.get(s.skillId) ?? 0, s.stars));
+	for (const s of sparks) m.set(s[key], Math.max(m.get(s[key]) ?? 0, s.stars));
 	return m;
 }
 
 /** Greedy marginal gain: take the best pick given what is supplied, add what it supplies, rescore the rest. No lineage optimizer. */
-export function greedyRank(candidates: Candidate[], top: number, baseline: Supplied, scoreOne: (c: Candidate, supplied: Supplied) => { pick: CandidatePick; supply: Supplied }): CandidatePick[] {
+export function greedyRank(candidates: Candidate[], top: number, baseline: Supplied, scorePick: (c: Candidate, supplied: Supplied) => { pick: CandidatePick; supply: Supplied }): CandidatePick[] {
 	const supplied: Supplied = new Map(baseline);
 	const left = [...candidates];
 	const out: CandidatePick[] = [];
 	while (left.length && out.length < top) {
-		const scored = left.map((c) => ({ c, ...scoreOne(c, supplied) }));
+		const scored = left.map((c) => ({ c, ...scorePick(c, supplied) }));
 		const best = scored.sort((a, b) => b.pick.score - a.pick.score || a.pick.candidateId.localeCompare(b.pick.candidateId))[0];
 		out.push(best.pick);
 		left.splice(left.indexOf(best.c), 1);

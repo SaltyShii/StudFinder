@@ -47,4 +47,15 @@ describe("parseExport", () => {
   ])("rejects %s with no partial roster", (_n, input) => {
     expect(() => parseExport(input, data)).toThrow(ImportError);
   });
+
+  it("skips a spark with fewer than 1 star and warns", () => {
+    const bad = new GameData({
+      meta: {}, charas: {}, cards: {}, skills: {},
+      factors: { 101: { id: 101, groupId: 1, type: 4, stars: 0, name: "Bad", targets: [], skillId: null }, 102: { id: 102, groupId: 2, type: 4, stars: 2, name: "Ok", targets: [], skillId: null } },
+      relations: { points: {}, members: {}, ranks: [] }, saddles: {}, tracks: {}, courses: {}, races: [],
+    } as unknown as RawGameData);
+    const r = parseExport([vet(1, { factor_info_array: [{ factor_id: 101 }, { factor_id: 102 }] })], bad);
+    expect(r.veterans[0].factorIds).toEqual([102]);
+    expect(r.warnings.join()).toContain("fewer than 1 star");
+  });
 });

@@ -38,3 +38,9 @@ test("the Ace counts the skills of the veteran and of its parents, each once", (
 test('same seed and samples give identical output', () => {
 	expect(recommend(candidateList, preset)).toEqual(recommend(candidateList, preset));
 });
+
+test('a hard-to-train Ace (low aptitudes) still gets every veteran listed in all three modes', () => {
+	const poor = { ...preset, runner: { ...horse, distanceAptitude: 'G', strategyAptitude: 'G' } };
+	const out = recommend(candidateList, poor, { S10071: 'T0' });
+	for (const mode of ['ace', 'core', 'side'] as const) expect(out[mode].map((p) => p.candidateId).sort()).toEqual(['a', 'b', 'c']);
+});

@@ -2,7 +2,9 @@ import { expect, test } from 'vitest';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import { rankStyles, styleScore } from './styleRank';
 
-const apt = (o: Partial<Record<string, number>>) => ({ short: 1, mile: 1, middle: 1, long: 1, nige: 1, senko: 1, sashi: 1, oikomi: 1, ...o }) as unknown as Aptitudes;
+function apt(o: Partial<Aptitudes>): Aptitudes {
+	return { turf: 1, dirt: 1, short: 1, mile: 1, middle: 1, long: 1, nige: 1, senko: 1, sashi: 1, oikomi: 1, ...o };
+}
 
 test('ranks styles by style aptitude, best first, ties in STYLES order', () => {
 	expect(rankStyles(apt({ middle: 7, sashi: 7, senko: 5 }), 'middle')).toEqual(['sashi', 'senko', 'nige', 'oikomi']);
