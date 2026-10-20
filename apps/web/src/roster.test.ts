@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
-import { clearRoster, importRoster, loadRoster, saveRoster } from './roster';
+import { clearRoster, importRoster, loadRoster, loadTierEdits, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -49,4 +49,15 @@ describe('roster', () => {
 		s.setItem(KEY, 'garbage');
 		expect(loadRoster(s)).toBeNull();
 	});
+});
+
+it('persists Tier edits and drops stale-versioned or malformed ones', () => {
+	const s = fakeStorage();
+	const edits = { sashi: { moved: { 'Late Surger Straightaways': 'T5' as const }, disabled: ['Uma Stan'] } };
+	saveTierEdits(s, edits);
+	expect(loadTierEdits(s)).toEqual(edits);
+	s.setItem('stud-finder:tier-edits', JSON.stringify({ version: 99, edits }));
+	expect(loadTierEdits(s)).toEqual({});
+	s.setItem('stud-finder:tier-edits', JSON.stringify({ version: 1, edits: { sashi: { moved: 3 } } }));
+	expect(loadTierEdits(s)).toEqual({});
 });

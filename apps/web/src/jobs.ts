@@ -1,6 +1,6 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { Card, Course, ImportResult, Veteran } from '../../../packages/lineage/src/types';
-import { resolveTierList } from '../../../packages/lineage/src/tiers';
+import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers';
 import { aceForCourse, categoryOf, defaultTargetStats, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
@@ -32,13 +32,27 @@ export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'vet
 // A Core loop is usable for any CM, so skills tied to a surface, distance or track do not count.
 const CM_BOUND = /(ground_type|distance_type|is_basis_distance|track_id)[=!<>]/;
 
+/** The player's edits to one style's Tier list: skills moved to another tier, skills disabled. */
+export interface TierEdit {
+	moved: Record<string, Tier>;
+	disabled: string[];
+}
+export type TierEdits = Partial<Record<Style, TierEdit>>;
+
 // Every skill name of an entry maps to its tier; resolved entries are sorted best first.
-function coreTierListOf(data: GameData, style: Style): TierList {
+export function coreTierListOf(data: GameData, style: Style): TierList {
 	const list: TierList = {};
 	for (const e of resolveTierList(data, style).entries) {
 		const bound = e.groupIds.some((g) => [...data.skills.values()].some((s) => (s.groupId || s.id) === g && s.conditions?.some((c) => CM_BOUND.test(`${c.pre}&${c.cond}`))));
 		if (!bound) for (const n of e.skills) list[n] ??= e.tier;
 	}
+	return list;
+}
+
+export function applyTierEdit(base: TierList, edit: TierEdit | undefined): TierList {
+	if (!edit) return base;
+	const list = { ...base, ...edit.moved };
+	for (const n of edit.disabled) delete list[n];
 	return list;
 }
 
@@ -64,14 +78,14 @@ export interface RecommendPlan {
 	defaults: TargetStats | undefined;
 }
 
-export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, card: Card | undefined, course: Course | undefined, styleChoice: Style | null, target: Partial<TargetStats>, coreStyleChoice: Style | null = null, owned: OwnedVersion[] = []): RecommendPlan {
+export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, card: Card | undefined, course: Course | undefined, styleChoice: Style | null, target: Partial<TargetStats>, coreStyleChoice: Style | null = null, owned: OwnedVersion[] = [], tierEdits: TierEdits = {}): RecommendPlan {
 	// Manual choice wins; otherwise the best-ranked style for this Ace on the CM course.
 	const style: Style = styleChoice ?? (card && course ? rankStyles(card.aptitudes, categoryOf(course.distance))[0] : 'senko');
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !card || !course || !candidates.length) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(card, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: coreTierListOf(data, coreStyle), owned } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned } };
 }
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */

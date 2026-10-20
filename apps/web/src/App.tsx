@@ -6,12 +6,13 @@ import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
 import { AceHero } from './AceHero';
 import { OwnedVersions } from './OwnedVersions';
+import { TierEditor } from './TierEditor';
 import { PickList } from './PickList';
-import { cardIdsOf, planCandidates, planOwned, planRecommend, planVeterans, type RecommendRunner, type VeteranRunner } from './jobs';
+import { cardIdsOf, coreTierListOf, planCandidates, planOwned, planRecommend, planVeterans, type RecommendRunner, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadCm, loadOwnedVersions, loadRoster, loadUseBorrowed, saveCm, saveOwnedVersions, saveRoster, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadCm, loadOwnedVersions, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -42,6 +43,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
+	const [tierEdits, setTierEdits] = useState<TierEdits>(() => loadTierEdits(localStorage));
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
@@ -50,7 +52,13 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster && card ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits]);
+	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
+	const editTiers = (edit: TierEdit | undefined) => {
+		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
+		saveTierEdits(localStorage, next);
+		setTierEdits(next);
+	};
 	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
 	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
@@ -117,6 +125,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						))}</fieldset>}
 					</section>
 				)}
+				{roster && data && <TierEditor base={baseTierList} edit={tierEdits[coreStyle]} onChange={editTiers} />}
 			</div>
 			{roster && data && (
 				<div class="results">

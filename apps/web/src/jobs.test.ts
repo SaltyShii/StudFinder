@@ -6,7 +6,7 @@ import type { Style } from '../../../packages/scoring/src/ace';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { cardIdsOf, planCandidates, planRecommend, planVeterans } from './jobs';
+import { cardIdsOf, planCandidates, planRecommend, planVeterans, type TierEdits } from './jobs';
 import { runJob } from './runJob';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
@@ -86,4 +86,13 @@ it('core loop style defaults to the Sim runner style, can be overridden, and dro
 	expect(coreList(null, 'oikomi')).toHaveProperty(['End Closer Straightaways']);
 	expect(coreList('sashi')).not.toHaveProperty(['Sprint Corners']); // distance conditioned
 	expect(coreList('sashi')).not.toHaveProperty(['Groundwork']); // track conditioned
+});
+
+it('Tier list edits move or disable a skill for the Core loop style only', () => {
+	const candidates = planCandidates(data, roster, ace, course, false);
+	const list = (edits: TierEdits) => planRecommend(data, candidates, cm, ace, course, 'sashi', {}, null, [], edits).job!.tierList!;
+	expect(list({})['Late Surger Straightaways']).toBe('T1.5');
+	expect(list({ sashi: { moved: { 'Late Surger Straightaways': 'T5' }, disabled: [] } })['Late Surger Straightaways']).toBe('T5');
+	expect(list({ sashi: { moved: {}, disabled: ['Late Surger Straightaways'] } })).not.toHaveProperty(['Late Surger Straightaways']);
+	expect(list({ oikomi: { moved: {}, disabled: ['Late Surger Straightaways'] } })['Late Surger Straightaways']).toBe('T1.5'); // another style's edit
 });

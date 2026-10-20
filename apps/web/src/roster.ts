@@ -1,6 +1,8 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import { parseExport } from '../../../packages/lineage/src/importer';
 import type { ImportResult } from '../../../packages/lineage/src/types';
+import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
+import type { TierEdits } from './jobs';
 
 const KEY = 'stud-finder:roster';
 // Bump when the stored ImportResult shape changes; older saves are then rejected.
@@ -63,6 +65,27 @@ export function loadOwnedVersions(storage: Storage): number[] | null {
 		return version === VERSION && Array.isArray(ids) && ids.every((i) => typeof i === 'number') ? ids : null;
 	} catch {
 		return null;
+	}
+}
+
+const TIER_EDITS_KEY = 'stud-finder:tier-edits';
+
+export function saveTierEdits(storage: Storage, edits: TierEdits): void {
+	storage.setItem(TIER_EDITS_KEY, JSON.stringify({ version: VERSION, edits }));
+}
+
+/** Per-style Tier list edits; empty (the community sheet) when absent, stale-versioned or malformed. */
+export function loadTierEdits(storage: Storage): TierEdits {
+	try {
+		const raw: unknown = JSON.parse(storage.getItem(TIER_EDITS_KEY) ?? 'null');
+		const { version, edits } = (raw ?? {}) as { version?: unknown; edits?: unknown };
+		if (version !== VERSION || !edits || typeof edits !== 'object') return {};
+		const ok = Object.values(edits).every((e: { moved?: unknown; disabled?: unknown }) =>
+			!!e && !!e.moved && typeof e.moved === 'object' && Object.values(e.moved).every((t) => typeof t === 'string' && t in TIER_VALUE)
+			&& Array.isArray(e.disabled) && e.disabled.every((n) => typeof n === 'string'));
+		return ok ? (edits as TierEdits) : {};
+	} catch {
+		return {};
 	}
 }
 

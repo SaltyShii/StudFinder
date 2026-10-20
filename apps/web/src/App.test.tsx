@@ -19,7 +19,7 @@ const data = new GameData({
 		100201: { id: 100201, charaId: 1002, name: 'Stud', title: 'Test', aptitudes: apt, uniqueSkillId: null, skillIds: [10071] },
 		100301: { id: 100301, charaId: 1003, name: 'Dud', title: 'Test', aptitudes: apt, uniqueSkillId: null, skillIds: [] },
 	},
-	skills: { 10071: { id: 10071, name: 'Synthetic Skill' } }, factors: {
+	skills: { 10071: { id: 10071, name: 'Synthetic Skill' }, 10072: { id: 10072, name: 'Racing Spirit: Stamina', rarity: 1, groupId: 9 } }, factors: {
 		1201: { id: 1201, groupId: 12, type: 2, stars: 1, name: 'Dirt', targets: [], skillId: null },
 		1202: { id: 1202, groupId: 4001, type: 4, stars: 3, name: 'Synthetic Spark', targets: [], skillId: 10071 },
 	}, relations: { points: {}, members: {}, ranks: [] },
@@ -317,4 +317,36 @@ it('prefills Owned versions from the Roster, lets the player edit them, and pers
 	await act(() => { render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root); });
 	await flush();
 	expect(boxes().map((b) => b.checked)).toEqual([false, true, true]);
+});
+
+it('edits the Tier list per Core loop style, resets it, and persists the edit', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, fail) => { jobs.push(job); return inline(job, p, done, fail); };
+	const mount = async () => { render(null, root); await act(() => { render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root); }); await flush(); };
+	await mount();
+	await importFile();
+	await pickAce();
+	const tier = () => jobs.at(-1)!.tierList!['Racing Spirit: Stamina'];
+	const field = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
+	expect(tier()).toBe('URA');
+	const move = field<HTMLSelectElement>('select[name=tier-of][data-skill="Racing Spirit: Stamina"]');
+	move.value = 'T5';
+	await act(() => { move.dispatchEvent(new Event('change')); });
+	expect(tier()).toBe('T5');
+	jobs.length = 0;
+	await mount();
+	await pickAce();
+	expect(tier()).toBe('T5'); // persisted
+	await act(() => { field<HTMLInputElement>('input[name=tier-enabled]').click(); });
+	await flush();
+	expect(jobs.at(-1)!.tierList).not.toHaveProperty(['Racing Spirit: Stamina']);
+	const core = field<HTMLSelectElement>('select[name=core-style]');
+	core.value = 'oikomi';
+	await act(() => { core.dispatchEvent(new Event('change')); });
+	expect(tier()).toBe('URA'); // edits are per style
+	core.value = 'senko';
+	await act(() => { core.dispatchEvent(new Event('change')); });
+	await act(() => { field<HTMLButtonElement>('button[name=tier-reset]').click(); });
+	expect(tier()).toBe('URA');
+	expect(localStorage.getItem('stud-finder:tier-edits')).not.toContain('Racing');
 });
