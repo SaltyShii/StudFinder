@@ -1,8 +1,9 @@
 import data from './data/cm-presets.json';
+import type { RaceConditions } from './pairedRace';
 import type { CmPreset } from './shared';
 
 /** Champions Meeting preset, from saltyuma-tools umalator-global (confirmed=false means a predicted date). */
-export interface Cm {
+export interface Cm extends RaceConditions {
 	id: number;
 	name: string;
 	date: string;
@@ -32,5 +33,5 @@ export function pickCm(today: Date, overrideId?: number, cms: Cm[] = CMS): Cm {
 }
 
 export function cmPreset(cm: Cm, runner: CmPreset['runner']): CmPreset {
-	return { courseId: cm.courseId, runner };
+	return { courseId: cm.courseId, season: cm.season, ground: cm.ground, weather: cm.weather, time: cm.time, runner };
 }

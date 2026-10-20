@@ -68,7 +68,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const veteranJob = useMemo(() => planVeterans(data, roster, cm), [data, roster, cm]);
 	// Nothing computes until Run: the jobs run the snapshot taken then, and any later change to `job` marks the results outdated.
 	const [ran, setRan] = useState<{ job: RecommendJob; veteranJob: VeteranJob | null; run: RecommendJob; vRun: VeteranJob | null } | null>(null);
-	const { result, busy, stale: running, error: jobError, cancel } = useJob(run, ran?.run ?? null);
+	const { result, progress, busy, stale: running, error: jobError, cancel } = useJob(run, ran?.run ?? null);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, ran?.vRun ?? null, { clearOnRestart: true });
 	const stale = running || (!!ran && ran.job !== job);
@@ -141,7 +141,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 			{!ran && <div class="results"><p class="panel empty">Import your roster, set your options, then press Run.</p></div>}
 			{roster && data && ran && (
 				<div class="results">
-					{busy && <p class="panel">Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
+					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
 					<div class="picks">
 						{ownedVersions.length ? <>

@@ -51,12 +51,35 @@ export interface Recommendation {
 const TOP = 5;
 const PARENTS = 2;
 
-export function recommend(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = []): Recommendation {
-	const detailerOf = (h: HorseDesc) => {
-		const cache = new Map<string, SkillDetail>();
+/** Reported per simulated skill: screening runs first (total unknown), then the finalists are re-simulated at full samples. */
+export interface RecommendProgress {
+	phase: 'screen' | 'refine';
+	done: number;
+	/** Known for `refine` only. */
+	total?: number;
+}
+
+// Skills are first simulated at this many samples to rank cheaply; only the ones a pick shows are re-simulated at full samples.
+const SCREEN_SAMPLES = 20;
+
+export function recommend(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void): Recommendation {
+	// One cache per distinct runner, so Owned versions that run identically share simulations.
+	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
+	let simulated = 0;
+	const simulate = (h: HorseDesc, id: string, n: number, phase: 'screen' | 'refine', total?: number): SkillDetail => {
+		const d: SkillDetail = { ...skillDetail(id, { ...cm, horse: h, samples: n, seed }), screened: n < samples, src: JSON.stringify(h) };
+		onProgress?.({ phase, done: ++simulated, total });
+		return d;
+	};
+	// `full` skips screening for values that feed a score directly (a version's own unique skill).
+	const detailerOf = (h: HorseDesc, full = false) => {
+		const key = JSON.stringify(h);
+		let sim = sims.get(key);
+		if (!sim) sims.set(key, (sim = { horse: h, cache: new Map() }));
+		const { cache } = sim;
 		return (skillId: string) => {
 			let d = cache.get(skillId);
-			if (!d) cache.set(skillId, (d = skillDetail(skillId, { ...cm, horse: h, samples, seed })));
+			if (!d || (full && d.screened)) cache.set(skillId, (d = simulate(h, skillId, full ? samples : Math.min(samples, SCREEN_SAMPLES), 'screen')));
 			return d;
 		};
 	};
@@ -69,31 +92,48 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 		const reason = detail.length ? `${detail.length} inheritable skills` : 'no inheritable skills';
 		return { pick: { candidateId: c.id, score, reason, detail }, supply: stars };
 	});
-	const detailFor = detailerOf(horse);
-	const seen = new Map<string, SkillDetail>();
-	const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
-	const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return (cs) => rankAce(cs, PARENTS, h, d); }, detailerOf, mustHaves);
-	const aceSlot = bestAceSlot(versions, categoryOf(courseFacts(cm.courseId).distance));
-	const coreV = versions.length ? coreVersion(versions) : undefined;
-	// The Core loop's dirt A chance uses the core version's affinities, not the Sim runner's.
-	// shortcut: a candidate the core version has no entry for (its own veterans are excluded) keeps the Sim runner's affinity; upgrade if that ever matters.
-	const coreById = new Map(coreV?.candidates.map((c) => [c.id, c]));
-	const coreCandidates = candidateList.candidates.map((c) => coreById.get(c.id) ?? c);
-	const sum = (ps: CandidatePick[]) => ps.reduce((t, p) => t + p.score, 0);
-	const horsesOf = (v: OwnedVersion, ps: CandidatePick[]) => ps.flatMap((p) => v.candidates.find((c) => c.id === p.candidateId)?.horses ?? []);
-	// Each loop lineage uses the loop's own greedy ranking over the version's candidates, so the 2 parents complement each other.
-	const sideSlots = owned.map((v) => { const parents = sideLoopPicks(v.candidates, detailOf, PARENTS, horse.skills, mustHaves); return { pick: { cardId: v.cardId, score: sum(parents), parents }, key: mustHaves.length ? sideLoopPriority(horsesOf(v, parents), mustHaves) : 0 }; })
-		.sort((a, b) => b.key - a.key || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick);
-	const coreSlots = tierList ? owned.map((v) => { const parents = coreLoopPicks(v.candidates, tierList, PARENTS, horse.skills, v.aptitudes.dirt); return { pick: { cardId: v.cardId, score: sum(parents), parents }, tier: coreTier(v) }; })
-		.sort((a, b) => a.tier - b.tier || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick) : [];
-	return { aceSlot, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value) };
+	const pass = (): Recommendation => {
+		const detailFor = detailerOf(horse);
+		const seen = new Map<string, SkillDetail>();
+		const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
+		const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return (cs) => rankAce(cs, PARENTS, h, d); }, detailerOf, mustHaves);
+		const aceSlot = bestAceSlot(versions, categoryOf(courseFacts(cm.courseId).distance));
+		const coreV = versions.length ? coreVersion(versions) : undefined;
+		// The Core loop's dirt A chance uses the core version's affinities, not the Sim runner's.
+		// shortcut: a candidate the core version has no entry for (its own veterans are excluded) keeps the Sim runner's affinity; upgrade if that ever matters.
+		const coreById = new Map(coreV?.candidates.map((c) => [c.id, c]));
+		const coreCandidates = candidateList.candidates.map((c) => coreById.get(c.id) ?? c);
+		const sum = (ps: CandidatePick[]) => ps.reduce((t, p) => t + p.score, 0);
+		const horsesOf = (v: OwnedVersion, ps: CandidatePick[]) => ps.flatMap((p) => v.candidates.find((c) => c.id === p.candidateId)?.horses ?? []);
+		// Each loop lineage uses the loop's own greedy ranking over the version's candidates, so the 2 parents complement each other.
+		const sideSlots = owned.map((v) => { const parents = sideLoopPicks(v.candidates, detailOf, PARENTS, horse.skills, mustHaves); return { pick: { cardId: v.cardId, score: sum(parents), parents }, key: mustHaves.length ? sideLoopPriority(horsesOf(v, parents), mustHaves) : 0 }; })
+			.sort((a, b) => b.key - a.key || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick);
+		const coreSlots = tierList ? owned.map((v) => { const parents = coreLoopPicks(v.candidates, tierList, PARENTS, horse.skills, v.aptitudes.dirt); return { pick: { cardId: v.cardId, score: sum(parents), parents }, tier: coreTier(v) }; })
+			.sort((a, b) => a.tier - b.tier || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick) : [];
+		return { aceSlot, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value) };
+	};
+	// Rank on screened values, then re-simulate the skills the picks show at full samples and rank again from the cache, until every shown skill is full.
+	let rec = pass();
+	for (;;) {
+		const todo = new Map<string, { key: string; id: string }>();
+		for (const d of shownDetails(rec)) if (d.screened && d.src) todo.set(`${d.src}|${d.skillId}`, { key: d.src, id: d.skillId });
+		if (!todo.size) return rec;
+		for (const { key, id } of todo.values()) { const sim = sims.get(key)!; sim.cache.set(id, simulate(sim.horse, id, samples, 'refine', todo.size)); }
+		rec = pass();
+	}
+}
+
+/** Every skill detail a pick of the recommendation shows. */
+function shownDetails(r: Recommendation): SkillDetail[] {
+	const picks = [...(r.aceSlot?.parents ?? []), ...r.ace, ...r.side, ...r.core, ...r.sideSlots.flatMap((l) => l.parents), ...r.coreSlots.flatMap((l) => l.parents)];
+	return picks.flatMap((p) => p.detail);
 }
 
 // Every version runs the sim runner's Target stats in its own best style, so only aptitudes and the unique skill differ.
 // A parent and its own 2 grandparents are permanently linked, so each candidate is one unit and the slot takes the best PAIR of units (never grandparents alone).
 // Dirt plays no part here: pair order is Must-have inheritance chance, then simulated value on the selected track.
 // The score is the version's own unique skill value plus its parents' marginal value; a version with no roster candidates still scores by its unique alone.
-function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, rankerFor: (h: HorseDesc) => (cs: Candidate[]) => CandidatePick[], detailerOf: (h: HorseDesc) => (id: string) => SkillDetail, mustHaves: string[]): { v: OwnedVersion; pick: AcePick }[] {
+function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, rankerFor: (h: HorseDesc) => (cs: Candidate[]) => CandidatePick[], detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[]): { v: OwnedVersion; pick: AcePick }[] {
 	const out: { v: OwnedVersion; pick: AcePick }[] = [];
 	for (const v of owned) {
 		const units = v.candidates;
@@ -109,7 +149,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const input = { aptitudes: v.aptitudes, style, category: categoryOf(course.distance), surface: course.surface, target: { speed, stamina, power, guts, wisdom } };
 		const h = buildAce({ ...input, uniqueSkillId: v.uniqueSkillId });
 		// Measured on the runner without it, as every skill's value is.
-		const uniqueValue = v.uniqueSkillId && v.uniqueSkillId in skillData ? detailerOf(buildAce(input))(v.uniqueSkillId).value : 0;
+		const uniqueValue = v.uniqueSkillId && v.uniqueSkillId in skillData ? detailerOf(buildAce(input), true)(v.uniqueSkillId).value : 0;
 		// Distance below A is raised by pink sparks: those pairs come first, then Must-have inheritance.
 		const base = v.aptitudes[category];
 		const pinkKeys = pairs.map((p) => base >= GRADE_A ? 0 : chanceKey(distanceAChance(p.flatMap((c) => c.horses), base)));

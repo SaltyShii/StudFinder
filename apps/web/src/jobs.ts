@@ -4,7 +4,7 @@ import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers'
 import { aceForCourse, categoryOf, defaultTargetStats, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
-import type { CandidateList, CmPreset, OwnedVersion, Recommendation } from '../../../packages/scoring/src/recommend';
+import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import type { JobRunner } from './jobRunner';
@@ -19,12 +19,18 @@ export interface RecommendJob {
 export interface VeteranJob {
 	veterans: Veteran[];
 	courseId: number;
+	season?: number;
+	ground?: number;
+	weather?: number;
+	time?: number;
 	/** [card id, unique skill id] pairs (structured-cloneable for the worker). */
 	uniqueSkills: [number, number][];
 }
 export type VeteranProgress = [done: number, total: number];
-// shortcut: recommend() is synchronous, so its progress is a busy flag, not a percentage; split per candidate if it gets slow.
-export type RecommendRunner = JobRunner<RecommendJob, Recommendation>;
+export type { RecommendProgress };
+/** What the worker reports while a job runs. */
+export type JobProgress = VeteranProgress | RecommendProgress;
+export type RecommendRunner = JobRunner<RecommendJob, Recommendation, RecommendProgress>;
 export type VeteranRunner = JobRunner<VeteranJob, AceVeteranScore[], VeteranProgress>;
 
 /** What crosses to the worker: one entry file serves every job, told apart by `kind`. */
@@ -123,5 +129,5 @@ export function planVeterans(data: GameData | null, roster: ImportResult | null,
 	if (!data || !roster || !data.courses.has(cm.courseId)) return null;
 	const uniqueSkills: [number, number][] = [];
 	data.cards.forEach((c) => { if (c.uniqueSkillId != null) uniqueSkills.push([c.id, c.uniqueSkillId]); });
-	return { veterans: roster.veterans, courseId: cm.courseId, uniqueSkills };
+	return { veterans: roster.veterans, courseId: cm.courseId, season: cm.season, ground: cm.ground, weather: cm.weather, time: cm.time, uniqueSkills };
 }

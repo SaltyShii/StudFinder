@@ -3,7 +3,7 @@ import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Veteran } from '@stud-finder/lineage/src/types';
 import { buildAce, categoryOf, courseFacts, STYLES, type Style } from './ace';
 import { skillDetail } from './skillDetail';
-import { median, pairedRace } from './pairedRace';
+import { median, pairedRace, type RaceConditions } from './pairedRace';
 import type { SkillDetail } from './shared';
 
 const CAREER_STYLE: Style[] = ['nige', 'senko', 'sashi', 'oikomi']; // game running_style 1-4
@@ -27,7 +27,7 @@ export interface AceVeteranScore {
 	assumesPosition: boolean;
 }
 
-export interface VeteranScoreOptions {
+export interface VeteranScoreOptions extends RaceConditions {
 	courseId: number;
 	samples?: number;
 	seed?: number;
@@ -38,7 +38,7 @@ export interface VeteranScoreOptions {
 }
 
 /** Scores every veteran as herself: own stats, aptitudes, equipped skills, career style; no Target stats. Best first, ties by trained id. */
-export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, seed = 1, uniqueSkills, onProgress }: VeteranScoreOptions): AceVeteranScore[] {
+export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, seed = 1, uniqueSkills, onProgress, ...conditions }: VeteranScoreOptions): AceVeteranScore[] {
 	const course = courseFacts(courseId);
 	const category = categoryOf(course.distance);
 	const surface = course.surface;
@@ -52,8 +52,8 @@ export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, se
 		const equipped = [...new Set([...v.skillIds, ...(unique == null ? [] : [unique])].map(String))];
 		const ids = equipped.filter((id) => id in skillData); // skills the sim does not know are skipped
 		// Per-skill detail is each skill alone on the skill-less runner; the headline is the whole set together.
-		const detail = ids.map((skillId) => skillDetail(skillId, { horse, courseId, samples, seed }));
-		const setLengthsGained = median(pairedRace(ids, { horse, courseId, samples, seed }).map((r) => r.lengths)); // all runs, procced or not
+		const detail = ids.map((skillId) => skillDetail(skillId, { horse, courseId, samples, seed, ...conditions }));
+		const setLengthsGained = median(pairedRace(ids, { horse, courseId, samples, seed, ...conditions }).map((r) => r.lengths)); // all runs, procced or not
 		onProgress?.(i + 1, veterans.length);
 		return {
 			trainedId: v.trainedId, cardId: v.cardId, style, rankScore: v.rankScore, createdAt: v.createdAt,
