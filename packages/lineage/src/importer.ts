@@ -40,12 +40,18 @@ function aptitudes(r: Json): Aptitudes {
   };
 }
 
-function member(raw: Json, data: GameData): LineageMember {
+// Sparks are 1-3 stars in game; a lower count is malformed data and would break the star-share maths downstream.
+function member(raw: Json, data: GameData, badStars?: Set<number>): LineageMember {
   const cardId = num(raw.card_id) ?? 0;
   return {
     cardId,
     charaId: num(raw.chara_id) ?? data.charaIdOfCard(cardId),
-    factorIds: factorIds(raw.factor_info_array ?? raw.factor_id_array),
+    factorIds: factorIds(raw.factor_info_array ?? raw.factor_id_array).filter((f) => {
+      const stars = data.factors.get(f)?.stars;
+      if (stars === undefined || stars >= 1) return true;
+      badStars?.add(f);
+      return false;
+    }),
     winSaddleIds: numArray(raw.win_saddle_id_array),
     rarity: num(raw.rarity) ?? undefined,
     rank: num(raw.rank) ?? undefined,
@@ -67,6 +73,7 @@ export function parseExport(input: unknown, data: GameData, sourceName = "export
   const veterans: Veteran[] = [];
   const unknownCards = new Set<number>();
   const unknownFactors = new Set<number>();
+  const badStars = new Set<number>();
   const seen = new Set<number>();
   const rentals = new Map<string, Veteran>();
 
@@ -86,11 +93,11 @@ export function parseExport(input: unknown, data: GameData, sourceName = "export
     }
     seen.add(trainedId);
 
-    const base = member(r, data);
+    const base = member(r, data, badStars);
     const parentsRaw = Array.isArray(r.succession_chara_array) ? (r.succession_chara_array as Json[]) : [];
     const parents = PARENT_POSITIONS.map((pos) => {
       const p = parentsRaw.find((x) => x && num(x.position_id) === pos);
-      return p ? member(p, data) : null;
+      return p ? member(p, data, badStars) : null;
     }) as [LineageMember | null, LineageMember | null];
     if (parents.some((p) => p === null)) warnings.push(`Veteran ${trainedId}: parent data missing in export.`);
 
@@ -162,6 +169,7 @@ export function parseExport(input: unknown, data: GameData, sourceName = "export
     warnings.push(`Cards not in the current game data (data may be outdated): ${[...unknownCards].join(", ")}.`);
   if (unknownFactors.size)
     warnings.push(`Sparks not in the current game data are ignored in scoring: ${[...unknownFactors].join(", ")}.`);
+  if (badStars.size) warnings.push(`Sparks with fewer than 1 star are ignored: ${[...badStars].join(", ")}.`);
   if (veterans.length === 0) throw new ImportError("No usable veterans found in this file.");
 
   // A friend offers one rental at a time: keep the most recently seen one per trainer.

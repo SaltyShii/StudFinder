@@ -1,7 +1,7 @@
 import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillDetail } from './skillDetail';
-import { baselineOf, greedyRank, maxStars, newShare, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
+import { aceSupply, greedyRank, maxStars, newShare, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
 export type { Candidate, CmPreset, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
@@ -21,11 +21,12 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 		return d;
 	};
 	// Ignores spark chance on purpose: it counts every distinct skill the veteran and its parents carry, marginal over what better picks supply.
-	const ace = greedyRank(candidateList.candidates, TOP, baselineOf(horse.skills), (c, supplied) => {
+	const ace = greedyRank(candidateList.candidates, TOP, aceSupply(horse.skills), (c, supplied) => {
 		const stars = maxStars(c.horses.flatMap((h) => h.skills));
-		const detail = [...stars.keys()].filter((id) => newShare(stars.get(id)!, supplied.get(id)) > 0).map(detailOf);
-		const score = detail.reduce((s, d) => s + d.value * newShare(stars.get(d.skillId)!, supplied.get(d.skillId)), 0);
-		const best = detail.reduce<SkillDetail | undefined>((b, d) => (!b || d.value > b.value ? d : b), undefined);
+		const detail = [...stars.keys()].filter((id) => newShare(stars.get(id), supplied.get(id)) > 0).map(detailOf);
+		const marginalValue = (d: SkillDetail) => d.value * newShare(stars.get(d.skillId), supplied.get(d.skillId));
+		const score = detail.reduce((s, d) => s + marginalValue(d), 0);
+		const best = detail.reduce<SkillDetail | undefined>((b, d) => (!b || marginalValue(d) > marginalValue(b) ? d : b), undefined);
 		const reason = best ? `${best.proc.toFixed(0)}% proc, ${best.lengths.median.toFixed(2)} median lengths from skill ${best.skillId}` : 'no inheritable skills';
 		return { pick: { candidateId: c.id, score, reason, detail }, supply: stars };
 	});

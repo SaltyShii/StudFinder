@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { rankStyles } from '../../../packages/scoring/src/styleRank';
 import { categoryOf, defaultTargetStats, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
+import { rankStyles } from '../../../packages/scoring/src/styleRank';
 import { formatAge } from './age';
 import { PickList } from './PickList';
 import type { RecommendRunner } from './recommend.job';
@@ -98,10 +98,10 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					<section class="panel">
 						<CmBanner cmId={cm.id} />
 						<h2>Ace</h2>
-						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); }}>
+						<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setStyleChoice(null); }}>
 							{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 						</select></label>
-						<label>Ace version <select name="ace" value={card?.id ?? ''} onChange={(e) => setAceId(Number(e.currentTarget.value))}>
+						<label>Ace version <select name="ace" value={card?.id ?? ''} onChange={(e) => { setAceId(Number(e.currentTarget.value)); setStyleChoice(null); }}>
 							<option value="" disabled>Choose an Ace</option>
 							{[...data.cards.values()].map((c) => <option value={c.id}>{`${c.title} ${c.name}`.trim()}</option>)}
 						</select></label>

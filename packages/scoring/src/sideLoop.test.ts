@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
+import { recommend, type Candidate, type LineageHorse } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 5, seed: 7 };
@@ -10,18 +10,18 @@ const cand = (id: string, ...horses: LineageHorse[]): Candidate => ({ id, name: 
 const score = (c: Candidate) => recommend({ candidates: [c] }, preset).side[0].score;
 
 test('CM pink spark raises side score; affinity raises it further', () => {
-	const candidateList: CandidateList = {
-		candidates: [
-			cand('plain', horseOf({ skills: carries(3) })),
-			cand('pink', horseOf({ skills: carries(3), pinkStars: 3 })),
-			cand('affine', horseOf({ skills: carries(3), pinkStars: 3, affinity: 100 })),
-			cand('empty', horseOf()),
-		],
-	};
-	const by = Object.fromEntries(recommend(candidateList, preset).side.map((p) => [p.candidateId, p]));
-	expect(by.pink.score).toBeGreaterThan(by.plain.score);
-	expect(by.affine.score).toBeGreaterThan(by.pink.score);
-	expect(by.empty.score).toBe(0);
+	// Scored alone: together, a better pick would already supply the pink.
+	const plain = score(cand('plain', horseOf({ skills: carries(3) })));
+	const pink = score(cand('pink', horseOf({ skills: carries(3), pinkStars: 3 })));
+	const affine = score(cand('affine', horseOf({ skills: carries(3), pinkStars: 3, affinity: 100 })));
+	expect(pink).toBeGreaterThan(plain);
+	expect(affine).toBeGreaterThan(pink);
+	expect(score(cand('empty', horseOf()))).toBe(0);
+});
+
+test('a better pick already carrying the CM pink spark supplies it', () => {
+	const { side } = recommend({ candidates: [cand('a-lead', horseOf({ pinkStars: 3, affinity: 100 })), cand('dup', horseOf({ pinkStars: 3 }))] }, preset);
+	expect(side.find((p) => p.candidateId === 'dup').score).toBe(0);
 });
 
 test('skills are valued by sim, details exposed', () => {

@@ -33,3 +33,8 @@ test('core loop ranks by tier-list sparks and requires a dirt spark', () => {
 test('no tier list means no core picks', () => {
 	expect(recommend(candidateList, preset).core).toEqual([]);
 });
+
+test('core loop drops sparks of skills the Ace already has', () => {
+	const owned = { ...preset, runner: { ...horse, skills: ['0'] } };
+	expect(recommend(candidateList, owned, tierList).core.every((p) => p.score === 0)).toBe(true);
+});
