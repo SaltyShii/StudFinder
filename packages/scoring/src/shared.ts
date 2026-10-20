@@ -13,6 +13,8 @@ export interface SkillSpark {
 }
 /** One horse a veteran brings into the Ace's lineage: itself as a parent, or one of its two parents as a grandparent. */
 export interface LineageHorse {
+	/** For its portrait. */
+	cardId?: number;
 	/** Affinity with the Ace; sets this horse's chance to inspire. */
 	affinity: number;
 	/** Stars of the CM-relevant pink spark (0 = none). */

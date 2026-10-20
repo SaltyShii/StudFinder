@@ -200,7 +200,18 @@ it('shows a portrait on pick cards', async () => {
 	await pickAce();
 	expect(root.querySelector('[data-testid=ace-card] img')!.getAttribute('src')).toMatch(/img\/cards\/1002?01\.png/);
 	for (const id of ['core-card', 'side-card']) expect(root.querySelector(`[data-testid=${id}]`)!.querySelector('img, [data-testid=portrait-placeholder]')).not.toBeNull();
-	expect(root.querySelectorAll('.picks > section').length).toBe(3);
+	expect(root.querySelectorAll('.picks > section').length).toBe(2);
+});
+
+it('shows the Ace hero first, then Side and Core loops, with the Ace veteran list collapsed last', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	expect(root.querySelector('[data-testid=ace-pick]')).not.toBeNull();
+	expect(root.querySelector('[data-testid=ace-parent]')).not.toBeNull();
+	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
+	expect(heads.slice(0, 4)).toEqual(['Ace', 'Side loop', 'Core loop', 'Ace veteran list']);
+	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
 it('drops scores on cancel so they do not look current', async () => {

@@ -1,28 +1,50 @@
 import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillDetail } from './skillDetail';
-import { aceSupply, greedyRank, maxStars, newShare, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
+import type { Aptitudes } from '@stud-finder/lineage/src/types';
+import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
+import { buildAce, categoryOf, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
+import { aceSupply, greedyRank, maxStars, newShare, type Candidate, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
 export type { Candidate, CmPreset, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
+/** A version the player can train as the Ace; candidates are measured against it (affinity, own-version exclusion). */
+export interface OwnedVersion {
+	cardId: number;
+	aptitudes: Aptitudes;
+	uniqueSkillId?: string;
+	candidates: Candidate[];
+}
+/** The best Ace: a version in its best style, with 2 parents (their own parents are its 4 grandparents). */
+export interface AcePick {
+	cardId: number;
+	style: Style;
+	score: number;
+	parents: CandidatePick[];
+}
+
 export interface Recommendation {
+	aceSlot: AcePick | null;
 	ace: CandidatePick[];
 	core: CandidatePick[];
 	side: CandidatePick[];
 }
 
 const TOP = 5;
+const PARENTS = 2;
 
-export function recommend(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList): Recommendation {
-	const cache = new Map<string, SkillDetail>();
-	const detailOf = (skillId: string) => {
-		let d = cache.get(skillId);
-		if (!d) cache.set(skillId, (d = skillDetail(skillId, { ...cm, horse, samples, seed })));
-		return d;
+export function recommend(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = []): Recommendation {
+	const detailerOf = (h: HorseDesc) => {
+		const cache = new Map<string, SkillDetail>();
+		return (skillId: string) => {
+			let d = cache.get(skillId);
+			if (!d) cache.set(skillId, (d = skillDetail(skillId, { ...cm, horse: h, samples, seed })));
+			return d;
+		};
 	};
 	// Ignores spark chance on purpose: it counts every distinct skill the veteran and its parents carry, marginal over what better picks supply.
-	const ace = greedyRank(candidateList.candidates, TOP, aceSupply(horse.skills), (c, supplied) => {
-		const stars = maxStars(c.horses.flatMap((h) => h.skills));
+	const rankAce = (candidates: Candidate[], top: number, h: HorseDesc, detailOf: (id: string) => SkillDetail) => greedyRank(candidates, top, aceSupply(h.skills), (c, supplied) => {
+		const stars = maxStars(c.horses.flatMap((x) => x.skills));
 		const detail = [...stars.keys()].filter((id) => newShare(stars.get(id), supplied.get(id)) > 0).map(detailOf);
 		const marginalValue = (d: SkillDetail) => d.value * newShare(stars.get(d.skillId), supplied.get(d.skillId));
 		const score = detail.reduce((s, d) => s + marginalValue(d), 0);
@@ -30,5 +52,21 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 		const reason = best ? `${best.proc.toFixed(0)}% proc, ${best.lengths.median.toFixed(2)} median lengths from skill ${best.skillId}` : 'no inheritable skills';
 		return { pick: { candidateId: c.id, score, reason, detail }, supply: stars };
 	});
-	return { ace, core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP, horse.skills) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills) };
+	const detailOf = detailerOf(horse);
+	const aceSlot = owned.length ? bestAceSlot(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return (cs) => rankAce(cs, PARENTS, h, d); }) : null;
+	return { aceSlot, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP, horse.skills) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills) };
+}
+
+// Every version runs the sim runner's Target stats in its own best style, so only aptitudes and the unique skill differ.
+function bestAceSlot(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, rankerFor: (h: HorseDesc) => (cs: Candidate[]) => CandidatePick[]): AcePick | null {
+	let best: AcePick | null = null;
+	for (const v of owned) {
+		const style = rankStyles(v.aptitudes, categoryOf(course.distance))[0];
+		const { speed, stamina, power, guts, wisdom } = runner;
+		const h = buildAce({ aptitudes: v.aptitudes, style, category: categoryOf(course.distance), surface: course.surface, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: v.uniqueSkillId });
+		const parents = rankerFor(h)(v.candidates);
+		const score = parents.reduce((s, p) => s + p.score, 0);
+		if (!best || score > best.score) best = { cardId: v.cardId, style, score, parents };
+	}
+	return best;
 }
