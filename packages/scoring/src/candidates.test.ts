@@ -4,8 +4,8 @@ import type { RawGameData, Veteran } from '../../lineage/src/types';
 import { candidatesOf } from './candidates';
 import { recommend } from './recommend';
 
-const card = (id: number, title = 'T') => ({ id, charaId: id, name: `N${id}`, title, runningStyle: 1, skillIds: [] });
-const fx = (id: number, groupId: number, type: number, stars: number, name = '', skillId: number | null = null) => ({ id, groupId, type, stars, name, targets: [], skillId });
+function card(id: number, title = 'T') { return { id, charaId: id, name: `N${id}`, title, runningStyle: 1, skillIds: [] }; }
+function fx(id: number, groupId: number, type: number, stars: number, name = '', skillId: number | null = null) { return { id, groupId, type, stars, name, targets: [], skillId }; }
 const data = new GameData({
 	meta: {}, charas: {}, skills: {}, saddles: {}, tracks: {}, courses: {}, races: [],
 	cards: { 1: card(1), 2: card(2), 3: card(3), 100: card(100) },
@@ -13,9 +13,10 @@ const data = new GameData({
 	// Direct 100+1 is 5+4 (both groups); the grandparent trio adds 4.
 	relations: { points: { 7: 5, 8: 4 }, members: { 7: [100, 1], 8: [100, 1, 3] }, ranks: [] },
 } as unknown as RawGameData);
-const gp = (cardId: number, factorIds: number[]) => ({ cardId, charaId: cardId, factorIds, winSaddleIds: [] });
-const vet = (trainedId: number, cardId: number, factorIds: number[], parents: Veteran['parents'] = [null, null]) =>
-	({ trainedId, cardId, charaId: cardId, factorIds, winSaddleIds: [], rankScore: 100 + trainedId, createdAt: '2026-01-01', parents }) as unknown as Veteran;
+function gp(cardId: number, factorIds: number[]) { return { cardId, charaId: cardId, factorIds, winSaddleIds: [] }; }
+function vet(trainedId: number, cardId: number, factorIds: number[], parents: Veteran['parents'] = [null, null]) {
+	return ({ trainedId, cardId, charaId: cardId, factorIds, winSaddleIds: [], rankScore: 100 + trainedId, createdAt: '2026-01-01', parents }) as unknown as Veteran;
+}
 const opts = { aceCardId: 100, pinkGroupId: 21 };
 
 test('every veteran is a candidate, labelled with what tells its runs apart; the Ace version is not', () => {

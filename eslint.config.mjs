@@ -18,10 +18,9 @@ export default tseslint.config(
 		ignores: ['packages/sim/**'],
 		rules: { 'no-restricted-imports': ['error', { patterns: ['preact*', 'react*', '**/apps/**'] }] },
 	},
-	// lineage is vendored (sync manually), tests are exempt: enforce on new scoring code only
+	// lineage is vendored (sync manually): enforce on new scoring code only, tests included
 	{
 		files: ['packages/scoring/src/**/*.ts'],
-		ignores: ['**/*.test.ts'],
 		rules: {
 			'no-restricted-syntax': ['error', ...['Program', 'ExportNamedDeclaration'].map((parent) => ({
 				selector: `${parent} > VariableDeclaration > VariableDeclarator[init.type=/^(Arrow)?FunctionExpression$/]`,

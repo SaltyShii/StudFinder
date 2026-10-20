@@ -3,8 +3,8 @@ import { recommend, type Candidate, type LineageHorse, type CandidateList } from
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 30, seed: 7 };
-const horseOf = (skills: string[] = [], o: Partial<LineageHorse> = {}): LineageHorse => ({ affinity: 0, pinkStars: 0, dirtStars: 1, skills: skills.map((skillId) => ({ skillId, name: `S${skillId}`, stars: 3 })), ...o });
-const cand = (id: string, ...horses: LineageHorse[]): Candidate => ({ id, name: id, horses });
+function horseOf(skills: string[] = [], o: Partial<LineageHorse> = {}): LineageHorse { return { affinity: 0, pinkStars: 0, dirtStars: 1, skills: skills.map((skillId) => ({ skillId, name: `S${skillId}`, stars: 3 })), ...o }; }
+function cand(id: string, ...horses: LineageHorse[]): Candidate { return { id, name: id, horses }; }
 const candidateList: CandidateList = {
 	candidates: [
 		cand('a', horseOf(['10071'], { pinkStars: 3 })),

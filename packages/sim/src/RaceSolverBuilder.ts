@@ -1,4 +1,4 @@
-import { HorseParameters, Strategy, Aptitude } from './HorseTypes';
+import { HorseParameters, Strategy, Aptitude, StrategyProficiencyModifier } from './HorseTypes';
 import { CourseData, CourseHelpers, DistanceType } from './CourseData';
 import { Region, RegionList } from './Region';
 import { PRNG, Rule30CARng, SeededRng } from './Random';
@@ -7,6 +7,7 @@ import { ActivationSamplePolicy, ImmediatePolicy, createFixedPositionPolicy } fr
 import { getParser, UnknownConditionError } from './ConditionParser';
 import { RaceSolver, RaceState, PendingSkill, DynamicCondition, SkillType, SkillRarity, SkillEffect, Perspective, PosKeepMode } from './RaceSolver';
 import { Mood, GroundCondition, Weather, Season, Time, Grade, RaceParameters } from './RaceParameters';
+import { powerStat } from './ConservePower';
 import { HpPolicy, GameHpPolicy, NoopHpPolicy } from './HpPolicy';
 
 import skills from './data/skill_data.json';
@@ -60,23 +61,6 @@ const GroundPowerModifier = Object.freeze([
 	[0, -100, -50, -100, -100]
 ].map(o => Object.freeze(o)));
 
-const StrategyProficiencyModifier = Object.freeze([1.1, 1.0, 0.85, 0.75, 0.6, 0.4, 0.2, 0.1]);
-
-namespace Asitame {
-	export const StrategyDistanceCoefficient = Object.freeze([
-		[],  // distances are 1-indexed (as are strategies, hence the 0 in the first column for every row)
-		[0, 1.0, 0.7, 0.75,  0.7,  1.0],  // short (nige, senkou, sasi, oikomi, oonige)
-		[0, 1.0, 0.8, 0.7,   0.75, 1.0],  // mile
-		[0, 1.0, 0.9, 0.875, 0.86, 1.0],  // medium
-		[0, 1.0, 0.9, 1.0,   0.9,  1.0]   // long
-	]);
-
-	export const BaseModifier = 0.00875;
-
-	export function calcApproximateModifier(power: number, strategy: Strategy, distance: DistanceType) {
-		return BaseModifier * Math.sqrt(power - 1200) * StrategyDistanceCoefficient[distance][strategy];
-	}
-}
 
 namespace StaminaSyoubu {
 	export function distanceFactor(distance: number) {
@@ -443,6 +427,7 @@ export class RaceSolverBuilder {
 	_mode: string | undefined
 	_skillWisdomCheck: boolean | undefined
 	_rushedKakari: boolean | undefined
+	_conservePower: boolean
 	_competeFight: boolean | undefined
 	_leadCompetition: boolean | undefined
 	_laneMovement: boolean | undefined
@@ -484,6 +469,7 @@ export class RaceSolverBuilder {
 		this._mode = undefined;
 		this._skillWisdomCheck = undefined;
 		this._rushedKakari = undefined;
+		this._conservePower = false;
 		this._competeFight = undefined;
 		this._leadCompetition = undefined;
 		this._laneMovement = undefined;
@@ -680,38 +666,8 @@ export class RaceSolverBuilder {
 		return this;
 	}
 
-	// NB. must be called after horse and mood are set
 	withAsiwotameru() {
-		// for some reason, asitame (probably??) uses *displayed* power adjusted for motivation + greens
-		const baseDisplayedPower = this._horse.power * (1 + 0.02 * this._raceParams.mood);
-		this._extraSkillHooks.push((skilldata, horse, course) => {
-			const power = skilldata.reduce((acc,sd) => {
-				const powerUp = sd.effects.find(ef => ef.type == SkillType.PowerUp);
-				if (powerUp && sd.regions.length > 0 && sd.regions[0].start < 9999) {
-					return acc + powerUp.modifier;
-				} else {
-					return acc;
-				}
-			}, baseDisplayedPower);
-
-			if (power > 1200) {
-				const spurtStart = new RegionList();
-				spurtStart.push(new Region(CourseHelpers.phaseStart(course.distance, 2), course.distance));
-				skilldata.push({
-					skillId: 'asitame',
-					perspective: Perspective.Self,
-					rarity: SkillRarity.White,
-					regions: spurtStart,
-					samplePolicy: ImmediatePolicy,
-					extraCondition: (_) => true,
-					effects: [{
-						type: SkillType.Accel,
-						baseDuration: 3.0 / (course.distance / 1000.0),
-						modifier: Asitame.calcApproximateModifier(power, horse.strategy, course.distanceType)
-					}]
-				});
-			}
-		});
+		this._conservePower = true;
 		return this;
 	}
 
@@ -854,15 +810,12 @@ export class RaceSolverBuilder {
 		clone._mode = this._mode;
 		clone._skillWisdomCheck = this._skillWisdomCheck;
 		clone._rushedKakari = this._rushedKakari;
+		clone._conservePower = this._conservePower;
 		clone._competeFight = this._competeFight;
 		clone._leadCompetition = this._leadCompetition;
 		clone._laneMovement = this._laneMovement;
 		clone._duelingRates = this._duelingRates;
 
-		// NB. GOTCHA: if asitame is enabled, it closes over *our* horse and mood data, and not the clone's
-		// this is assumed to be fine, since fork() is intended to be used after everything is added except skills,
-		// but it does mean that if you want to compare different power stats or moods, you must call withAsiwotameru()
-		// after fork() on each instance separately, which is a potential gotcha
 		clone._extraSkillHooks = this._extraSkillHooks.slice();
 		clone._hpPolicyFactory = this._hpPolicyFactory;
 		return clone;
@@ -891,6 +844,17 @@ export class RaceSolverBuilder {
 			const sp = this._samplePolicyOverride.get(key) || sd.samplePolicy;
 			return sp.sample(sd.regions, this.nsamples, skillRng)
 		});
+
+		// green power skills count in the power stat, so it is computed from the skill list; displayed power uses motivation
+		let conservePowerStat: number | undefined;
+		if (this._conservePower) {
+			const skillPower = skilldata.reduce((acc, sd) => {
+				const powerUp = sd.effects.find(ef => ef.type == SkillType.PowerUp);
+				return powerUp && sd.regions.length > 0 && sd.regions[0].start < 9999 ? acc + powerUp.modifier : acc;
+			}, 0);
+			const stat = powerStat(this._horse.power, 1 + 0.02 * this._horse.mood, skillPower);
+			if (stat > 1200) conservePowerStat = stat;
+		}
 
 		// must come after skill activations are decided because conditions like base_power depend on base stats
 		horse = buildAdjustedStats(horse, this._course, this._raceParams.groundCondition);
@@ -928,7 +892,8 @@ export class RaceSolverBuilder {
 				competeFight: this._competeFight,
 				leadCompetition: this._leadCompetition,
 				duelingRates: this._duelingRates,
-				laneMovement: this._laneMovement
+				laneMovement: this._laneMovement,
+				conservePowerStat
 			});
 
 			if (redo) {

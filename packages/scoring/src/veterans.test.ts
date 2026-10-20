@@ -3,10 +3,12 @@ import type { Veteran } from '@stud-finder/lineage/src/types';
 import { scoreVeterans } from './veterans';
 
 const aptitudes = { turf: 8, dirt: 3, short: 4, mile: 7, middle: 7, long: 5, nige: 2, senko: 7, sashi: 6, oikomi: 1 };
-const vet = (trainedId: number, over: Partial<Veteran> = {}): Veteran => ({
+function vet(trainedId: number, over: Partial<Veteran> = {}): Veteran {
+	return {
 	cardId: 1, charaId: 1, factorIds: [], winSaddleIds: [], trainedId, aptitudes, rankScore: 1000 + trainedId, createdAt: '2026-01-01',
 	stats: { speed: 1000, stamina: 800, power: 800, guts: 400, wiz: 400 }, skillIds: [], runningStyle: 3, isLocked: false, useType: 0, parents: [null, null], ...over,
-});
+	};
+}
 const opts = { courseId: 10101, samples: 10 };
 
 test('a veteran with skills gains lengths, with per-skill detail and career style', () => {

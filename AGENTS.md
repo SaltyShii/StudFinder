@@ -51,7 +51,7 @@ npm workspaces:
 - Subagent worktrees start on a stale commit: `git reset --hard <integration branch>`, then `npm install`
 - Repo slug is `SaltyShii/StudFinder` (not `stud-finder`); use `gh api repos/{owner}/{repo}/...` so it resolves from the remote
 - Attach a sub-issue with `gh api -X POST repos/{owner}/{repo}/issues/N/sub_issues -F sub_issue_id=<database id>` (the `.id` field, not the number)
-- GitHub Pages deploys from `.github/workflows/deploy-pages.yml`; private repos on the free plan cannot use Pages
+- GitHub Pages deploys from `.github/workflows/deploy-pages.yml`; live at https://saltyshii.github.io/StudFinder/, every merge to `main` redeploys
 - `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`). Regenerate locally with the commands in `scripts/ingest/NOTICE.md` (vendored lineageplanner-salty scripts; also writes `apps/web/public/img/{cards,cm,races}`); scheduled refresh is #18
 - Git over SSH to GitHub hangs intermittently (port 22). Wrap network git in `timeout 60`; on a hang, fetch over HTTPS: `git -c credential.helper='!gh auth git-credential' fetch https://github.com/SaltyShii/StudFinder.git main:refs/remotes/origin/main`
 
