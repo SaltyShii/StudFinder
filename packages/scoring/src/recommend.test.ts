@@ -85,13 +85,6 @@ test('Must-have chances differing only by float noise still fall to simulated va
 	expect(pairIds([unit('a1', ['10081'], { affinity: 0.1 + 0.2 }), unit('a2', ['10081'], { affinity: 0.3 }), unit('v', ['10071'])], ['10081'])).toEqual(['a1', 'a2']);
 });
 
-test('the Ace slot needs dirt in the lineage, partial dirt only when fewer than 2 full-dirt lineages exist', () => {
-	const nodirt = cand('n', horseOf(['10071'], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }));
-	const partial = (id: string) => cand(id, horseOf([], { dirtStars: 2 }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }));
-	expect(pairIds([nodirt, unit('f1', []), unit('f2', [])])).toEqual(['f1', 'f2']);
-	expect(pairIds([nodirt, partial('p1'), unit('f1', [])])).toEqual(['f1', 'p1']);
-});
-
 test('same seed and samples give identical output', () => {
 	expect(recommend(candidateList, preset)).toEqual(recommend(candidateList, preset));
 });
@@ -102,19 +95,11 @@ test('a hard-to-train Ace (low aptitudes) still gets every veteran listed in all
 	for (const mode of ['ace', 'core', 'side'] as const) expect(out[mode].map((p) => p.candidateId).sort()).toEqual(['a', 'b', 'c']);
 });
 
-// Version-level aptitude preference: Turf A + Dirt A, else Turf A with reachable Dirt A, else anything.
+// The Ace slot ignores dirt: Must-have chance, then simulated value on the selected track.
 function ownedWith(cardId: number, aptitudes: typeof apt, mustHave: boolean, dirtStars = 3) { return { cardId, aptitudes, candidates: [cand('m' + cardId, horseOf(mustHave ? ['10081'] : [], { affinity: 100, dirtStars }), horseOf([], { dirtStars }), horseOf([], { dirtStars })), cand('n' + cardId, horseOf([], { dirtStars }), horseOf([], { dirtStars }), horseOf([], { dirtStars }))] }; }
 function pick(vs: ReturnType<typeof ownedWith>[]) { return recommend(candidateList, preset, undefined, vs, ['10081']).aceSlot!.cardId; }
 
-test('the Ace slot prefers a Turf A + Dirt A version over a better Must-have chance', () => {
-	expect(pick([ownedWith(1, { ...apt, dirt: 6 }, true), ownedWith(2, { ...apt, dirt: 7 }, false)])).toBe(2);
-});
-
-test('without a Dirt A version, a Turf A version with reachable Dirt A beats one that cannot reach it or lacks Turf A', () => {
-	expect(pick([ownedWith(1, { ...apt, dirt: 1 }, true, 0), ownedWith(2, { ...apt, dirt: 4 }, false, 1)])).toBe(2);
-	expect(pick([ownedWith(1, { ...apt, turf: 5, dirt: 6 }, true), ownedWith(2, { ...apt, dirt: 6 }, false)])).toBe(2);
-});
-
-test('with no preferred version, every version stays in the pool', () => {
-	expect(pick([ownedWith(1, { ...apt, dirt: 1 }, true), ownedWith(2, { ...apt, dirt: 1 }, false)])).toBe(1);
+test('the Ace slot ignores dirt aptitude and dirt sparks', () => {
+	expect(pick([ownedWith(1, { ...apt, dirt: 1 }, true, 0), ownedWith(2, { ...apt, dirt: 7 }, false, 3)])).toBe(1);
+	expect(pick([ownedWith(1, { ...apt, turf: 5, dirt: 7 }, true), ownedWith(2, { ...apt, dirt: 7 }, false)])).toBe(1);
 });

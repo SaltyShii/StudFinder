@@ -56,3 +56,12 @@ test('core loop ranks by dirt A chance first when the Ace version is not Dirt A,
 	expect(ids(4)).toEqual(['strong', 'tiered']);
 	expect(ids(7)).toEqual(['tiered', 'strong']);
 });
+
+test('core loop uses its own core version (Turf A + Dirt A first), not the displayed Ace', () => {
+	const strong = cand('strong', horseOf({ dirtStars: 3 }), horseOf({ dirtStars: 3 }), horseOf({ dirtStars: 3 }));
+	const tiered = cand('tiered', horseOf({ skills: [spark('Uma Stan')] }), horseOf(), horseOf());
+	const v = (cardId: number, dirt: number) => ({ cardId, aptitudes: { turf: 7, dirt, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 }, candidates: [strong, tiered] });
+	const ids = (vs: ReturnType<typeof v>[]) => recommend({ candidates: [tiered, strong] }, preset, tierList, vs).core.map((p) => p.candidateId);
+	expect(ids([v(1, 4), v(2, 7)])).toEqual(['tiered', 'strong']);
+	expect(ids([v(1, 4)])).toEqual(['strong', 'tiered']);
+});

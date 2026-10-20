@@ -5,7 +5,7 @@ import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { buildAce, categoryOf, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import { GRADE_A } from '@stud-finder/lineage/src/inheritance';
-import { aceSupply, chanceKey, dirtAChance, greedyRank, isFullDirt, mustHaveChance, maxStars, newShare, type Candidate, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
+import { aceSupply, chanceKey, dirtAChance, greedyRank, mustHaveChance, maxStars, newShare, type Candidate, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
 export type { Candidate, CmPreset, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
@@ -60,42 +60,47 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 	const detailFor = detailerOf(horse);
 	const seen = new Map<string, SkillDetail>();
 	const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
-	const aceSlot = owned.length ? bestAceSlot(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return (cs) => rankAce(cs, PARENTS, h, d); }, mustHaves) : null;
-	return { aceSlot, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP, horse.skills, owned.find((v) => v.cardId === aceSlot?.cardId)?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value) };
+	const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return (cs) => rankAce(cs, PARENTS, h, d); }, mustHaves);
+	const aceSlot = bestAceSlot(versions);
+	return { aceSlot, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP, horse.skills, versions.length ? coreVersionDirt(versions) : undefined) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value) };
 }
 
 // Every version runs the sim runner's Target stats in its own best style, so only aptitudes and the unique skill differ.
 // A parent and its own 2 grandparents are permanently linked, so each candidate is one unit and the slot takes the best PAIR of units (never grandparents alone).
-// Versions are gated first to the most preferred tier present (Turf A + Dirt A, else Turf A with reachable Dirt A, else all).
-// Pair order: Must-have inheritance chance, then chance of reaching dirt A, then simulated value. Full-dirt units first; partial-dirt only when fewer than 2 exist.
-function bestAceSlot(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, rankerFor: (h: HorseDesc) => (cs: Candidate[]) => CandidatePick[], mustHaves: string[]): AcePick | null {
-	const prepared = owned.map((v) => {
-		const full = v.candidates.filter(isFullDirt);
-		const partial = v.candidates.filter((c) => c.horses.some((x) => x.dirtStars > 0));
-		const units = full.length >= PARENTS ? full : partial.length >= PARENTS ? partial : v.candidates;
+// Dirt plays no part here: pair order is Must-have inheritance chance, then simulated value on the selected track.
+function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, rankerFor: (h: HorseDesc) => (cs: Candidate[]) => CandidatePick[], mustHaves: string[]): { v: OwnedVersion; pick: AcePick }[] {
+	const out: { v: OwnedVersion; pick: AcePick }[] = [];
+	for (const v of owned) {
+		const units = v.candidates;
 		const pairs: Candidate[][] = [];
 		for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) pairs.push([units[i], units[j]]);
 		if (units.length === 1) pairs.push(units);
-		// Version preference: 0 = Turf A + Dirt A, 1 = Turf A and a pair that can reach Dirt A, 2 = the rest.
-		const tier = v.aptitudes.turf < GRADE_A ? 2 : v.aptitudes.dirt >= GRADE_A ? 0 : pairs.some((p) => dirtAChance(p.flatMap((c) => c.horses), v.aptitudes.dirt) > 0) ? 1 : 2;
-		return { v, pairs, tier };
-	}).filter((x) => x.pairs.length);
-	// A gate on the pool, not a sort key, so Must-have chance stays the primary key among the preferred versions; when none is preferred every version competes.
-	const gate = Math.min(...prepared.map((x) => x.tier));
-	let best: AcePick | null = null;
-	for (const { v, pairs } of prepared.filter((x) => x.tier === gate)) {
+		if (!pairs.length) continue;
 		const style = rankStyles(v.aptitudes, categoryOf(course.distance))[0];
 		const { speed, stamina, power, guts, wisdom } = runner;
 		const h = buildAce({ aptitudes: v.aptitudes, style, category: categoryOf(course.distance), surface: course.surface, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: v.uniqueSkillId });
-		const keyOf = (p: Candidate[]) => { const hs = p.flatMap((c) => c.horses); return [chanceKey(mustHaveChance(hs, mustHaves)), chanceKey(dirtAChance(hs, v.aptitudes.dirt))]; };
-		const keys = pairs.map(keyOf);
-		const top = [0, 1].reduce((alive, k) => { const m = Math.max(...alive.map((i) => keys[i][k])); return alive.filter((i) => keys[i][k] === m); }, pairs.map((_, i) => i));
+		const keys = pairs.map((p) => chanceKey(mustHaveChance(p.flatMap((c) => c.horses), mustHaves)));
+		const topKey = Math.max(...keys);
 		const rank = rankerFor(h);
 		// Simulated value only for the pairs still tied, as it needs a ranker run each.
-		const scored = top.map((i) => { const parents = rank(pairs[i]); return { i, parents, score: parents.reduce((s, p) => s + p.score, 0) }; });
+		const scored = pairs.flatMap((p, i) => keys[i] === topKey ? [{ parents: rank(p) }] : []).map((x) => ({ ...x, score: x.parents.reduce((s, p) => s + p.score, 0) }));
 		const win = scored.reduce((a, b) => (b.score > a.score ? b : a));
-		const mustHave = keys[win.i][0] / 1e9;
-		if (!best || chanceKey(mustHave) > chanceKey(best.mustHaveChance) || (chanceKey(mustHave) === chanceKey(best.mustHaveChance) && win.score > best.score)) best = { cardId: v.cardId, style, score: win.score, mustHaveChance: mustHave, parents: win.parents };
+		out.push({ v, pick: { cardId: v.cardId, style, score: win.score, mustHaveChance: topKey / 1e9, parents: win.parents } });
 	}
+	return out;
+}
+
+function bestAceSlot(versions: { pick: AcePick }[]): AcePick | null {
+	let best: AcePick | null = null;
+	for (const { pick } of versions) if (!best || chanceKey(pick.mustHaveChance) > chanceKey(best.mustHaveChance) || (chanceKey(pick.mustHaveChance) === chanceKey(best.mustHaveChance) && pick.score > best.score)) best = pick;
 	return best;
+}
+
+// The Core loop's own version: Turf A with Dirt A, else Turf A that can reach Dirt A through a lineage (highest dirt aptitude first), else all; simulated value breaks ties.
+// Independent of the displayed Ace: dirt only matters to the Core loop.
+function coreVersionDirt(versions: { v: OwnedVersion; pick: AcePick }[]): number | undefined {
+	const tierOf = ({ v }: { v: OwnedVersion }) => v.aptitudes.turf < GRADE_A ? 2 : v.aptitudes.dirt >= GRADE_A ? 0 : v.candidates.some((c) => dirtAChance(c.horses, v.aptitudes.dirt) > 0) ? 1 : 2;
+	const gate = Math.min(...versions.map(tierOf));
+	const pool = versions.filter((x) => tierOf(x) === gate);
+	return pool.reduce<{ v: OwnedVersion; pick: AcePick } | undefined>((a, b) => (!a || b.v.aptitudes.dirt > a.v.aptitudes.dirt || (b.v.aptitudes.dirt === a.v.aptitudes.dirt && b.pick.score > a.pick.score) ? b : a), undefined)?.v.aptitudes.dirt;
 }
