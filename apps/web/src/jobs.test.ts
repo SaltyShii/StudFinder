@@ -2,10 +2,12 @@ import { expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { Course, RawGameData } from '../../../packages/lineage/src/types';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
+import type { Style } from '../../../packages/scoring/src/ace';
+import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { computeRecommend } from './recommend.job';
-import { buildJob, buildVeteranJob, candidatesFor, cardIdsOf, tierListOf } from './jobs';
+import { cardIdsOf, planCandidates, planRecommend, planVeterans } from './jobs';
+import { runJob } from './runJob';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 const courses = Object.fromEntries(CMS.map((c) => [c.courseId, { id: c.courseId, trackId: 1, distance: 2000, ground: 1, turn: 1 }]));
@@ -27,21 +29,22 @@ const roster = importRoster(JSON.stringify([
 const cm = pickCm(new Date(), CMS[0].id);
 const course = data.courses.get(cm.courseId);
 const ace = data.cards.get(100101)!;
-const jobFor = (candidates: Candidate[], c: Course | undefined) => buildJob(candidates, cm, ace, c, 'senko', {}, tierListOf(data, 'senko'));
+const planFor = (candidates: Candidate[], c: Course | undefined, styleChoice: Style | null = 'senko') => planRecommend(data, candidates, cm, ace, c, styleChoice, {});
+const jobFor = (candidates: Candidate[], c: Course | undefined) => planFor(candidates, c).job;
 
 it('builds a RecommendJob that the real recommend() accepts', () => {
-	const candidates = candidatesFor(data, roster, ace, course, false);
+	const candidates = planCandidates(data, roster, ace, course, false);
 	expect(candidates).toHaveLength(1);
 	expect(cardIdsOf(roster).get('2')).toBe(100201);
 	const job = jobFor(candidates, course)!;
 	job.preset.samples = 5;
-	expect(computeRecommend(job).ace[0].candidateId).toBe(candidates[0].id);
+	expect((runJob({ kind: 'recommend', job }, () => {}) as Recommendation).ace[0].candidateId).toBe(candidates[0].id);
 });
 
 it('has no RecommendJob without candidates or a course, but still lists candidates without a course', () => {
 	expect(jobFor([], course)).toBeNull();
-	expect(jobFor(candidatesFor(data, roster, ace, course, false), undefined)).toBeNull();
-	expect(candidatesFor(data, roster, ace, undefined, false)).toHaveLength(1);
+	expect(jobFor(planCandidates(data, roster, ace, course, false), undefined)).toBeNull();
+	expect(planCandidates(data, roster, ace, undefined, false)).toHaveLength(1);
 });
 
 it('includes borrowed veterans only when asked', () => {
@@ -49,12 +52,21 @@ it('includes borrowed veterans only when asked', () => {
 		{ trained_chara_id: 1, card_id: 100101, factor_id_array: [1201], succession_chara_array: [{ position_id: 10, card_id: 100201, owner_viewer_id: 777, factor_id_array: [1201, 1202] }] },
 	]), data);
 	expect(withBorrowed.borrowed).toHaveLength(1);
-	expect(candidatesFor(data, withBorrowed, ace, course, true).length).toBeGreaterThan(candidatesFor(data, withBorrowed, ace, course, false).length);
+	expect(planCandidates(data, withBorrowed, ace, course, true).length).toBeGreaterThan(planCandidates(data, withBorrowed, ace, course, false).length);
 });
 
 it('veteran job waits for game data and carries unique skills', () => {
-	expect(buildVeteranJob(null, roster, cm)).toBeNull();
-	const vj = buildVeteranJob(data, roster, cm)!;
+	expect(planVeterans(null, roster, cm)).toBeNull();
+	const vj = planVeterans(data, roster, cm)!;
 	expect(vj.uniqueSkills).toEqual([[100101, 100101]]);
 	expect(vj.courseId).toBe(cm.courseId);
+});
+
+it('a manual Style beats the ranked one, and the plan carries default Target stats once the course is known', () => {
+	const candidates = planCandidates(data, roster, ace, course, false);
+	expect(planFor(candidates, course, null).style).toBe('senko'); // best aptitude on a middle-distance course
+	expect(planFor(candidates, course, 'nige').style).toBe('nige');
+	expect(planFor(candidates, course, 'nige').job).not.toBeNull();
+	expect(planFor(candidates, course).defaults).toBeDefined();
+	expect(planFor(candidates, undefined).defaults).toBeUndefined();
 });

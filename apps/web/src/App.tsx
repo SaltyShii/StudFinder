@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { categoryOf, defaultTargetStats, STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
-import { rankStyles } from '../../../packages/scoring/src/styleRank';
 import { formatAge } from './age';
 import { PickList } from './PickList';
-import type { RecommendRunner } from './recommend.job';
-import type { VeteranRunner } from './veterans.job';
-import { buildJob, buildVeteranJob, candidatesFor, cardIdsOf, tierListOf } from './jobs';
+import { cardIdsOf, planCandidates, planRecommend, planVeterans, type RecommendRunner, type VeteranRunner } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
@@ -45,16 +42,13 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const card = data && aceId != null ? data.cards.get(aceId) : undefined;
 	const cm = useMemo(() => pickCm(new Date(), cmId), [cmId]);
 	const course = data?.courses.get(cm.courseId);
-	const candidates = useMemo(() => (data && roster && card ? candidatesFor(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
-	// Manual choice wins; otherwise the best-ranked style for this Ace on the CM course.
-	const style: Style = styleChoice ?? (card && course ? rankStyles(card.aptitudes, categoryOf(course.distance))[0] : 'senko');
-	const tierList = useMemo(() => (data ? tierListOf(data, style) : {}), [data, style]);
-	const job = useMemo(() => (card ? buildJob(candidates, cm, card, course, style, target, tierList) : null), [candidates, cm, card, course, style, target, tierList]);
+	const candidates = useMemo(() => (data && roster && card ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
+	const { style, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target), [data, candidates, cm, card, course, styleChoice, target]);
 	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
 	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
 	// Needs no Ace or Target stats, so it runs as soon as a Roster, game data and CM course exist.
-	const veteranJob = useMemo(() => buildVeteranJob(data, roster, cm), [data, roster, cm]);
+	const veteranJob = useMemo(() => planVeterans(data, roster, cm), [data, roster, cm]);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });
 	const shownError = error || jobError?.message || vs.error?.message;
@@ -75,7 +69,6 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	}
 
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
-	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 
 	return (
 		<main class="layout">
