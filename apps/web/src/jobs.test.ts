@@ -90,7 +90,7 @@ it('core loop style defaults to the Sim runner style, can be overridden, and dro
 
 it('Tier list edits move or disable a skill for the Core loop style only', () => {
 	const candidates = planCandidates(data, roster, ace, course, false);
-	const list = (edits: TierEdits) => planRecommend(data, candidates, cm, ace, course, 'sashi', {}, null, edits).job!.tierList!;
+	const list = (edits: TierEdits) => planRecommend(data, candidates, cm, ace, course, 'sashi', {}, null, [], edits).job!.tierList!;
 	expect(list({})['Late Surger Straightaways']).toBe('T1.5');
 	expect(list({ sashi: { moved: { 'Late Surger Straightaways': 'T5' }, disabled: [] } })['Late Surger Straightaways']).toBe('T5');
 	expect(list({ sashi: { moved: {}, disabled: ['Late Surger Straightaways'] } })).not.toHaveProperty(['Late Surger Straightaways']);

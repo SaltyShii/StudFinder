@@ -4,7 +4,7 @@ import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers'
 import { aceForCourse, categoryOf, defaultTargetStats, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
-import type { CandidateList, CmPreset, Recommendation } from '../../../packages/scoring/src/recommend';
+import type { CandidateList, CmPreset, OwnedVersion, Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import type { JobRunner } from './jobRunner';
@@ -13,6 +13,7 @@ export interface RecommendJob {
 	candidateList: CandidateList;
 	preset: CmPreset;
 	tierList?: TierList;
+	owned?: OwnedVersion[];
 }
 export interface VeteranJob {
 	veterans: Veteran[];
@@ -77,14 +78,22 @@ export interface RecommendPlan {
 	defaults: TargetStats | undefined;
 }
 
-export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, card: Card | undefined, course: Course | undefined, styleChoice: Style | null, target: Partial<TargetStats>, coreStyleChoice: Style | null = null, tierEdits: TierEdits = {}): RecommendPlan {
+export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, card: Card | undefined, course: Course | undefined, styleChoice: Style | null, target: Partial<TargetStats>, coreStyleChoice: Style | null = null, owned: OwnedVersion[] = [], tierEdits: TierEdits = {}): RecommendPlan {
 	// Manual choice wins; otherwise the best-ranked style for this Ace on the CM course.
 	const style: Style = styleChoice ?? (card && course ? rankStyles(card.aptitudes, categoryOf(course.distance))[0] : 'senko');
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !card || !course || !candidates.length) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(card, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]) } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned } };
+}
+
+/** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */
+export function planOwned(data: GameData, roster: ImportResult, ownedIds: Iterable<number>, course: Course | undefined, useBorrowed: boolean): OwnedVersion[] {
+	return [...ownedIds].flatMap((id) => {
+		const card = data.cards.get(id);
+		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
+	});
 }
 
 /** Needs no Ace or Target stats. Null until game data is loaded, so unique skills are never missing from a run. */

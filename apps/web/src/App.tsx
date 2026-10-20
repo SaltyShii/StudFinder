@@ -4,10 +4,11 @@ import type { ImportResult } from '../../../packages/lineage/src/types';
 import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
+import { AceHero } from './AceHero';
 import { OwnedVersions } from './OwnedVersions';
 import { TierEditor } from './TierEditor';
 import { PickList } from './PickList';
-import { cardIdsOf, coreTierListOf, planCandidates, planRecommend, planVeterans, type RecommendRunner, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
+import { cardIdsOf, coreTierListOf, planCandidates, planOwned, planRecommend, planVeterans, type RecommendRunner, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
@@ -50,7 +51,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const cm = useMemo(() => pickCm(new Date(), cmId), [cmId]);
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster && card ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, tierEdits), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, tierEdits]);
+	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
@@ -129,12 +131,16 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 				<div class="results">
 					{!card && <p class="panel">Choose a Sim runner to see recommendations.</p>}
 					{busy && <p class="panel">Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
+					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
 					<div class="picks">
-						<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
-						<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
 						<PickList title="Side loop" testId="side-card" picks={result?.side} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
+						<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
 					</div>
-					<VeteranList scores={vs.result} progress={vs.progress} stale={vs.stale} data={data} onCancel={vs.cancel} />
+					<details>
+						<summary>Ace veteran list</summary>
+						<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
+						<VeteranList scores={vs.result} progress={vs.progress} stale={vs.stale} data={data} onCancel={vs.cancel} />
+					</details>
 				</div>
 			)}
 			{data?.meta?.resourceVersion && <footer class="muted">Game data: resource version {data.meta.resourceVersion}, generated {formatAge(data.meta.generatedAt)}</footer>}

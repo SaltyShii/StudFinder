@@ -35,6 +35,24 @@ test("the Ace counts the skills of the veteran and of its parents, each once", (
 	expect(detail.map((d) => d.skillId).sort()).toEqual(['10071', '10081']);
 });
 
+const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
+function owned(cardId: number, uniqueSkillId?: string, aptitudes = apt) { return { cardId, aptitudes, uniqueSkillId, candidates: [cand('p', horseOf(['10071']), horseOf(['10081']), horseOf()), cand('q', horseOf(['10081']), horseOf(), horseOf())] }; }
+
+test('the Ace slot picks the Owned version whose own unique skill leaves the most to inherit', () => {
+	expect(recommend(candidateList, preset, undefined, [owned(1, '10071'), owned(2)]).aceSlot?.cardId).toBe(2);
+	expect(recommend(candidateList, preset, undefined, [owned(2), owned(1, '10071')]).aceSlot?.cardId).toBe(2);
+});
+
+test('the Ace slot gives the version its best style by aptitude, with 2 parents', () => {
+	const slot = recommend(candidateList, preset, undefined, [owned(1, undefined, { ...apt, oikomi: 8 })]).aceSlot!;
+	expect(slot.style).toBe('oikomi');
+	expect(slot.parents.map((p) => p.candidateId).sort()).toEqual(['p', 'q']);
+});
+
+test('no Owned versions means no Ace slot', () => {
+	expect(recommend(candidateList, preset).aceSlot).toBeNull();
+});
+
 test('same seed and samples give identical output', () => {
 	expect(recommend(candidateList, preset)).toEqual(recommend(candidateList, preset));
 });
