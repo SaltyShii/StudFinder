@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { skillDetail } from './skillDetail';
 import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
@@ -113,4 +114,18 @@ function pick(vs: ReturnType<typeof ownedWith>[]) { return recommend(candidateLi
 test('the Ace slot ignores dirt aptitude and dirt sparks', () => {
 	expect(pick([ownedWith(1, { ...apt, dirt: 1 }, true, 0), ownedWith(2, { ...apt, dirt: 7 }, false, 3)])).toBe(1);
 	expect(pick([ownedWith(1, { ...apt, turf: 5, dirt: 7 }, true), ownedWith(2, { ...apt, dirt: 7 }, false)])).toBe(1);
+});
+
+test('skills are screened at few samples, but every shown skill is re-simulated at full samples', () => {
+	const phases: string[] = [];
+	const full = { ...preset, samples: 60 };
+	const rec = recommend(candidateList, full, undefined, [owned(1), owned(2)], [], (p) => phases.push(p.phase));
+	const shown = [...rec.ace, ...(rec.aceSlot?.parents ?? [])].flatMap((p) => p.detail);
+	expect(shown.length).toBeGreaterThan(0);
+	expect(shown.every((d) => !d.screened)).toBe(true);
+	expect(phases).toContain('screen');
+	expect(phases).toContain('refine');
+	// the shown value is the full-sample one, not the screening one
+	const d = shown[0];
+	expect(d.value).toBe(skillDetail(d.skillId, { courseId: full.courseId, horse: full.runner, samples: 60, seed: full.seed }).value);
 });

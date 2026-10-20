@@ -50,6 +50,10 @@ export interface SkillDetail extends SkillValue {
 	assumesPosition: boolean;
 	/** Chance the pick's horses pass this skill on; set on pick details only. */
 	inherit?: number;
+	/** Simulated at fewer samples than asked; recommend() re-simulates every skill a pick shows. */
+	screened?: boolean;
+	/** Which runner's simulation this came from (recommend()'s cache key). */
+	src?: string;
 }
 export interface CandidatePick {
 	candidateId: string;
