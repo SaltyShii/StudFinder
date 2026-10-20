@@ -56,12 +56,11 @@ it('has no RecommendJob without candidates or a course, but still lists candidat
 	expect(planCandidates(data, roster, ace, undefined, false)).toHaveLength(1);
 });
 
-it('plans the Ace slot without a Sim runner, leaving the veteran lists empty', () => {
-	const candidates = planCandidates(data, roster, ace, course, false);
-	const owned = [{ cardId: ace.id, aptitudes: ace.aptitudes, candidates }];
-	const job = planRecommend(data, [], cm, { course, owned })?.job;
-	expect(job?.candidateList.candidates).toEqual([]);
-	expect(job?.owned).toBe(owned);
+it('without a Sim runner plans the Generic one: all aptitudes A, no unique skill, every veteran a candidate', () => {
+	const candidates = planCandidates(data, roster, undefined, course, false);
+	expect(candidates.length).toBeGreaterThanOrEqual(planCandidates(data, roster, ace, course, false).length);
+	const job = planRecommend(data, candidates, cm, { course, styleChoice: 'senko' }).job!;
+	expect(job.preset.runner).toMatchObject({ distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', skills: [] });
 	expect(planRecommend(data, [], cm, { course }).job).toBeNull();
 });
 

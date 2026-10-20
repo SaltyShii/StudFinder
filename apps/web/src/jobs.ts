@@ -62,18 +62,26 @@ export function cardIdsOf(roster: ImportResult): Map<string, number> {
 	return new Map([...roster.veterans, ...roster.borrowed].map((v) => [String(v.trainedId), v.cardId]));
 }
 
+/** The default Sim runner: all aptitudes A, no unique skill, so it adds nothing and results compare against a blank baseline. */
+export const GENERIC_RUNNER: Pick<Card, 'aptitudes' | 'uniqueSkillId'> = {
+	aptitudes: { turf: 7, dirt: 7, short: 7, mile: 7, middle: 7, long: 7, nige: 7, senko: 7, sashi: 7, oikomi: 7 },
+	uniqueSkillId: null,
+};
+// No Ace card to measure affinity against and none of the Roster to exclude.
+const NO_CARD = -1;
+
 // Without a course the pink group falls back to 0, so picks still list before the CM's course is in the data.
 const NO_COURSE_PINK_GROUP = 0;
 
-export function planCandidates(data: GameData, roster: ImportResult, card: Card, course: Course | undefined, useBorrowed: boolean): Candidate[] {
-	return candidatesOf(data, useBorrowed ? [...roster.veterans, ...roster.borrowed] : roster.veterans, { aceCardId: card.id, pinkGroupId: course ? pinkGroupOf(course.distance) : NO_COURSE_PINK_GROUP });
+export function planCandidates(data: GameData, roster: ImportResult, card: Card | undefined, course: Course | undefined, useBorrowed: boolean): Candidate[] {
+	return candidatesOf(data, useBorrowed ? [...roster.veterans, ...roster.borrowed] : roster.veterans, { aceCardId: card?.id ?? NO_CARD, pinkGroupId: course ? pinkGroupOf(course.distance) : NO_COURSE_PINK_GROUP });
 }
 
 export interface RecommendPlan {
 	style: Style;
 	/** The Core loop's running style: its own choice, else the Sim runner's. */
 	coreStyle: Style;
-	/** Null until there is a CM course and a Sim runner (or an Owned version) with candidates (or Owned versions). */
+	/** Null until there is a CM course and candidates or Owned versions. */
 	job: RecommendJob | null;
 	/** Undefined until the CM course is known. */
 	defaults: TargetStats | undefined;
@@ -93,12 +101,11 @@ export interface PlanOptions {
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
 	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], tierEdits = {}, mustHaves = [] } = options;
 	// Manual choice wins; otherwise the best-ranked style for this Sim runner on the CM course.
-	// The Ace slot needs only Target stats, so without a Sim runner the first Owned version stands in for its aptitudes.
-	const base = card ?? (owned[0] && { aptitudes: owned[0].aptitudes, uniqueSkillId: owned[0].uniqueSkillId == null ? undefined : Number(owned[0].uniqueSkillId) });
-	const style: Style = styleChoice ?? (base && course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
+	const base = card ?? GENERIC_RUNNER;
+	const style: Style = styleChoice ?? (course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 	const coreStyle = coreStyleChoice ?? style;
-	if (!data || !base || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
+	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
 	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, mustHaves } };
 }
