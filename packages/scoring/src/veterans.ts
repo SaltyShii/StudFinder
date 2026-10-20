@@ -1,8 +1,7 @@
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Veteran } from '@stud-finder/lineage/src/types';
-import { buildAce, categoryOf, STYLES, type Style } from './ace';
-import { courseFacts } from './courseFacts';
+import { buildAce, categoryOf, courseFacts, STYLES, type Style } from './ace';
 import { skillDetail } from './skillDetail';
 import { median, pairedRace } from './pairedRace';
 import type { SkillDetail } from './shared';

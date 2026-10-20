@@ -1,6 +1,6 @@
 import { RaceSolverBuilder, type HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { RaceSolver } from '@stud-finder/sim/src/RaceSolver';
-import { courseFacts } from './courseFacts';
+import { courseFacts } from './ace';
 
 const BASHIN = 2.5; // metres per length
 
