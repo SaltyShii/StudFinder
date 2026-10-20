@@ -49,6 +49,21 @@ test('the Ace slot gives the version its best style by aptitude, with 2 parents'
 	expect(slot.parents.map((p) => p.candidateId).sort()).toEqual(['p', 'q']);
 });
 
+// Version 1 only offers the weak skill 10081 (the Must-have) at high affinity; version 2 offers both skills at no affinity, so more value.
+const mustHaveVersion = { cardId: 1, aptitudes: apt, candidates: [cand('m', horseOf(['10081'], { affinity: 100 }), horseOf(), horseOf()), cand('n', horseOf(), horseOf(), horseOf())] };
+const valueVersion = { cardId: 2, aptitudes: apt, candidates: [cand('v', horseOf(['10071']), horseOf(), horseOf()), cand('w', horseOf(['10081']), horseOf(), horseOf())] };
+
+test('the Ace with the higher Must-have inheritance chance beats the one with more simulated value', () => {
+	const slot = (mustHaves: string[]) => recommend(candidateList, preset, undefined, [valueVersion, mustHaveVersion], mustHaves).aceSlot!;
+	expect(slot([]).cardId).toBe(2);
+	expect(slot(['10081']).cardId).toBe(1);
+	expect(slot(['10081']).parents.map((p) => p.candidateId)[0]).toBe('m');
+});
+
+test('equal Must-have chance falls back to simulated value', () => {
+	expect(recommend(candidateList, preset, undefined, [mustHaveVersion, valueVersion], ['99999']).aceSlot!.cardId).toBe(2);
+});
+
 test('no Owned versions means no Ace slot', () => {
 	expect(recommend(candidateList, preset).aceSlot).toBeNull();
 });
