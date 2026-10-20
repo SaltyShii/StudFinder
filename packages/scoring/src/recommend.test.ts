@@ -101,3 +101,20 @@ test('a hard-to-train Ace (low aptitudes) still gets every veteran listed in all
 	const out = recommend(candidateList, poor, { S10071: 'T0' });
 	for (const mode of ['ace', 'core', 'side'] as const) expect(out[mode].map((p) => p.candidateId).sort()).toEqual(['a', 'b', 'c']);
 });
+
+// Version-level aptitude preference: Turf A + Dirt A, else Turf A with reachable Dirt A, else anything.
+function ownedWith(cardId: number, aptitudes: typeof apt, mustHave: boolean, dirtStars = 3) { return { cardId, aptitudes, candidates: [cand('m' + cardId, horseOf(mustHave ? ['10081'] : [], { affinity: 100, dirtStars }), horseOf([], { dirtStars }), horseOf([], { dirtStars })), cand('n' + cardId, horseOf([], { dirtStars }), horseOf([], { dirtStars }), horseOf([], { dirtStars }))] }; }
+function pick(vs: ReturnType<typeof ownedWith>[]) { return recommend(candidateList, preset, undefined, vs, ['10081']).aceSlot!.cardId; }
+
+test('the Ace slot prefers a Turf A + Dirt A version over a better Must-have chance', () => {
+	expect(pick([ownedWith(1, { ...apt, dirt: 6 }, true), ownedWith(2, { ...apt, dirt: 7 }, false)])).toBe(2);
+});
+
+test('without a Dirt A version, a Turf A version with reachable Dirt A beats one that cannot reach it or lacks Turf A', () => {
+	expect(pick([ownedWith(1, { ...apt, dirt: 1 }, true, 0), ownedWith(2, { ...apt, dirt: 4 }, false, 1)])).toBe(2);
+	expect(pick([ownedWith(1, { ...apt, turf: 5, dirt: 6 }, true), ownedWith(2, { ...apt, dirt: 6 }, false)])).toBe(2);
+});
+
+test('with no preferred version, every version stays in the pool', () => {
+	expect(pick([ownedWith(1, { ...apt, dirt: 1 }, true), ownedWith(2, { ...apt, dirt: 1 }, false)])).toBe(1);
+});

@@ -74,13 +74,13 @@ export function maxStars(sparks: SkillSpark[], key: 'skillId' | 'name' = 'skillI
 }
 
 /** Greedy marginal gain: take the best pick given what is supplied, add what it supplies, rescore the rest. No lineage optimizer. */
-export function greedyRank(candidates: Candidate[], top: number, baseline: Supplied, scorePick: (c: Candidate, supplied: Supplied) => { pick: CandidatePick; supply: Supplied }): CandidatePick[] {
+export function greedyRank(candidates: Candidate[], top: number, baseline: Supplied, scorePick: (c: Candidate, supplied: Supplied) => { pick: CandidatePick; supply: Supplied }, priority: (c: Candidate) => number = () => 0): CandidatePick[] {
 	const supplied: Supplied = new Map(baseline);
 	const left = [...candidates];
 	const out: CandidatePick[] = [];
 	while (left.length && out.length < top) {
 		const scored = left.map((c) => ({ c, ...scorePick(c, supplied) }));
-		const best = scored.sort((a, b) => b.pick.score - a.pick.score || a.pick.candidateId.localeCompare(b.pick.candidateId))[0];
+		const best = scored.sort((a, b) => priority(b.c) - priority(a.c) || b.pick.score - a.pick.score || a.pick.candidateId.localeCompare(b.pick.candidateId))[0];
 		out.push(best.pick);
 		left.splice(left.indexOf(best.c), 1);
 		for (const [id, stars] of best.supply) supplied.set(id, Math.max(supplied.get(id) ?? 0, stars));

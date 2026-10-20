@@ -47,3 +47,12 @@ test('core loop drops sparks of skills the Ace already has', () => {
 	const owned = { ...preset, runner: { ...horse, skills: ['0'] } };
 	expect(recommend(candidateList, owned, tierList).core.every((p) => p.score === 0)).toBe(true);
 });
+
+test('core loop ranks by dirt A chance first when the Ace version is not Dirt A, and by tier alone when it is', () => {
+	const strong = cand('strong', horseOf({ dirtStars: 3 }), horseOf({ dirtStars: 3 }), horseOf({ dirtStars: 3 }));
+	const tiered = cand('tiered', horseOf({ skills: [spark('Uma Stan')] }), horseOf(), horseOf());
+	const version = (dirt: number) => [{ cardId: 1, aptitudes: { turf: 7, dirt, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 }, candidates: [strong, tiered] }];
+	const ids = (dirt: number) => recommend({ candidates: [tiered, strong] }, preset, tierList, version(dirt)).core.map((p) => p.candidateId);
+	expect(ids(4)).toEqual(['strong', 'tiered']);
+	expect(ids(7)).toEqual(['tiered', 'strong']);
+});
