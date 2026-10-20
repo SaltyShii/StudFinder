@@ -30,21 +30,31 @@ A grandparent's parent in a lineage; no official game name.
 _Avoid_: ggp (in prose; abbreviation only)
 
 **Core loop**:
-The long-lived foundation line of great-grandparents, kept strong across CMs by preserving high-tier general sparks. A great-grandparent must carry dirt sparks (a requirement, not something to maximise): they raise the dirt aptitude of the grandparents built from it, which lifts affinity the most.
+The long-lived foundation line of great-grandparents, kept strong across CMs by preserving high-tier general sparks, ranked by the Tier list weight of the sparks across the whole lineage. It has its own running style (default: the Sim runner's) and keeps that style's specific skills, but ignores skills conditioned on surface, distance or track. A great-grandparent must carry dirt sparks (a requirement, not something to maximise): they raise the dirt aptitude of the grandparents built from it, which lifts affinity the most.
 
 **Side loop**:
-Grandparents and parents built specifically for one upcoming CM, carrying the CM's relevant pink spark plus general lineage skills and CM skills.
+Grandparents and parents built specifically for one upcoming CM, ranked by spark % of the Must-have skills plus the CM's relevant pink spark, so they can later become parents of the Ace. The track's best simulated skills only break ties.
 
 **Ace**:
-The final trainee run for the CM; it ignores pink sparks and spark chance and only maximizes inherited relevant skills, measured in lengths gained.
+The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by the inheritance chance of the Must-have skills, ties broken by the simulated value of the track's best skills.
 _Avoid_: trainee (when meaning the final CM runner)
 
 **Ace veteran**:
 A veteran scored as a CM runner as herself, in the running style she ran in her career, with her actual stats and equipped skills. Ranked against other Ace veterans by lengths gained.
 _Avoid_: ace (when it is a finished run rather than the one about to be trained)
 
+**Sim runner**:
+The uma every simulation runs against, chosen by the user, with its running style and Target stats. It is a measuring stick, not a recommendation: the Ace is picked separately.
+_Avoid_: ace (for this selector)
+
+**Owned version**:
+A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
+
+**Must-have skill**:
+A skill the user decides manually the lineage should pass on. One shared list: the Ace slot ranks lineages by the best inheritance chance of these, and the side loop by their spark %. The core loop ignores it.
+
 **Target stats**:
-The stat line the user aims for when training the Ace, entered on top of a recommended default. The untrained Ace has no real stats, so skill value is measured on a runner with these.
+The stat line the user aims for on the Sim runner, entered on top of a recommended default. Skill value is measured on a runner with these.
 _Avoid_: ace stats (the Ace has none before its run)
 
 **Running style**:
@@ -64,7 +74,7 @@ How compatible a trainee and its lineage are; it raises spark chance.
 _Avoid_: compatibility (in UI copy)
 
 **Tier list**:
-The user's configurable ranking of general sparks, used in the core loop to decide which are worth keeping.
+The user's configurable ranking of general sparks, one per running style, used in the core loop to decide which are worth keeping. The user can move a skill between tiers or disable it; edits persist.
 
 **Proc**:
 A skill activating in a simulated race. Proc % is the share of runs in which it did.
