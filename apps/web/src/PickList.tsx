@@ -21,7 +21,7 @@ export function PickList({ title, testId, picks, candidates, cardIds, stale, dat
 			<ol class="cards" style={stale ? { opacity: 0.5 } : undefined}>
 				{picks?.map((p) => (
 					<UmaCard testId={testId} cardId={cardIds.get(p.candidateId)} name={candidates.get(p.candidateId)?.name ?? p.candidateId} headline={p.score.toFixed(2)} meta={p.reason}>
-						<SkillDetails detail={p.detail} data={data} />
+						<SkillDetails detail={p.detail} data={data} open />
 					</UmaCard>
 				))}
 			</ol>

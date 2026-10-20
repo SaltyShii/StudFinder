@@ -9,6 +9,7 @@ import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { SimRunner } from './SimRunner';
 import { TierEditor } from './TierEditor';
+import { LoopSlots } from './LoopSlots';
 import { PickList } from './PickList';
 import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planOwned, planRecommend, planVeterans, type RecommendJob, type RecommendRunner, type VeteranJob, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
@@ -143,8 +144,13 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					{busy && <p class="panel">Computing... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
 					<div class="picks">
-						<PickList title="Side loop" testId="side-card" picks={result?.side} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
-						<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
+						{ownedVersions.length ? <>
+							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} />
+							<LoopSlots title="Core loop" testId="core" picks={result?.coreSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} />
+						</> : <>
+							<PickList title="Side loop" testId="side-card" picks={result?.side} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
+							<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
+						</>}
 					</div>
 					<details>
 						<summary>Ace veteran list</summary>

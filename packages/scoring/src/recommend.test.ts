@@ -17,7 +17,7 @@ test('Ace ranks veterans by inherited skill value, ignoring pink sparks', () => 
 	const { ace } = recommend(candidateList, preset);
 	expect(ace[0].score).toBeGreaterThan(ace[ace.length - 1].score);
 	expect(ace.map((p) => p.candidateId)).toContain('b');
-	expect(ace[0].reason).toMatch(/lengths/);
+	expect(ace[0].reason).toMatch(/inheritable/);
 	const d = ace[0].detail[0];
 	expect(d.proc).toBeGreaterThan(0);
 	expect(d.lengths.max).toBeGreaterThanOrEqual(d.lengths.min);
@@ -52,8 +52,10 @@ test('a fresh Owned version with no candidates is still eligible, scored by its 
 	expect(slot.score).toBeGreaterThan(0);
 });
 
-test('the Ace slot gives the version its best style by aptitude, with 2 parents', () => {
-	const slot = recommend(candidateList, preset, undefined, [owned(1, undefined, { ...apt, oikomi: 8 })]).aceSlot!;
+test('the Ace slot keeps the selected style when the version has A in it, else its best style by aptitude, with 2 parents', () => {
+	const versions = [owned(1, undefined, { ...apt, oikomi: 8 })];
+	expect(recommend(candidateList, preset, undefined, versions).aceSlot!.style).toBe('senko');
+	const slot = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, versions).aceSlot!;
 	expect(slot.style).toBe('oikomi');
 	expect(slot.parents.map((p) => p.candidateId).sort()).toEqual(['p', 'q']);
 });
