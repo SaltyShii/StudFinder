@@ -1,3 +1,5 @@
+import { FactorType } from '@stud-finder/lineage/src/types';
+import { chanceAny, procChance } from '@stud-finder/lineage/src/inheritance';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Tier } from '@stud-finder/lineage/src/tiers';
 import type { SkillValue } from './skillValue';
@@ -84,4 +86,9 @@ export function greedyRank(candidates: Candidate[], top: number, baseline: Suppl
 		for (const [id, stars] of best.supply) supplied.set(id, Math.max(supplied.get(id) ?? 0, stars));
 	}
 	return out;
+}
+
+/** Best chance, over the Must-have skills, that these horses pass one on. */
+export function mustHaveChance(horses: LineageHorse[], mustHaves: string[]): number {
+	return Math.max(0, ...mustHaves.map((id) => chanceAny(horses.flatMap((h) => h.skills.filter((s) => s.skillId === id).map((s) => procChance(FactorType.Skill, s.stars, h.affinity))))));
 }

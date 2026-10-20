@@ -1,12 +1,10 @@
 import { sideLoopPicks } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillDetail } from './skillDetail';
-import { FactorType } from '@stud-finder/lineage/src/types';
-import { chanceAny, procChance } from '@stud-finder/lineage/src/inheritance';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { buildAce, categoryOf, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
-import { aceSupply, greedyRank, maxStars, newShare, type Candidate, type CmPreset, type CandidatePick, type CandidateList, type LineageHorse, type SkillDetail, type TierList } from './shared';
+import { aceSupply, greedyRank, mustHaveChance, maxStars, newShare, type Candidate, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
 export type { Candidate, CmPreset, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
@@ -58,7 +56,7 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 	});
 	const detailOf = detailerOf(horse);
 	const aceSlot = owned.length ? bestAceSlot(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return (cs) => rankAce(cs, mustHaves.length ? cs.length : PARENTS, h, d); }, mustHaves) : null;
-	return { aceSlot, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP, horse.skills) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills) };
+	return { aceSlot, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(candidateList.candidates, tierList, TOP, horse.skills) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves) };
 }
 
 // Every version runs the sim runner's Target stats in its own best style, so only aptitudes and the unique skill differ.
@@ -79,8 +77,4 @@ function bestAceSlot(owned: OwnedVersion[], runner: HorseDesc, course: CourseFac
 		if (!best || pick.mustHaveChance > best.mustHaveChance || (pick.mustHaveChance === best.mustHaveChance && score > best.score)) best = pick;
 	}
 	return best;
-}
-
-function mustHaveChance(horses: LineageHorse[], mustHaves: string[]): number {
-	return Math.max(0, ...mustHaves.map((id) => chanceAny(horses.flatMap((h) => h.skills.filter((s) => s.skillId === id).map((s) => procChance(FactorType.Skill, s.stars, h.affinity))))));
 }
