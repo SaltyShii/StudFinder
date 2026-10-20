@@ -38,7 +38,7 @@ const roster = importRoster(JSON.stringify([
 const cm = pickCm(new Date(), CMS[0].id);
 const course = data.courses.get(cm.courseId);
 const ace = data.cards.get(100101)!;
-const planFor = (candidates: Candidate[], c: Course | undefined, styleChoice: Style | null = 'senko') => planRecommend(data, candidates, cm, ace, c, styleChoice, {});
+const planFor = (candidates: Candidate[], c: Course | undefined, styleChoice: Style | null = 'senko') => planRecommend(data, candidates, cm, { card: ace, course: c, styleChoice });
 const jobFor = (candidates: Candidate[], c: Course | undefined) => planFor(candidates, c).job;
 
 it('builds a RecommendJob that the real recommend() accepts', () => {
@@ -59,10 +59,10 @@ it('has no RecommendJob without candidates or a course, but still lists candidat
 it('plans the Ace slot without a Sim runner, leaving the veteran lists empty', () => {
 	const candidates = planCandidates(data, roster, ace, course, false);
 	const owned = [{ cardId: ace.id, aptitudes: ace.aptitudes, candidates }];
-	const job = planRecommend(data, [], cm, undefined, course, null, {}, null, owned)?.job;
+	const job = planRecommend(data, [], cm, { course, owned })?.job;
 	expect(job?.candidateList.candidates).toEqual([]);
 	expect(job?.owned).toBe(owned);
-	expect(planRecommend(data, [], cm, undefined, course, null, {}).job).toBeNull();
+	expect(planRecommend(data, [], cm, { course }).job).toBeNull();
 });
 
 it('includes borrowed veterans only when asked', () => {
@@ -91,7 +91,7 @@ it('a manual Style beats the ranked one, and the plan carries default Target sta
 
 it('core loop style defaults to the Sim runner style, can be overridden, and drops surface, distance and track skills', () => {
 	const candidates = planCandidates(data, roster, ace, course, false);
-	const coreList = (coreStyle: Style | null, style: Style = 'sashi') => planRecommend(data, candidates, cm, ace, course, style, {}, coreStyle).job!.tierList!;
+	const coreList = (coreStyle: Style | null, style: Style = 'sashi') => planRecommend(data, candidates, cm, { card: ace, course, styleChoice: style, coreStyleChoice: coreStyle }).job!.tierList!;
 	expect(coreList(null)).toHaveProperty(['Late Surger Straightaways']);
 	expect(coreList(null)).not.toHaveProperty(['End Closer Straightaways']);
 	expect(coreList('oikomi')).toHaveProperty(['End Closer Straightaways']);
@@ -103,7 +103,7 @@ it('core loop style defaults to the Sim runner style, can be overridden, and dro
 
 it('Tier list edits move or disable a skill for the Core loop style only', () => {
 	const candidates = planCandidates(data, roster, ace, course, false);
-	const list = (edits: TierEdits) => planRecommend(data, candidates, cm, ace, course, 'sashi', {}, null, [], edits).job!.tierList!;
+	const list = (edits: TierEdits) => planRecommend(data, candidates, cm, { card: ace, course, styleChoice: 'sashi', tierEdits: edits }).job!.tierList!;
 	expect(list({})['Late Surger Straightaways']).toBe('T1.5');
 	expect(list({ sashi: { moved: { 'Late Surger Straightaways': 'T5' }, disabled: [] } })['Late Surger Straightaways']).toBe('T5');
 	expect(list({ sashi: { moved: {}, disabled: ['Late Surger Straightaways'] } })).not.toHaveProperty(['Late Surger Straightaways']);

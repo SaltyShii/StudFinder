@@ -54,7 +54,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster && card ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: ownedVersions, tierEdits, mustHaves }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON

@@ -79,7 +79,19 @@ export interface RecommendPlan {
 	defaults: TargetStats | undefined;
 }
 
-export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, card: Card | undefined, course: Course | undefined, styleChoice: Style | null, target: Partial<TargetStats>, coreStyleChoice: Style | null = null, owned: OwnedVersion[] = [], tierEdits: TierEdits = {}, mustHaves: string[] = []): RecommendPlan {
+export interface PlanOptions {
+	card?: Card;
+	course?: Course;
+	styleChoice?: Style | null;
+	target?: Partial<TargetStats>;
+	coreStyleChoice?: Style | null;
+	owned?: OwnedVersion[];
+	tierEdits?: TierEdits;
+	mustHaves?: string[];
+}
+
+export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
+	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], tierEdits = {}, mustHaves = [] } = options;
 	// Manual choice wins; otherwise the best-ranked style for this Ace on the CM course.
 	// The Ace slot needs only Target stats, so without a Sim runner the first Owned version stands in for its aptitudes.
 	const base = card ?? (owned[0] && { aptitudes: owned[0].aptitudes, uniqueSkillId: owned[0].uniqueSkillId == null ? undefined : Number(owned[0].uniqueSkillId) });
