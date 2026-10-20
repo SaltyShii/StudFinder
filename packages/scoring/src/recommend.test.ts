@@ -38,9 +38,18 @@ test("the Ace counts the skills of the veteran and of its parents, each once", (
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 function owned(cardId: number, uniqueSkillId?: string, aptitudes = apt) { return { cardId, aptitudes, uniqueSkillId, candidates: [cand('p', horseOf(['10071']), horseOf(['10081']), horseOf()), cand('q', horseOf(['10081']), horseOf(), horseOf())] }; }
 
-test('the Ace slot picks the Owned version whose own unique skill leaves the most to inherit', () => {
-	expect(recommend(candidateList, preset, undefined, [owned(1, '10071'), owned(2)]).aceSlot?.cardId).toBe(2);
-	expect(recommend(candidateList, preset, undefined, [owned(2), owned(1, '10071')]).aceSlot?.cardId).toBe(2);
+test('versions with different uniques are ranked by their own unique skill value on the track', () => {
+	const none = { cardId: 3, aptitudes: apt, candidates: [] };
+	const slot = (uniques: string[]) => recommend(candidateList, preset, undefined, uniques.map((u, i) => ({ ...none, cardId: i + 1, uniqueSkillId: u }))).aceSlot?.cardId;
+	expect(slot(['99999', '10071'])).toBe(2); // 99999 is unknown to the sim, so worth nothing
+	expect(slot(['10071', '99999'])).toBe(1);
+});
+
+test('a fresh Owned version with no candidates is still eligible, scored by its unique skill, with no parents', () => {
+	const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId: '10071', candidates: [] }]).aceSlot!;
+	expect(slot.cardId).toBe(1);
+	expect(slot.parents).toEqual([]);
+	expect(slot.score).toBeGreaterThan(0);
 });
 
 test('the Ace slot gives the version its best style by aptitude, with 2 parents', () => {

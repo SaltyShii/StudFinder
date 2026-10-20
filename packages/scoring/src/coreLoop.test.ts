@@ -65,3 +65,18 @@ test('core loop uses its own core version (Turf A + Dirt A first), not the displ
 	expect(ids([v(1, 4), v(2, 7)])).toEqual(['tiered', 'strong']);
 	expect(ids([v(1, 4)])).toEqual(['strong', 'tiered']);
 });
+
+test('a Dirt A core version gates on dirt sparks alone, and its own affinities set the dirt A chance', () => {
+	const full = cand('full', horseOf(), horseOf(), horseOf());
+	const partial = cand('partial', horseOf(), horseOf({ dirtStars: 0 }), horseOf({ dirtStars: 0 }));
+	const aptitudes = { turf: 7, dirt: 7, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
+	const ids = (dirt: number) => recommend({ candidates: [full, partial] }, preset, tierList, [{ cardId: 1, aptitudes: { ...aptitudes, dirt }, candidates: [] }]).core.map((p) => p.candidateId);
+	expect(ids(7).sort()).toEqual(['full', 'partial']);
+	expect(ids(4)).toEqual(['full']);
+	// affinity comes from the core version's candidates, not the Sim runner's
+	const lowAff = cand('x', horseOf({ affinity: 0 }), horseOf({ affinity: 0 }), horseOf({ affinity: 0 }));
+	const highAff = cand('y', horseOf({ affinity: 150 }), horseOf({ affinity: 150 }), horseOf({ affinity: 150 }));
+	const swapped = [{ ...lowAff, id: 'y' }, { ...highAff, id: 'x' }];
+	const core = recommend({ candidates: [lowAff, highAff] }, preset, tierList, [{ cardId: 1, aptitudes: { ...aptitudes, dirt: 4 }, candidates: swapped }]).core;
+	expect(core.map((p) => p.candidateId)).toEqual(['x', 'y']);
+});
