@@ -4,12 +4,13 @@ import type { ImportResult } from '../../../packages/lineage/src/types';
 import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
+import { OwnedVersions } from './OwnedVersions';
 import { PickList } from './PickList';
 import { cardIdsOf, planCandidates, planRecommend, planVeterans, type RecommendRunner, type VeteranRunner } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadCm, loadRoster, loadUseBorrowed, saveCm, saveRoster, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadCm, loadOwnedVersions, loadRoster, loadUseBorrowed, saveCm, saveOwnedVersions, saveRoster, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -33,6 +34,9 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [error, setError] = useState('');
 	const [cmId, setCmId] = useState<number>(() => loadCm(localStorage, CMS.map((c) => c.id)) ?? pickCm(new Date()).id);
 	const [useBorrowed, setUseBorrowed] = useState(() => loadUseBorrowed(localStorage));
+	const [ownedChoice, setOwnedChoice] = useState<number[] | null>(() => loadOwnedVersions(localStorage));
+	// Until the player edits, Owned versions are the versions the Roster has a veteran of.
+	const owned = useMemo(() => new Set(ownedChoice ?? roster?.veterans.map((v) => v.cardId) ?? []), [ownedChoice, roster]);
 	const [aceId, setAceId] = useState<number | null>(null);
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
@@ -85,9 +89,10 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						<h2>Roster</h2>
 						<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
 						<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
-						<button onClick={() => { clearRoster(localStorage); setRoster(null); setUseBorrowed(false); }}>Clear data</button>
+						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setUseBorrowed(false); }}>Clear data</button>
 					</section>
 				)}
+				{roster && data && <OwnedVersions data={data} owned={owned} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />}
 				{roster && data && (
 					<section class="panel">
 						<CmBanner cmId={cm.id} />
