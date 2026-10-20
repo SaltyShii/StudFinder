@@ -1,5 +1,5 @@
 import { FactorType } from '@stud-finder/lineage/src/types';
-import { chanceAny, procChance } from '@stud-finder/lineage/src/inheritance';
+import { GRADE_A, aptitudeChance, chanceAny, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Tier } from '@stud-finder/lineage/src/tiers';
 import type { SkillValue } from './skillValue';
@@ -91,4 +91,21 @@ export function greedyRank(candidates: Candidate[], top: number, baseline: Suppl
 /** Best chance, over the Must-have skills, that these horses pass one on. */
 export function mustHaveChance(horses: LineageHorse[], mustHaves: string[]): number {
 	return Math.max(0, ...mustHaves.map((id) => chanceAny(horses.flatMap((h) => h.skills.filter((s) => s.skillId === id).map((s) => procChance(FactorType.Skill, s.stars, h.affinity))))));
+}
+
+/** Chance rounded to 1e-9 so float noise between equal chances does not skip a tie-break; compare these, never raw chances. */
+export function chanceKey(chance: number): number {
+	return Math.round(chance * 1e9);
+}
+
+/** A full-dirt lineage has dirt pink sparks on every horse (parent and both grandparents). */
+export function isFullDirt(c: Candidate): boolean {
+	return c.horses.every((h) => h.dirtStars > 0);
+}
+
+/** Chance these horses lift a dirt aptitude of `base` to A through their dirt pink sparks (start boost, then both inspirations; the lower bound the owner ranks by). */
+export function dirtAChance(horses: LineageHorse[], base: number): number {
+	const dirty = horses.filter((h) => h.dirtStars > 0);
+	const start = startingGrade(base, dirty.reduce((s, h) => s + h.dirtStars, 0));
+	return aptitudeChance(start, GRADE_A, dirty.map((h) => procChance(FactorType.Aptitude, h.dirtStars, h.affinity))).min;
 }

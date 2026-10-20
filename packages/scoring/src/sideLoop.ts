@@ -1,6 +1,6 @@
 import { FactorType } from '@stud-finder/lineage/src/types';
 import { chanceAny, procChance } from '@stud-finder/lineage/src/inheritance';
-import { aceSupply, greedyRank, mustHaveChance, maxStars, type Candidate, type CandidatePick, type SkillDetail } from './shared';
+import { aceSupply, chanceKey, greedyRank, mustHaveChance, maxStars, type Candidate, type CandidatePick, type SkillDetail } from './shared';
 
 // Lengths-equivalent of landing the CM pink spark (aptitude up). The player re-runs the veteran until the pink lands,
 // because the distance aptitude speed boost is too big to settle for less, so a landed pink is worth a fixed amount.
@@ -33,7 +33,6 @@ export function sideLoopPicks(candidates: Candidate[], detailOf: (id: string) =>
 	// With Must-haves, spark % of them plus the CM pink ranks first so the veteran can parent the Ace; simulated value (the greedy order) only breaks ties.
 	if (!mustHaves.length) return ranked;
 	const byId = new Map(candidates.map((c) => [c.id, c]));
-	// Rounded so float noise between equal chances does not skip the simulated-value tie-break.
-	const priority = (p: CandidatePick) => { const hs = byId.get(p.candidateId)?.horses ?? []; return Math.round((mustHaveChance(hs, mustHaves) + chanceAny(hs.filter((h) => h.pinkStars > 0).map((h) => procChance(FactorType.Aptitude, h.pinkStars, h.affinity)))) * 1e9); };
+		const priority = (p: CandidatePick) => { const hs = byId.get(p.candidateId)?.horses ?? []; return chanceKey(mustHaveChance(hs, mustHaves) + chanceAny(hs.filter((h) => h.pinkStars > 0).map((h) => procChance(FactorType.Aptitude, h.pinkStars, h.affinity)))); };
 	return ranked.sort((a, b) => priority(b) - priority(a)).slice(0, top);
 }

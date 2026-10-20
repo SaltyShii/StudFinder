@@ -35,6 +35,14 @@ test('no tier list means no core picks', () => {
 	expect(recommend(candidateList, preset).core).toEqual([]);
 });
 
+test('core loop prefers full-dirt lineages and falls back to partial dirt only without one', () => {
+	const full = cand('full', horseOf(), horseOf(), horseOf());
+	const partial = cand('partial', horseOf(), horseOf({ dirtStars: 0 }), horseOf({ dirtStars: 0 }));
+	const ids = (cs: Candidate[]) => recommend({ candidates: cs }, preset, tierList).core.map((p) => p.candidateId);
+	expect(ids([full, partial])).toEqual(['full']);
+	expect(ids([partial])).toEqual(['partial']);
+});
+
 test('core loop drops sparks of skills the Ace already has', () => {
 	const owned = { ...preset, runner: { ...horse, skills: ['0'] } };
 	expect(recommend(candidateList, owned, tierList).core.every((p) => p.score === 0)).toBe(true);

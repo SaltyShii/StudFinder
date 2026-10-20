@@ -68,6 +68,30 @@ test('no Owned versions means no Ace slot', () => {
 	expect(recommend(candidateList, preset).aceSlot).toBeNull();
 });
 
+// Parent units: each is a parent plus its own 2 grandparents, chosen together.
+function unit(id: string, skills: string[], o: Partial<LineageHorse> = {}) { return cand(id, horseOf(skills, o), horseOf(), horseOf()); }
+function pairIds(cs: Candidate[], mustHaves: string[] = []) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: cs }], mustHaves).aceSlot!.parents.map((p) => p.candidateId).sort(); }
+
+test('the Ace slot picks the best pair of parents, not the two best alone', () => {
+	// Each unit alone is equally good, so a greedy pick takes the first two (a, b); only b and c together double up on one Must-have.
+	expect(pairIds([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 }), unit('c', ['10081'], { affinity: 100 })], ['10081', '10071'])).toEqual(['b', 'c']);
+});
+
+test('grandparents are never picked apart from their parent', () => {
+	expect(pairIds([cand('g', horseOf(), horseOf(['10081'], { affinity: 100 }), horseOf()), unit('h', []), unit('i', [])], ['10081'])).toContain('g');
+});
+
+test('Must-have chances differing only by float noise still fall to simulated value', () => {
+	expect(pairIds([unit('a1', ['10081'], { affinity: 0.1 + 0.2 }), unit('a2', ['10081'], { affinity: 0.3 }), unit('v', ['10071'])], ['10081'])).toEqual(['a1', 'a2']);
+});
+
+test('the Ace slot needs dirt in the lineage, partial dirt only when fewer than 2 full-dirt lineages exist', () => {
+	const nodirt = cand('n', horseOf(['10071'], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }));
+	const partial = (id: string) => cand(id, horseOf([], { dirtStars: 2 }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }));
+	expect(pairIds([nodirt, unit('f1', []), unit('f2', [])])).toEqual(['f1', 'f2']);
+	expect(pairIds([nodirt, partial('p1'), unit('f1', [])])).toEqual(['f1', 'p1']);
+});
+
 test('same seed and samples give identical output', () => {
 	expect(recommend(candidateList, preset)).toEqual(recommend(candidateList, preset));
 });
