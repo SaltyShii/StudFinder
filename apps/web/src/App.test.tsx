@@ -19,7 +19,7 @@ const data = new GameData({
 		100201: { id: 100201, charaId: 1002, name: 'Stud', title: 'Test', aptitudes: apt, uniqueSkillId: null, skillIds: [10071] },
 		100301: { id: 100301, charaId: 1003, name: 'Dud', title: 'Test', aptitudes: apt, uniqueSkillId: null, skillIds: [] },
 	},
-	skills: { 10071: { id: 10071, name: 'Synthetic Skill' } }, factors: {
+	skills: { 10071: { id: 10071, name: 'Synthetic Skill' }, 10072: { id: 10072, name: 'Racing Spirit: Stamina', rarity: 1, groupId: 9 } }, factors: {
 		1201: { id: 1201, groupId: 12, type: 2, stars: 1, name: 'Dirt', targets: [], skillId: null },
 		1202: { id: 1202, groupId: 4001, type: 4, stars: 3, name: 'Synthetic Spark', targets: [], skillId: 10071 },
 	}, relations: { points: {}, members: {}, ranks: [] },
@@ -48,7 +48,7 @@ async function importFile() {
 }
 
 async function pickAce(id = '100101') {
-	const sel = root.querySelector('select[name=ace]') as HTMLSelectElement;
+	const sel = root.querySelector('select[name=sim-runner]') as HTMLSelectElement;
 	sel.value = id;
 	await act(() => { sel.dispatchEvent(new Event('change')); });
 }
@@ -105,28 +105,30 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	expect(jobs).toHaveLength(1);
+	jobs.length = 0; cancelled = 0; // the Ace-slot-only job before the pick is not under test
 	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
 	style.value = 'nige';
 	await act(() => { style.dispatchEvent(new Event('change')); });
-	expect(jobs).toHaveLength(2);
+	expect(jobs).toHaveLength(1);
 	expect(cancelled).toBe(1); // the stale job is dropped
 	await act(() => { (root.querySelector('button[name=cancel]') as HTMLButtonElement).click(); });
 	expect(cancelled).toBe(2);
 	expect(root.textContent).not.toContain('Computing');
 });
 
-it('shows a prompt and runs no job until an Ace is chosen, and marks lists stale on restart', async () => {
+it('shows a prompt and runs only the Ace slot until a Sim runner is chosen, and marks lists stale on restart', async () => {
 	const jobs: RecommendJob[] = [];
 	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };
 	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
 	await importFile();
-	expect(jobs).toHaveLength(0);
-	expect(root.textContent).toContain('Choose an Ace');
-	await pickAce();
 	expect(jobs).toHaveLength(1);
+	expect(jobs[0].candidateList.candidates).toEqual([]);
+	expect(jobs[0].owned?.length).toBeGreaterThan(0);
+	expect(root.textContent).toContain('Choose a Sim runner');
+	await pickAce();
+	expect(jobs).toHaveLength(2);
 	expect(root.textContent).toContain('outdated');
-	expect(jobs[0].candidateList.candidates.map((c) => c.id)).toEqual(['1', '2']);
+	expect(jobs[1].candidateList.candidates.map((c) => c.id)).toEqual(['1', '2']);
 });
 
 it('persists the CM override, and Clear data drops it and the owned toggles of earlier versions', async () => {
@@ -200,7 +202,18 @@ it('shows a portrait on pick cards', async () => {
 	await pickAce();
 	expect(root.querySelector('[data-testid=ace-card] img')!.getAttribute('src')).toMatch(/img\/cards\/1002?01\.png/);
 	for (const id of ['core-card', 'side-card']) expect(root.querySelector(`[data-testid=${id}]`)!.querySelector('img, [data-testid=portrait-placeholder]')).not.toBeNull();
-	expect(root.querySelectorAll('.picks > section').length).toBe(3);
+	expect(root.querySelectorAll('.picks > section').length).toBe(2);
+});
+
+it('shows the Ace hero first, then Side and Core loops, with the Ace veteran list collapsed last', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	expect(root.querySelector('[data-testid=ace-pick]')).not.toBeNull();
+	expect(root.querySelector('[data-testid=ace-parent]')).not.toBeNull();
+	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
+	expect(heads.slice(0, 4)).toEqual(['Ace', 'Side loop', 'Core loop', 'Ace veteran list']);
+	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
 it('drops scores on cancel so they do not look current', async () => {
@@ -260,4 +273,109 @@ it('returns the Style to the best-ranked one when the Ace or CM changes', async 
 	await change('style', 'nige');
 	await change('cm', String(CMS[1].id));
 	expect(style.value).toBe('senko');
+});
+
+it('labels the selector Sim runner, not Ace', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	const label = root.querySelector('select[name=sim-runner]')!.closest('label')!;
+	expect(label.firstChild!.textContent).toBe('Sim runner ');
+	expect([...root.querySelectorAll('h2')].map((h) => h.textContent)).toContain('Sim runner');
+});
+
+it('Core loop style follows the Sim runner style until overridden', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const change = async (name: string, value: string) => {
+		const sel = root.querySelector(`select[name=${name}]`) as HTMLSelectElement;
+		sel.value = value;
+		await act(() => { sel.dispatchEvent(new Event('change')); });
+	};
+	const core = root.querySelector('select[name=core-style]') as HTMLSelectElement;
+	expect(core.value).toBe('senko');
+	await change('style', 'sashi');
+	expect(core.value).toBe('sashi');
+	await change('core-style', 'oikomi');
+	await change('style', 'nige');
+	expect(core.value).toBe('oikomi');
+});
+
+it('adds Must-have skills by search or suggestion chip, passes them to the job and persists them', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };
+	const mount = () => render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root);
+	mount();
+	await importFile();
+	await pickAce();
+	const chips = () => [...root.querySelectorAll<HTMLButtonElement>('button[data-testid=must-have-suggestion]')];
+	expect(chips().map((c) => c.textContent)).toEqual(['Synthetic Skill']);
+	await act(() => { chips()[0].click(); });
+	const listed = () => [...root.querySelectorAll('[data-testid=must-have]')].map((e) => e.textContent);
+	expect(listed()).toEqual(['Synthetic Skill remove']);
+	expect(jobs[jobs.length - 1].mustHaves).toEqual(['10071']);
+	await act(() => { root.querySelector<HTMLButtonElement>('[data-testid=must-have] button')!.click(); });
+	expect(listed()).toEqual([]);
+	const search = root.querySelector('input[name=must-have-search]') as HTMLInputElement;
+	search.value = 'synth';
+	await act(() => { search.dispatchEvent(new Event('input')); });
+	await act(() => { root.querySelector<HTMLButtonElement>('button[data-testid=must-have-result]')!.click(); });
+	expect(listed()).toEqual(['Synthetic Skill remove']);
+	render(null, root);
+	mount();
+	await flush();
+	await flush();
+	expect(listed()).toEqual(['Synthetic Skill remove']);
+});
+
+it('prefills Owned versions from the Roster, lets the player edit them, and persists the edit', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	const boxes = () => [...root.querySelectorAll<HTMLInputElement>('input[name=owned-version]')];
+	expect(boxes().map((b) => [b.value, b.checked])).toEqual([['100101', false], ['100201', true], ['100301', true]]);
+	expect(root.querySelector('.owned-grid img')!.getAttribute('src')).toContain('img/cards/100101.png');
+	await act(() => { boxes()[0].click(); });
+	expect(boxes()[0].checked).toBe(true);
+	expect(localStorage.getItem('stud-finder:owned-versions')).toContain('100101');
+	render(null, root);
+	await act(() => { render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root); });
+	await flush();
+	expect(boxes().map((b) => b.checked)).toEqual([true, true, true]);
+	localStorage.setItem('stud-finder:owned-versions', JSON.stringify({ version: 99, ids: [100101] }));
+	render(null, root);
+	await act(() => { render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root); });
+	await flush();
+	expect(boxes().map((b) => b.checked)).toEqual([false, true, true]);
+});
+
+it('edits the Tier list per Core loop style, resets it, and persists the edit', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, fail) => { jobs.push(job); return inline(job, p, done, fail); };
+	const mount = async () => { render(null, root); await act(() => { render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root); }); await flush(); };
+	await mount();
+	await importFile();
+	await pickAce();
+	const tier = () => jobs.at(-1)!.tierList!['Racing Spirit: Stamina'];
+	const field = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
+	expect(tier()).toBe('URA');
+	const move = field<HTMLSelectElement>('select[name=tier-of][data-skill="Racing Spirit: Stamina"]');
+	move.value = 'T5';
+	await act(() => { move.dispatchEvent(new Event('change')); });
+	expect(tier()).toBe('T5');
+	jobs.length = 0;
+	await mount();
+	await pickAce();
+	expect(tier()).toBe('T5'); // persisted
+	await act(() => { field<HTMLInputElement>('input[name=tier-enabled]').click(); });
+	await flush();
+	expect(jobs.at(-1)!.tierList).not.toHaveProperty(['Racing Spirit: Stamina']);
+	const core = field<HTMLSelectElement>('select[name=core-style]');
+	core.value = 'oikomi';
+	await act(() => { core.dispatchEvent(new Event('change')); });
+	expect(tier()).toBe('URA'); // edits are per style
+	core.value = 'senko';
+	await act(() => { core.dispatchEvent(new Event('change')); });
+	await act(() => { field<HTMLButtonElement>('button[name=tier-reset]').click(); });
+	expect(tier()).toBe('URA');
+	expect(localStorage.getItem('stud-finder:tier-edits')).not.toContain('Racing');
 });

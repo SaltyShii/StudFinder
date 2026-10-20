@@ -34,6 +34,7 @@ test('recommend runs from a built Ace', () => {
 	const ace = buildAce({ aptitudes, style: 'senko', category: 'mile', surface: 'turf' });
 	const r = recommend({ candidates: [{ id: 'a', name: 'A', horses: [{ affinity: 0, pinkStars: 0, dirtStars: 0, skills: [{ skillId: '10071', name: 'S', stars: 3 }] }] }] }, { courseId: 10101, runner: ace, samples: 10 });
 	expect(r.ace[0].score).toBeGreaterThan(0);
+	expect(r.skills.map((d) => d.skillId)).toEqual(['10071']);
 });
 
 test('aceForCourse reads surface, distance and unique skill from the course and card', () => {
