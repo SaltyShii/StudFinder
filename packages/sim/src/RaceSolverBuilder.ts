@@ -1,4 +1,4 @@
-import { HorseParameters, Strategy, Aptitude } from './HorseTypes';
+import { HorseParameters, Strategy, Aptitude, StrategyProficiencyModifier } from './HorseTypes';
 import { CourseData, CourseHelpers, DistanceType } from './CourseData';
 import { Region, RegionList } from './Region';
 import { PRNG, Rule30CARng, SeededRng } from './Random';
@@ -61,7 +61,6 @@ const GroundPowerModifier = Object.freeze([
 	[0, -100, -50, -100, -100]
 ].map(o => Object.freeze(o)));
 
-const StrategyProficiencyModifier = Object.freeze([1.1, 1.0, 0.85, 0.75, 0.6, 0.4, 0.2, 0.1]);
 
 namespace StaminaSyoubu {
 	export function distanceFactor(distance: number) {

@@ -3,6 +3,8 @@ import { strict as assert } from 'node:assert';
 export enum Strategy { Nige = 1, Senkou, Sasi, Oikomi, Oonige }
 export enum Aptitude { S, A, B, C, D, E, F, G }
 
+export const StrategyProficiencyModifier = Object.freeze([1.1, 1.0, 0.85, 0.75, 0.6, 0.4, 0.2, 0.1]);
+
 export interface HorseParameters {
 	readonly speed: number
 	readonly stamina: number

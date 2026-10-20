@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { ConserveSections, creditPerSecond, releaseAccel, releaseDuration } from './ConservePower';
-import { Strategy, Aptitude, HorseParameters, StrategyHelpers } from './HorseTypes';
+import { Strategy, Aptitude, HorseParameters, StrategyHelpers, StrategyProficiencyModifier } from './HorseTypes';
 import { CourseData, CourseHelpers, Phase } from './CourseData';
 import { Region } from './Region';
 import { PRNG, Rule30CARng } from './Random';
@@ -232,6 +232,17 @@ interface ActiveSkill {
 }
 
 function noop(x: unknown) {}
+
+// Per the community PDF (ADR 0001): duration scales with strategy proficiency.
+export function spotStruggleDuration(guts: number, strategyAptitude: Aptitude) {
+	return Math.sqrt(700 * guts) * 0.012 * StrategyProficiencyModifier[strategyAptitude];
+}
+
+// Per the community PDF (ADR 0001): rounded up to a whole percent before the self-control subtraction.
+export function rushedChance(wisdom: number, hasSelfControl: boolean) {
+	const pct = Math.ceil((6.5 / Math.log10(0.1 * wisdom + 1)) ** 2);
+	return Math.max(0, pct / 100 - (hasSelfControl ? 0.03 : 0));
+}
 
 export class RaceSolver {
 	accumulatetime: Timer
@@ -609,12 +620,11 @@ export class RaceSolver {
 		// Calculate rushed chance based on wisdom
 		// Formula: RushedChance = (6.5 / log10(0.1 * WizStat + 1))²%
 		const wisdomStat = this.horse.wisdom;
-		const rushedChance = Math.pow(6.5 / Math.log10(0.1 * wisdomStat + 1), 2) / 100;
 
 		// Check if horse has 自制心 (Self-Control) skill - ID 202161
 		// This reduces rushed chance by flat 3%
 		const hasSelfControl = this.pendingSkills.some(s => s.skillId === '202161');
-		const finalRushedChance = Math.max(0, rushedChance - (hasSelfControl ? 0.03 : 0));
+		const finalRushedChance = rushedChance(wisdomStat, hasSelfControl);
 		
 		// Roll for rushed state
 		if (this.rushedRng.random() < finalRushedChance) {
@@ -1131,7 +1141,7 @@ export class RaceSolver {
 		}
 
 		if (this.leadCompetition) {
-			let leadCompeteDuration = Math.pow(700 * this.horse.guts, 0.5) * 0.012;
+			const leadCompeteDuration = spotStruggleDuration(this.horse.guts, this.horse.strategyAptitude);
 
 			if (this.leadCompetitionTimer.t >= leadCompeteDuration || this.pos >= this.leadCompetitionEnd) {
 				this.leadCompetition = false;
