@@ -159,16 +159,14 @@ Checked 2026-10-18 against `packages/sim/src`, formulas included.
 - HP: max HP, per-second formula, status and ground modifiers, guts modifier; last spurt 60 m reserve and candidate accept chance.
 - Skill level scaling, wiz check on raw wiz, raw stat halving, motivation, section randomness, rushed chance and timers, position keep chances (20/15 × log10), spot struggle target speed, dueling speed and accel, lane change speed, uphill penalty, downhill trigger chance, move lane modifier, conserve power strategy-distance table.
 
-**Drifts (candidate fixes)**
-1. **Downhill accel mode sign** (`RaceSolver.ts` ~L1215): sim adds `0.3 + slopePer/100000` with `slopePer` negative on downhills, so it yields `0.3 − |%|/10`; the doc says `0.3 + |%|/10`. A 2% downhill gives +0.1 m/s instead of +0.5 m/s.
-2. **Stamina limit break distance factor** (`RaceSolverBuilder.ts`, `StaminaSyoubu.distanceFactor`): 2401-2600 m uses 1.2× (now 1.5×), ≥2601 m uses 1.5× (now 1.8×).
-3. **Conserve power magnitude** (`Asitame.calcApproximateModifier`): `0.00875 × sqrt(P − 1200) × coef` vs doc `sqrt((P − 1200) × 130) × 0.001 × coef` = `0.0114 × sqrt(P − 1200)`; the sim is about 23% weaker and has no spot struggle/rushed activity coefficient. Duration is a fixed 3 s; the doc scales it with conserved power and distance. Likely deliberate approximation; confirm.
-4. **Spot struggle duration** (`updateLeadCompetition`): missing the `× StrategyProficiency` factor.
-5. **Pace down speed** (`updatePositionKeepCoefficient`): 0.915× in all phases; doc says 0.945× in mid-race (post 1.5 anniversary).
-6. **Rushed chance** not rounded up to whole percent (up to 1 point low).
+**Drifts**
+Fixed in 6f201a3 (see Client verification): downhill accel mode sign, stamina limit break distance factors, pace down 0.945 mid-race. Open, PDF-only (ADR 0001):
+1. **Conserve power magnitude** (`Asitame.calcApproximateModifier`): `0.00875 × sqrt(P − 1200) × coef` vs doc `sqrt((P − 1200) × 130) × 0.001 × coef` = `0.0114 × sqrt(P − 1200)`; the sim is about 23% weaker and has no spot struggle/rushed activity coefficient. Duration is a fixed 3 s; the doc scales it with conserved power and distance. To be rebuilt from the doc: #59.
+2. **Spot struggle duration** (`updateLeadCompetition`): missing the `× StrategyProficiency` factor. #58.
+3. **Rushed chance** not rounded up to whole percent (up to 1 point low). #58.
 
 **Not implemented**
-- Wiz limit break buff (wiz above 1200) and zenkai spurt (speed above 2000).
+- Wiz limit break buff (wiz above 1200) and zenkai spurt (speed above 2000): deferred, JP-only mechanics not yet in Global.
 - Pace up Ex, blocking speed cap, overtake lane logic, compete before spurt, secure lead, stamina keep.
 - Stamina limit break random factor (fixed 1.0) and its input uses unhalved stamina; the doc says base stamina (halved). Unverified.
 
