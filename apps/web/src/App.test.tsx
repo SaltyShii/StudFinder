@@ -6,8 +6,9 @@ import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { CMS } from '../../../packages/scoring/src/cm';
 import { App } from './App';
-import { computeRecommend, type RecommendJob, type RecommendRunner } from './recommend.job';
-import type { VeteranJob, VeteranRunner } from './veterans.job';
+import { runJob } from './runJob';
+import type { RecommendJob, RecommendRunner, VeteranJob, VeteranRunner } from './jobs';
+import type { Recommendation } from '../../../packages/scoring/src/recommend';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 const courses = Object.fromEntries(CMS.map((c) => [c.courseId, { id: c.courseId, trackId: 1, distance: 2000, ground: 1, turn: 1 }]));
@@ -25,6 +26,7 @@ const data = new GameData({
 	saddles: {}, tracks: {}, courses, races: [],
 } as unknown as RawGameData);
 
+const computeRecommend = (job: RecommendJob) => runJob({ kind: 'recommend', job }, () => {}) as Recommendation;
 const inline: RecommendRunner = (job, _p, done) => { done(computeRecommend(job)); return () => {}; };
 const noV: VeteranRunner = () => () => {};
 // Both carry a dirt spark, so the core loop (great-grandparents need one) lists them; Stud also carries a skill spark.

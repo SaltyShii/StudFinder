@@ -1,8 +1,8 @@
-import type { RecommendJob, RecommendRunner } from './recommend.job';
-import type { VeteranJob, VeteranProgress, VeteranRunner } from './veterans.job';
+import type { JobRequest, RecommendRunner, VeteranProgress, VeteranRunner } from './jobs';
 import { workerRunner } from './jobRunner';
-import type { Recommendation } from '../../../packages/scoring/src/recommend';
-import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 
-export const recommendRunner: RecommendRunner = workerRunner<RecommendJob, Recommendation>(() => new Worker(new URL('./recommend.worker.ts', import.meta.url), { type: 'module' }));
-export const veteranRunner: VeteranRunner = workerRunner<VeteranJob, AceVeteranScore[], VeteranProgress>(() => new Worker(new URL('./veterans.worker.ts', import.meta.url), { type: 'module' }));
+const run = workerRunner<JobRequest, unknown, VeteranProgress>(() => new Worker(new URL('./jobs.worker.ts', import.meta.url), { type: 'module' }));
+
+// The worker answers with whatever the request's kind produces; the casts restate that per kind.
+export const recommendRunner = ((job, onProgress, done, onError) => run({ kind: 'recommend', job }, onProgress, done as (r: unknown) => void, onError)) as RecommendRunner;
+export const veteranRunner = ((job, onProgress, done, onError) => run({ kind: 'veterans', job }, onProgress, done as (r: unknown) => void, onError)) as VeteranRunner;
