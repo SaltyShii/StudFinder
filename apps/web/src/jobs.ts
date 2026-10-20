@@ -1,12 +1,11 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { Card, Course, ImportResult, Veteran } from '../../../packages/lineage/src/types';
 import { resolveTierList } from '../../../packages/lineage/src/tiers';
-import { aceForCourse, categoryOf, defaultTargetStats, pinkGroupOf, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
-import { candidatesOf } from '../../../packages/scoring/src/candidates';
+import { aceForCourse, categoryOf, defaultTargetStats, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
 import type { CandidateList, CmPreset, Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
-import { rankStyles } from '../../../packages/scoring/src/styleRank';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import type { JobRunner } from './jobRunner';
 

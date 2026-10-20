@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { GameData } from '../../lineage/src/gameData';
 import type { RawGameData, Veteran } from '../../lineage/src/types';
-import { candidatesOf } from './candidates';
+import { candidatesOf, pinkGroupOf } from './candidates';
 import { recommend } from './recommend';
 
 function card(id: number, title = 'T') { return { id, charaId: id, name: `N${id}`, title, runningStyle: 1, skillIds: [] }; }
@@ -55,4 +55,8 @@ test('a borrowed veteran is a candidate labelled with its owner, not a rank scor
 	expect(c.id).toBe('-1');
 	expect(c.name).toBe('T N1 (borrowed from 777)');
 	expect(c.horses[0].skills).toHaveLength(1);
+});
+
+test('pinkGroupOf maps a course distance to its distance pink group', () => {
+	expect(pinkGroupOf(2000)).toBe(33);
 });

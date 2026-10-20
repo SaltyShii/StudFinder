@@ -1,8 +1,18 @@
 import type { GameData } from '../../lineage/src/gameData';
 import { lineageCompat } from '../../lineage/src/compatibility';
 import { FactorType, type Veteran } from '../../lineage/src/types';
-import { DIRT_GROUP } from './ace';
+import { categoryOf, type Category } from './ace';
 import type { Candidate, LineageHorse } from './shared';
+
+/** Factor groups of the distance pink sparks (see lineage APTITUDE_BY_GROUP). */
+const PINK_GROUP: Record<Category, number> = { short: 31, mile: 32, middle: 33, long: 34 };
+/** Factor group of the dirt aptitude spark. */
+const DIRT_GROUP = 12;
+
+/** Factor group of the CM-relevant pink spark: the distance aptitude of the course. */
+export function pinkGroupOf(distance: number): number {
+	return PINK_GROUP[categoryOf(distance)];
+}
 
 export interface CandidateTarget {
 	/** The Ace's card; affinity is measured against it. */

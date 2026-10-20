@@ -1,6 +1,7 @@
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Aptitudes, Card } from '@stud-finder/lineage/src/types';
-import type { CourseFacts } from './courseFacts';
+import courses from '@stud-finder/sim/src/data/course_data.json';
+import { CourseHelpers } from '@stud-finder/sim/src/CourseData';
 
 export const CATEGORIES = ['short', 'mile', 'middle', 'long'] as const;
 export const STYLES = ['nige', 'senko', 'sashi', 'oikomi'] as const;
@@ -16,18 +17,8 @@ export interface TargetStats {
 	wisdom: number;
 }
 
-/** Factor groups of the distance pink sparks (see lineage APTITUDE_BY_GROUP). */
-export const PINK_GROUP: Record<Category, number> = { short: 31, mile: 32, middle: 33, long: 34 };
-/** Factor group of the dirt aptitude spark. */
-export const DIRT_GROUP = 12;
-
 export function categoryOf(distance: number): Category {
 	return distance <= 1400 ? 'short' : distance <= 1800 ? 'mile' : distance <= 2400 ? 'middle' : 'long';
-}
-
-/** Factor group of the CM-relevant pink spark: the distance aptitude of the course. */
-export function pinkGroupOf(distance: number): number {
-	return PINK_GROUP[categoryOf(distance)];
 }
 
 /** Game ground id (1 = turf, 2 = dirt); the lineage Course and the sim course both use it. */
@@ -83,4 +74,29 @@ export function aceForCourse(card: Pick<Card, 'aptitudes' | 'uniqueSkillId'>, co
 		aptitudes: card.aptitudes, style, category: categoryOf(course.distance), surface: course.surface, target,
 		uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId),
 	});
+}
+
+/** What the scoring code needs to know about a CM course. */
+export interface CourseFacts {
+	distance: number;
+	surface: 'turf' | 'dirt';
+}
+
+/** The one place scoring reads a course out of the sim. */
+export function courseFacts(courseId: number): CourseFacts {
+	if (!Object.hasOwn(courses, courseId)) throw new Error(`Unknown course id ${courseId}`);
+	const c = CourseHelpers.getCourse(courseId);
+	return { distance: c.distance, surface: surfaceOf(c.surface) };
+}
+
+/** Distance aptitude counts double: it scales the whole race, style only the pace. */
+const DISTANCE_WEIGHT = 2;
+
+export function styleScore(apt: Aptitudes, category: Category, style: Style): number {
+	return DISTANCE_WEIGHT * apt[category] + apt[style];
+}
+
+/** Styles best first for a course distance category; ties keep STYLES order. */
+export function rankStyles(apt: Aptitudes, category: Category): Style[] {
+	return [...STYLES].sort((x, y) => styleScore(apt, category, y) - styleScore(apt, category, x));
 }
