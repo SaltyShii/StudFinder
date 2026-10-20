@@ -1,5 +1,7 @@
 <!-- Repo: SaltyShii/StudFinder (stud-finder). Handoff from the race-mechanics verification session, 2026-10-18. -->
 
+> **Superseded 2026-10-20.** uma-re work is done and its findings are in `docs/race-mechanics.md` (Client verification). Five sim fixes shipped in 6f201a3; the rest is decided in `docs/adr/0001-community-pdf-over-upstream-sim.md` and issues #58, #59. State and Next steps below are stale.
+
 # stud-finder handoff: race mechanics verification + uma-re reverse engineering
 
 ## Goal
