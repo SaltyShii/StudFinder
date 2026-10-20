@@ -160,10 +160,8 @@ Checked 2026-10-18 against `packages/sim/src`, formulas included.
 - Skill level scaling, wiz check on raw wiz, raw stat halving, motivation, section randomness, rushed chance and timers, position keep chances (20/15 × log10), spot struggle target speed, dueling speed and accel, lane change speed, uphill penalty, downhill trigger chance, move lane modifier, conserve power strategy-distance table.
 
 **Drifts**
-Fixed in 6f201a3 (see Client verification): downhill accel mode sign, stamina limit break distance factors, pace down 0.945 mid-race. Open, PDF-only (ADR 0001):
+Fixed in 6f201a3 (see Client verification): downhill accel mode sign, stamina limit break distance factors, pace down 0.945 mid-race. Fixed from the PDF (#58): spot struggle duration x StrategyProficiency, rushed chance rounded up to a whole percent. Open, PDF-only (ADR 0001):
 1. **Conserve power magnitude** (`Asitame.calcApproximateModifier`): `0.00875 × sqrt(P − 1200) × coef` vs doc `sqrt((P − 1200) × 130) × 0.001 × coef` = `0.0114 × sqrt(P − 1200)`; the sim is about 23% weaker and has no spot struggle/rushed activity coefficient. Duration is a fixed 3 s; the doc scales it with conserved power and distance. To be rebuilt from the doc: #59.
-2. **Spot struggle duration** (`updateLeadCompetition`): missing the `× StrategyProficiency` factor. #58.
-3. **Rushed chance** not rounded up to whole percent (up to 1 point low). #58.
 
 **Not implemented**
 - Wiz limit break buff (wiz above 1200) and zenkai spurt (speed above 2000): deferred, JP-only mechanics not yet in Global.
