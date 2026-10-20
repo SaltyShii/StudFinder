@@ -19,6 +19,10 @@ export interface RecommendJob {
 export interface VeteranJob {
 	veterans: Veteran[];
 	courseId: number;
+	season?: number;
+	ground?: number;
+	weather?: number;
+	time?: number;
 	/** [card id, unique skill id] pairs (structured-cloneable for the worker). */
 	uniqueSkills: [number, number][];
 }
@@ -125,5 +129,5 @@ export function planVeterans(data: GameData | null, roster: ImportResult | null,
 	if (!data || !roster || !data.courses.has(cm.courseId)) return null;
 	const uniqueSkills: [number, number][] = [];
 	data.cards.forEach((c) => { if (c.uniqueSkillId != null) uniqueSkills.push([c.id, c.uniqueSkillId]); });
-	return { veterans: roster.veterans, courseId: cm.courseId, uniqueSkills };
+	return { veterans: roster.veterans, courseId: cm.courseId, season: cm.season, ground: cm.ground, weather: cm.weather, time: cm.time, uniqueSkills };
 }

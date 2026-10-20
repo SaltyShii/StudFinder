@@ -4,7 +4,15 @@ import { courseFacts } from './ace';
 
 const BASHIN = 2.5; // metres per length
 
-export interface Scenario {
+/** Race conditions a skill's activation can depend on; ids as in the sim enums (and cm-presets.json). Unset keeps the sim default (spring, sunny, firm, midday). */
+export interface RaceConditions {
+	season?: number;
+	ground?: number;
+	weather?: number;
+	time?: number;
+}
+
+export interface Scenario extends RaceConditions {
 	horse: HorseDesc;
 	courseId: number;
 	samples?: number;
@@ -25,10 +33,14 @@ export function median(xs: number[]) {
 }
 
 /** Races the horse without and with the skills on the same seed, once per sample. */
-export function pairedRace(skillIds: string[], { horse, courseId, samples = 100, seed = 1 }: Scenario): PairedRun[] {
+export function pairedRace(skillIds: string[], { horse, courseId, samples = 100, seed = 1, season, ground, weather, time }: Scenario): PairedRun[] {
 	const { distance } = courseFacts(courseId); // first, so an unknown course id gets its own message
 	const make = (ids: string[]) => {
 		const b = new RaceSolverBuilder(samples).seed(seed).course(courseId).horse(horse);
+		if (season != null) b.season(season);
+		if (ground != null) b.ground(ground);
+		if (weather != null) b.weather(weather);
+		if (time != null) b.time(time);
 		ids.forEach((id) => b.addSkill(id));
 		return b.build();
 	};

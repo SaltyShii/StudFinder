@@ -2,6 +2,7 @@ import { FactorType } from '@stud-finder/lineage/src/types';
 import { GRADE_A, aptitudeChance, chanceAny, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Tier } from '@stud-finder/lineage/src/tiers';
+import type { RaceConditions } from './pairedRace';
 import type { SkillValue } from './skillValue';
 
 /** Spark name (as in the tier list) to tier. */
@@ -37,7 +38,7 @@ export interface Candidate {
 export interface CandidateList {
 	candidates: Candidate[];
 }
-export interface CmPreset {
+export interface CmPreset extends RaceConditions {
 	courseId: number;
 	/** The runner the CM is simulated for (a stand-in for the Ace). */
 	runner: HorseDesc;
