@@ -64,7 +64,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
 	const { result, busy, stale, error: jobError, cancel } = useJob(run, job);
 
-	// Needs no Ace or Target stats, so it runs as soon as a Roster, game data and CM course exist.
+	// Needs no Sim runner or Target stats, so it runs as soon as a Roster, game data and CM course exist.
 	const veteranJob = useMemo(() => planVeterans(data, roster, cm), [data, roster, cm]);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, veteranJob, { clearOnRestart: true });

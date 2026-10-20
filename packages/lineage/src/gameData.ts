@@ -1,12 +1,12 @@
 import { EMPTY_EXTRAS, loadRaceExtras, type RaceExtras } from "./raceExtras";
 import type { Card, CareerGoal, Chara, Course, Factor, Race, RawGameData, Saddle, Skill } from "./types";
 
-/** Read-only indexed view over the generated game data. */
 /** Display name of a version: title and name, title omitted when empty. */
 export function versionName(card: Pick<Card, "title" | "name">): string {
 	return `${card.title} ${card.name}`.trim();
 }
 
+/** Read-only indexed view over the generated game data. */
 export class GameData {
   readonly meta: RawGameData["meta"];
   readonly charas = new Map<number, Chara>();

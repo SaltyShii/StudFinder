@@ -92,7 +92,7 @@ export interface PlanOptions {
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
 	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], tierEdits = {}, mustHaves = [] } = options;
-	// Manual choice wins; otherwise the best-ranked style for this Ace on the CM course.
+	// Manual choice wins; otherwise the best-ranked style for this Sim runner on the CM course.
 	// The Ace slot needs only Target stats, so without a Sim runner the first Owned version stands in for its aptitudes.
 	const base = card ?? (owned[0] && { aptitudes: owned[0].aptitudes, uniqueSkillId: owned[0].uniqueSkillId == null ? undefined : Number(owned[0].uniqueSkillId) });
 	const style: Style = styleChoice ?? (base && course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
@@ -111,7 +111,7 @@ export function planOwned(data: GameData, roster: ImportResult, ownedIds: Iterab
 	});
 }
 
-/** Needs no Ace or Target stats. Null until game data is loaded, so unique skills are never missing from a run. */
+/** Needs no Sim runner or Target stats. Null until game data is loaded, so unique skills are never missing from a run. */
 export function planVeterans(data: GameData | null, roster: ImportResult | null, cm: Cm): VeteranJob | null {
 	if (!data || !roster || !data.courses.has(cm.courseId)) return null;
 	const uniqueSkills: [number, number][] = [];
