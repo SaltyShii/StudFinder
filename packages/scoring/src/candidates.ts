@@ -39,7 +39,7 @@ function horseOf(data: GameData, cardId: number, factorIds: number[], affinity: 
 // Green (unique) sparks are not scored: they only grant a white skill on the parent and are not inherited further.
 export function candidatesOf(data: GameData, veterans: Veteran[], t: CandidateTarget): Candidate[] {
 	const target = data.charaIdOfCard(t.aceCardId);
-	return veterans.filter((v) => v.cardId !== t.aceCardId).map((v) => {
+	return veterans.filter((v) => v.cardId !== t.aceCardId && (target == null || data.charaIdOfCard(v.cardId) !== target)).map((v) => {
 		const compat = target == null ? null : lineageCompat(data, target, v, v).parents[0];
 		const card = data.cards.get(v.cardId);
 		const version = card ? versionName(card) : String(v.cardId);
@@ -47,6 +47,6 @@ export function candidatesOf(data: GameData, veterans: Veteran[], t: CandidateTa
 		const horses = [horseOf(data, v.cardId, v.factorIds, compat?.affinity ?? 0, t.pinkGroupId)];
 		v.parents.forEach((g, i) => { if (g) horses.push(horseOf(data, g.cardId, g.factorIds, compat?.grandparents[i] ?? 0, t.pinkGroupId)); });
 		// Borrowed trainedIds are negative, so they never collide with owned ones.
-		return { id: String(v.trainedId), name: `${version} (${label})`, horses };
+		return { id: String(v.trainedId), name: `${version} (${label})`, horses, charaId: data.charaIdOfCard(v.cardId) ?? undefined };
 	});
 }

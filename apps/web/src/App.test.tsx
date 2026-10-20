@@ -75,7 +75,11 @@ it('renders the core loop and side loop lists beside the ace list', async () => 
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	for (const id of ['ace-card', 'core-card', 'side-card']) expect(root.querySelectorAll(`[data-testid=${id}]`).length).toBe(2);
+	expect(root.querySelectorAll('[data-testid=ace-card]').length).toBe(2);
+	for (const id of ['core', 'side']) {
+		expect(root.querySelectorAll(`[data-testid=${id}-pick]`).length).toBe(2);
+		expect(root.querySelectorAll(`[data-testid=${id}-parent]`).length).toBe(2); // each version excludes its own character, leaving one veteran
+	}
 });
 
 it('lists exactly the veterans of the roster, with no owned controls', async () => {
@@ -229,7 +233,7 @@ it('shows a portrait on pick cards', async () => {
 	await importFile();
 	await pickAce();
 	expect(root.querySelector('[data-testid=ace-card] img')!.getAttribute('src')).toMatch(/img\/cards\/1002?01\.png/);
-	for (const id of ['core-card', 'side-card']) expect(root.querySelector(`[data-testid=${id}]`)!.querySelector('img, [data-testid=portrait-placeholder]')).not.toBeNull();
+	for (const id of ['core-pick', 'side-pick']) expect(root.querySelector(`[data-testid=${id}]`)!.querySelector('img, [data-testid=portrait-placeholder]')).not.toBeNull();
 	expect(root.querySelectorAll('.picks > section').length).toBe(2);
 });
 

@@ -10,14 +10,14 @@ function Portrait({ cardId }: { cardId: number | undefined }) {
 	return <img class="portrait" alt="" src={`${import.meta.env.BASE_URL}img/cards/${cardId}.png`} onError={() => setFailed(true)} />;
 }
 
-export function SkillDetails({ detail, data, note }: { detail: SkillDetail[]; data: GameData; note?: string }) {
+export function SkillDetails({ detail, data, note, open }: { detail: SkillDetail[]; data: GameData; note?: string; open?: boolean }) {
 	if (!detail.length) return null;
 	return (
-		<details>
+		<details open={open}>
 			<summary>Skills</summary>
 			{note && <p class="muted">{note}</p>}
 			<ul>{detail.map((d) => (
-				<li>{data.skills.get(Number(d.skillId))?.name ?? d.skillId}: {d.proc.toFixed(0)}% proc, {d.lengths.median.toFixed(2)} median lengths, value {d.value.toFixed(2)}{d.assumesPosition && ' (assumes default position)'}</li>
+				<li>{data.skills.get(Number(d.skillId))?.name ?? d.skillId}: {d.inherit != null && `${(d.inherit * 100).toFixed(0)}% inherited, `}{d.proc.toFixed(0)}% proc, {d.lengths.median.toFixed(2)} median lengths, value {d.value.toFixed(2)}{d.assumesPosition && ' (assumes default position)'}</li>
 			))}</ul>
 		</details>
 	);

@@ -48,6 +48,11 @@ export function gradeLabel(n: number) {
 }
 const STRATEGY: Record<Style, string> = { nige: 'Nige', senko: 'Senkou', sashi: 'Sasi', oikomi: 'Oikomi' };
 
+/** Style of a sim runner's strategy name. */
+export function styleOfStrategy(strategy: unknown): Style | undefined {
+	return STYLES.find((s) => STRATEGY[s] === strategy);
+}
+
 export interface AceInput {
 	aptitudes: Aptitudes;
 	style: Style;

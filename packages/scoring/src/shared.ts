@@ -31,6 +31,8 @@ export interface Candidate {
 	/** Version name plus what tells two veterans of one version apart. */
 	name: string;
 	horses: LineageHorse[];
+	/** Character of the veteran itself; two parents of one Ace can't share it. */
+	charaId?: number;
 }
 export interface CandidateList {
 	candidates: Candidate[];
@@ -46,6 +48,8 @@ export interface SkillDetail extends SkillValue {
 	skillId: string;
 	/** Value rests on the sim's default position assumption. */
 	assumesPosition: boolean;
+	/** Chance the pick's horses pass this skill on; set on pick details only. */
+	inherit?: number;
 }
 export interface CandidatePick {
 	candidateId: string;
@@ -90,7 +94,12 @@ export function greedyRank(candidates: Candidate[], top: number, baseline: Suppl
 
 /** Best chance, over the Must-have skills, that these horses pass one on. */
 export function mustHaveChance(horses: LineageHorse[], mustHaves: string[]): number {
-	return Math.max(0, ...mustHaves.map((id) => chanceAny(horses.flatMap((h) => h.skills.filter((s) => s.skillId === id).map((s) => procChance(FactorType.Skill, s.stars, h.affinity))))));
+	return Math.max(0, ...mustHaves.map((id) => skillChance(horses, id)));
+}
+
+/** Chance these horses pass one skill on (any of their sparks for it procs). */
+export function skillChance(horses: LineageHorse[], skillId: string): number {
+	return chanceAny(horses.flatMap((h) => h.skills.filter((s) => s.skillId === skillId).map((s) => procChance(FactorType.Skill, s.stars, h.affinity))));
 }
 
 /** Chance rounded to 1e-9 so float noise between equal chances does not skip a tie-break; compare these, never raw chances. */
@@ -101,6 +110,13 @@ export function chanceKey(chance: number): number {
 /** A full-dirt lineage has dirt pink sparks on every horse (parent and both grandparents). */
 export function isFullDirt(c: Candidate): boolean {
 	return c.horses.every((h) => h.dirtStars > 0);
+}
+
+/** Chance these horses lift the CM distance aptitude of `base` to A through their distance pink sparks (same method as dirtAChance). */
+export function distanceAChance(horses: LineageHorse[], base: number): number {
+	const pink = horses.filter((h) => h.pinkStars > 0);
+	const start = startingGrade(base, pink.reduce((s, h) => s + h.pinkStars, 0));
+	return aptitudeChance(start, GRADE_A, pink.map((h) => procChance(FactorType.Aptitude, h.pinkStars, h.affinity))).min;
 }
 
 /** Chance these horses lift a dirt aptitude of `base` to A through their dirt pink sparks (start boost, then both inspirations; the lower bound the owner ranks by). */
