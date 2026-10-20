@@ -23,6 +23,9 @@ const data = new GameData({
 		20002: { id: 20002, name: 'End Closer Straightaways', rarity: 1, groupId: 2001, conditions: [{ pre: '', cond: 'running_style==4&phase==2' }] },
 		20003: { id: 20003, name: 'Sprint Corners', rarity: 1, groupId: 2002, conditions: [{ pre: '', cond: 'distance_type==1&corner>=1' }] },
 		20004: { id: 20004, name: 'Groundwork', rarity: 1, groupId: 2003, conditions: [{ pre: '', cond: 'track_id==10006' }] },
+		20005: { id: 20005, name: 'Firm Conditions', rarity: 1, groupId: 2004, conditions: [{ pre: '', cond: 'ground_condition==1' }] },
+		20006: { id: 20006, name: 'Spring Runner', rarity: 1, groupId: 2005, conditions: [{ pre: '', cond: 'season==1' }] },
+		20007: { id: 20007, name: 'Right-Handed', rarity: 1, groupId: 2006, conditions: [{ pre: '', cond: 'rotation==1' }] },
 	}, factors: {
 		1201: { id: 1201, groupId: 12, type: 2, stars: 1, name: 'Dirt', targets: [], skillId: null },
 		1202: { id: 1202, groupId: 4001, type: 4, stars: 3, name: 'Synthetic Spark', targets: [], skillId: 10071 },
@@ -95,6 +98,7 @@ it('core loop style defaults to the Sim runner style, can be overridden, and dro
 	expect(coreList(null, 'oikomi')).toHaveProperty(['End Closer Straightaways']);
 	expect(coreList('sashi')).not.toHaveProperty(['Sprint Corners']); // distance conditioned
 	expect(coreList('sashi')).not.toHaveProperty(['Groundwork']); // track conditioned
+	for (const n of ['Firm Conditions', 'Spring Runner', 'Right-Handed']) expect(coreList('sashi')).not.toHaveProperty([n]); // track condition, season, rotation
 });
 
 it('Tier list edits move or disable a skill for the Core loop style only', () => {

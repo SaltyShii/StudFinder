@@ -30,8 +30,8 @@ export type VeteranRunner = JobRunner<VeteranJob, AceVeteranScore[], VeteranProg
 /** What crosses to the worker: one entry file serves every job, told apart by `kind`. */
 export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'veterans'; job: VeteranJob };
 
-// A Core loop is usable for any CM, so skills tied to a surface, distance or track do not count.
-const CM_BOUND = /(ground_type|distance_type|is_basis_distance|track_id)[=!<>]/;
+// A Core loop is usable for any CM, so skills tied to a surface, distance, track, season, weather or track condition do not count.
+const CM_BOUND = /(ground_type|distance_type|is_basis_distance|track_id|season|weather|ground_condition|rotation)[=!<>]/;
 
 /** The player's edits to one style's Tier list: skills moved to another tier, skills disabled. */
 export interface TierEdit {
