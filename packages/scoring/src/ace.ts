@@ -45,9 +45,11 @@ export function defaultTargetStats(category: Category, style: Style): TargetStat
 }
 
 const GRADES = 'GFEDCBAS'; // aptitude grade 1 = G ... 8 = S
-/** Aptitude grade letter for a lineage number; out-of-range falls back to G. */
+/** Aptitude grade letter for a lineage number; throws when out of range. */
 export function gradeLetter(n: number) {
-	return GRADES[n - 1] ?? 'G';
+	const g = GRADES[n - 1];
+	if (!g) throw new Error(`Unknown aptitude grade ${n}`);
+	return g;
 }
 const STRATEGY: Record<Style, string> = { nige: 'Nige', senko: 'Senkou', sashi: 'Sasi', oikomi: 'Oikomi' };
 
