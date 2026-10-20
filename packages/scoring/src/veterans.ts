@@ -44,10 +44,10 @@ export function scoreVeterans(veterans: Veteran[], { courseId, samples = 100, se
 	const surface = course.surface;
 	const scored = veterans.map((v, i) => {
 		const style = CAREER_STYLE[v.runningStyle - 1] ?? STYLES.reduce((b, s) => (v.aptitudes[s] > v.aptitudes[b] ? s : b));
-		const horse: HorseDesc = {
-			...buildAce({ aptitudes: v.aptitudes, style, category, surface }),
-			speed: v.stats.speed, stamina: v.stats.stamina, power: v.stats.power, guts: v.stats.guts, wisdom: v.stats.wiz,
-		};
+		const horse: HorseDesc = buildAce({
+			aptitudes: v.aptitudes, style, category, surface,
+			target: { speed: v.stats.speed, stamina: v.stats.stamina, power: v.stats.power, guts: v.stats.guts, wisdom: v.stats.wiz },
+		});
 		const unique = uniqueSkills?.get(v.cardId);
 		const equipped = [...new Set([...v.skillIds, ...(unique == null ? [] : [unique])].map(String))];
 		const ids = equipped.filter((id) => id in skillData); // skills the sim does not know are skipped

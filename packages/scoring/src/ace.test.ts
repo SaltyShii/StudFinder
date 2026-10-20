@@ -3,6 +3,10 @@ import { aceForCourse, buildAce, CATEGORIES, defaultTargetStats, gradeLetter, ST
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import { recommend } from './recommend';
 
+function apt(o: Partial<Aptitudes>): Aptitudes {
+	return { turf: 1, dirt: 1, short: 1, mile: 1, middle: 1, long: 1, nige: 1, senko: 1, sashi: 1, oikomi: 1, ...o };
+}
+
 const aptitudes = { turf: 8, dirt: 3, short: 4, mile: 7, middle: 7, long: 5, nige: 2, senko: 7, sashi: 6, oikomi: 1 };
 
 test('every distance category and style resolves to a default', () => {
@@ -42,10 +46,6 @@ test('gradeLetter maps 1-8 to G-S and throws out of range', () => {
 	expect(() => gradeLetter(0)).toThrow();
 	expect(() => gradeLetter(9)).toThrow();
 });
-
-function apt(o: Partial<Aptitudes>): Aptitudes {
-	return { turf: 1, dirt: 1, short: 1, mile: 1, middle: 1, long: 1, nige: 1, senko: 1, sashi: 1, oikomi: 1, ...o };
-}
 
 test('ranks styles by style aptitude, best first, ties in STYLES order', () => {
 	expect(rankStyles(apt({ middle: 7, sashi: 7, senko: 5 }), 'middle')).toEqual(['sashi', 'senko', 'nige', 'oikomi']);
