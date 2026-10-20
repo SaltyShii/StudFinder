@@ -382,6 +382,7 @@ it('adds Must-have skills in a popup by search or suggestion chip, passes them t
 	await click(root.querySelector('[data-testid=must-have] button'));
 	expect(listed()).toEqual([]);
 	await click(root.querySelector('button[name=edit-must-haves]'));
+	expect([...root.querySelectorAll('.modal [data-testid=skill-row]')].map((r) => r.textContent)).toEqual(['+Racing Spirit: StaminaURA', '+Synthetic Skill']); // tiered first
 	const search = root.querySelector('input[name=skill-search]') as HTMLInputElement;
 	search.value = 'racing';
 	await act(() => { search.dispatchEvent(new Event('input')); });

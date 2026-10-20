@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { GameData } from '../../../packages/lineage/src/gameData';
-import type { Tier } from '../../../packages/lineage/src/tiers';
+import { TIER_ORDER, type Tier } from '../../../packages/lineage/src/tiers';
 import type { TierList } from '../../../packages/scoring/src/shared';
 import { SkillPicker } from './SkillPicker';
 
@@ -21,7 +21,9 @@ export function MustHaves({ data, mustHaves, suggestions, tiers, onChange }: Pro
 	const nameOf = (id: string) => data.skills.get(Number(id))?.name ?? id;
 	const toggle = (id: string) => onChange(mustHaves.includes(id) ? mustHaves.filter((m) => m !== id) : [...mustHaves, id]);
 	const rows = [...data.skills.values()].map((s) => ({ id: String(s.id), name: s.name, tier: tiers[s.name] as Tier | undefined, selected: mustHaves.includes(String(s.id)) }));
-	rows.sort((a, b) => Number(b.selected) - Number(a.selected)); // stable: selected first, rest as given
+	// Selected first, then by tier (untiered last), then name; tiered skills lead so the picker's row cap never hides them.
+	const rank = (t?: Tier) => (t ? TIER_ORDER[t] : Infinity);
+	rows.sort((a, b) => Number(b.selected) - Number(a.selected) || rank(a.tier) - rank(b.tier) || a.name.localeCompare(b.name));
 	return (
 		<section class="panel">
 			<h2>Must-have skills</h2>

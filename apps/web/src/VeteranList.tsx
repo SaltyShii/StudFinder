@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { GameData } from '../../../packages/lineage/src/gameData';
-import { STYLE_LABEL, gradeLetter } from '../../../packages/scoring/src/ace';
+import { STYLE_LABEL, gradeLabel } from '../../../packages/scoring/src/ace';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import { SkillDetails, UmaCard } from './UmaCard';
 
@@ -30,7 +30,7 @@ export function VeteranList({ scores, progress, stale, data, onCancel }: Props) 
 						name={data.cards.get(v.cardId)?.name ?? String(v.cardId)}
 						best={v.gap === 0}
 						headline={<><span class="big">{v.setLengthsGained.toFixed(2)}</span> lengths, {v.gap === 0 ? 'best' : `${v.gap.toFixed(2)} behind best`}</>}
-						chips={[STYLE_LABEL[v.style], `surface ${gradeLetter(v.aptitude.surface)}`, `distance ${gradeLetter(v.aptitude.distance)}`]}
+						chips={[STYLE_LABEL[v.style], `surface ${gradeLabel(v.aptitude.surface)}`, `distance ${gradeLabel(v.aptitude.distance)}`]}
 						meta={`Rank score ${v.rankScore}, created ${v.createdAt}`}
 						caveats={[...(v.assumesPosition ? ['assumes default position'] : []), ...(v.skillsNotSimulated > 0 ? [`${v.skillsNotSimulated} skills not simulated`] : [])]}
 					>
