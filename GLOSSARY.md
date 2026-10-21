@@ -40,7 +40,7 @@ The final trainee run for the CM, picked from the Owned versions together with i
 _Avoid_: trainee (when meaning the final CM runner)
 
 **Ace veteran**:
-A veteran scored as a CM runner as herself, in the running style she ran in her career, with her actual stats and equipped skills. Ranked against other Ace veterans by lengths gained. The best Ace veteran of the Ace's version contributes her equipped skills to the Ace chart as own skills (certain, not inherited).
+A veteran scored as a CM runner as herself, in the running style she ran in her career, with her actual stats and equipped skills. Ranked against other Ace veterans by lengths gained.
 _Avoid_: ace (when it is a finished run rather than the one about to be trained)
 
 **Sim runner**:
@@ -48,7 +48,7 @@ The uma every simulation runs against, chosen by the user, with its running styl
 _Avoid_: ace (for this selector)
 
 **Owned version**:
-A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
+A version the user marks as owned, taken with its default aptitudes and skills (no configuration). Its learnable skills (beside the unique skill) are the Ace's own skills in the Ace chart: certain, not inherited. The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
 
 **Must-have skill**:
 A skill the user decides manually the lineage should pass on. One shared list: the Ace slot ranks lineages by the best inheritance chance of these, and the side loop by their spark %. The core loop ignores it.
