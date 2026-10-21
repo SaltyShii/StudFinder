@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { skillDetail } from './skillDetail';
+import { skillChance } from './shared';
 import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
@@ -149,4 +150,34 @@ test('skills are screened at few samples, but every shown skill is re-simulated 
 	// the shown value is the full-sample one, not the screening one
 	const d = shown[0];
 	expect(d.value).toBe(skillDetail(d.skillId, { courseId: full.courseId, horse: full.runner, samples: 60, seed: full.seed }).value);
+});
+
+// Combined Ace rows: her own skills plus everything either recommended lineage can pass on.
+function aceRows(cs: Candidate[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, candidates: cs }], mustHaves).aceSlot!.skills; }
+
+test('a skill both lineages can pass shows the combined inherit chance and the better supplier', () => {
+	const rows = aceRows([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10071'], { affinity: 10 })]);
+	const row = rows.find((r) => r.skillId === '10071')!;
+	const a = skillChance([horseOf(['10071'], { affinity: 100 })], '10071');
+	const b = skillChance([horseOf(['10071'], { affinity: 10 })], '10071');
+	expect(a).toBeGreaterThan(b);
+	expect(row.inherit).toBeCloseTo(1 - (1 - a) * (1 - b), 9);
+	expect(row.parentId).toBe('a');
+	expect(row.proc).toBeGreaterThan(0);
+});
+
+test('the Ace own unique skill is a row with a certain inherit and no supplying parent', () => {
+	const row = aceRows([unit('a', []), unit('b', [])], [], '10071').find((r) => r.skillId === '10071')!;
+	expect(row.inherit).toBe(1);
+	expect(row.parentId).toBeUndefined();
+});
+
+test('rows sort by avg lengths gained, flag Must-haves, and hide zero-value skills except position-conditioned ones', () => {
+	const rows = aceRows([unit('a', ['10071', '99999'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 })], ['10081']);
+	expect(rows.map((r) => r.skillId)).not.toContain('99999'); // unknown to the sim: proc 0
+	for (const r of rows) if (!r.assumesPosition) expect(r.proc > 0 && r.lengths.median !== 0).toBe(true);
+	expect(rows.find((r) => r.skillId === '10081')!.mustHave).toBe(true);
+	expect(rows.find((r) => r.skillId === '10071')!.mustHave).toBe(false);
+	expect(rows.map((r) => r.lengths.avg)).toEqual([...rows.map((r) => r.lengths.avg)].sort((x, y) => y - x));
+	expect(rows.find((r) => r.skillId === '10071')!.assumesPosition).toBe(true); // stays, to be greyed with *
 });
