@@ -11,7 +11,8 @@ import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { SimRunner } from './SimRunner';
 import { TierEditor } from './TierEditor';
-import { SkillChart, SkillFootnote, skillChips } from './SkillChart';
+import { skillChips } from './SkillChart';
+import { SkillPanel } from './SkillPanel';
 import { SKILL_CATEGORIES, type SkillCategory } from '../../../packages/scoring/src/skillCategory';
 import { courseTitle, isLeftHanded } from './trackAxis';
 import { TrackOverview } from './TrackOverview';
@@ -172,10 +173,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
 					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={!!course && isLeftHanded(course)} chips={chips} stale={stale} />}
-					{result?.aceSlot && <>
-						<SkillChart rows={result.aceSlot.skills} track={result.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />
-						<SkillFootnote rows={result.aceSlot.skills} />
-					</>}
+					{result?.aceSlot && <SkillPanel rows={result.aceSlot.skills} track={result.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />}
 					<div class="picks">
 						{ownedVersions.length ? <>
 							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} selected={sidePick?.cardId} onSelect={setSideCard} />
@@ -185,13 +183,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 							<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
 						</>}
 					</div>
-					{sidePick && <div data-testid="side-chart">
-						<h4 class="chart-title">Side loop skills: {nameOf(data, sidePick.cardId)}</h4>
-						{sidePick.skills.length ? <>
-							<SkillChart rows={sidePick.skills} track={result!.track} data={data} tab={sideTab} onTab={setSideTab} stale={stale} />
-							<SkillFootnote rows={sidePick.skills} />
-						</> : <p class="panel empty muted" data-testid="side-chart-empty">This lineage carries no skill that gains lengths on this track.</p>}
-					</div>}
+					{sidePick && <SkillPanel rows={sidePick.skills} track={result!.track} data={data} tab={sideTab} onTab={setSideTab} stale={stale} heading={{ testId: 'side-chart', title: `Side loop skills: ${nameOf(data, sidePick.cardId)}`, empty: 'This lineage carries no skill that gains lengths on this track.' }} />}
 					<details>
 						<summary>Ace veteran list</summary>
 						<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
