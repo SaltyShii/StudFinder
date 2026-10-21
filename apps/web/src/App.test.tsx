@@ -244,7 +244,7 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	expect(root.querySelector('[data-testid=ace-pick]')).not.toBeNull();
 	expect(root.querySelector('[data-testid=ace-parent]')).not.toBeNull();
 	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
-	expect(heads.slice(0, 4)).toEqual(['Ace', 'Side loop', 'Core loop', 'Ace veteran list']);
+	expect(heads.slice(0, 5)).toEqual(['Ace', 'Track overview', 'Side loop', 'Core loop', 'Ace veteran list']);
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
@@ -475,6 +475,29 @@ it('edits the Tier list in a popup per Core loop style, resets it, and persists 
 	await run();
 	expect(tier()).toBe('URA');
 	expect(localStorage.getItem('stud-finder:tier-edits')).not.toContain('Racing');
+});
+
+async function chooseCm(id: number) {
+	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
+	cm.value = String(id);
+	await act(() => { cm.dispatchEvent(new Event('change')); });
+}
+
+it('draws the Track overview of the selected CM on the Ace slot only, and redraws when the CM changes', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await chooseCm(1); // course 10606, 2400 m
+	await pickAce();
+	const overviews = root.querySelectorAll('[data-testid=track-overview]');
+	expect(overviews.length).toBe(1);
+	const overview = overviews[0];
+	expect(overview.querySelector('svg')!.getAttribute('aria-label')).toContain('2400 m');
+	expect(overview.querySelectorAll('[data-testid=section]').length).toBe(24);
+	expect(overview.querySelectorAll('[data-testid=phase]').length).toBe(4);
+	expect(overview.querySelector('[data-testid=speed-curve]')!.getAttribute('d')).toMatch(/^M/);
+	await chooseCm(2); // course 10811, 3200 m
+	await run();
+	expect(root.querySelector('[data-testid=track-overview] svg')!.getAttribute('aria-label')).toContain('3200 m');
 });
 
 it('shows the Ace as one combined skill list with a pick list of parents, and leaves the loops without it', async () => {

@@ -152,6 +152,13 @@ test('skills are screened at few samples, but every shown skill is re-simulated 
 	expect(d.value).toBe(skillDetail(d.skillId, { courseId: full.courseId, horse: full.runner, samples: 60, seed: full.seed }).value);
 });
 
+test('the recommendation carries the Track overview of the selected course with the Baseline runner curve', () => {
+	const { track } = recommend(candidateList, preset);
+	expect(track.distance).toBeGreaterThan(0);
+	expect(track.curve.length).toBeGreaterThan(10);
+	expect(track.phases).toHaveLength(4);
+});
+
 // Combined Ace rows: her own skills plus everything either recommended lineage can pass on.
 function aceRows(cs: Candidate[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, candidates: cs }], mustHaves).aceSlot!.skills; }
 
