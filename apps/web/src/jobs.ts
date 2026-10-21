@@ -4,7 +4,7 @@ import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers'
 import { aceForCourse, categoryOf, defaultTargetStats, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
-import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress, RefineBatch, SimRequest } from '../../../packages/scoring/src/recommend';
+import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
 import { buyableSkillIds } from '../../../packages/scoring/src/learnable';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
@@ -47,7 +47,7 @@ export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'vet
 /** One skill of a Recommend run's refine step, simulated by a pool worker. */
 export interface SkillTask {
 	request: SimRequest;
-	scenario: RefineBatch['scenario'];
+	scenario: SimBatch['scenario'];
 }
 
 // A Core loop is usable for any CM, so skills tied to a surface, distance, track, season, weather or track condition do not count.

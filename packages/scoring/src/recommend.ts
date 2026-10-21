@@ -1,7 +1,7 @@
 import { trackOverview, type TrackOverview } from './trackOverview';
 import { sideLoopPicks, sideLoopPriority } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
-import { skillDetail } from './skillDetail';
+import { skillDetail, unsimulated } from './skillDetail';
 import type { Scenario } from './pairedRace';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
@@ -94,8 +94,8 @@ export interface SimRequest {
 	samples: number;
 }
 
-/** The skills a recommendation shows, to be re-simulated at full samples. They are independent, so a caller may simulate them in any order, in parallel. */
-export interface RefineBatch {
+/** Skills to simulate, each for one runner. They are independent, so a caller may simulate them in any order, in parallel. */
+export interface SimBatch {
 	/** What every request shares: the course, conditions and seed. */
 	scenario: Omit<Scenario, 'horse' | 'samples'>;
 	requests: SimRequest[];
@@ -103,12 +103,12 @@ export interface RefineBatch {
 	progress(done: number): void;
 }
 
-export function simulateSkill({ horse, id, samples }: SimRequest, scenario: RefineBatch['scenario']): SkillDetail {
+export function simulateSkill({ horse, id, samples }: SimRequest, scenario: SimBatch['scenario']): SkillDetail {
 	return skillDetail(id, { ...scenario, horse, samples });
 }
 
 /** Simulates a batch right here, one skill after the other. */
-function simulateBatch(batch: RefineBatch): SkillDetail[] {
+function simulateBatch(batch: SimBatch): SkillDetail[] {
 	return batch.requests.map((r, i) => { const d = simulateSkill(r, batch.scenario); batch.progress(i + 1); return d; });
 }
 
@@ -118,30 +118,28 @@ export function recommend(...args: Parameters<typeof recommendSteps>): Recommend
 	for (;;) {
 		const step = steps.next(details);
 		if (step.done) return step.value;
-		details = simulateBatch(step.value as RefineBatch); // narrowing by `done` needs strictNullChecks, which this package lacks
+		details = simulateBatch(step.value as SimBatch); // narrowing by `done` needs strictNullChecks, which this package lacks
 	}
 }
 
-/** `recommend` with the refine step handed to `runBatch`, so a pool can simulate it in parallel. Same result. */
-export async function recommendAsync(runBatch: (batch: RefineBatch) => Promise<SkillDetail[]>, ...args: Parameters<typeof recommendSteps>): Promise<Recommendation> {
+/** `recommend` with its simulations handed to `runBatch`, so a pool can run them in parallel. Same result. */
+export async function recommendAsync(runBatch: (batch: SimBatch) => Promise<SkillDetail[]>, ...args: Parameters<typeof recommendSteps>): Promise<Recommendation> {
 	const steps = recommendSteps(...args);
 	let details: SkillDetail[] = [];
 	for (;;) {
 		const step = steps.next(details);
 		if (step.done) return step.value;
-		details = await runBatch(step.value as RefineBatch);
+		details = await runBatch(step.value as SimBatch);
 	}
 }
 
-function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void): Generator<RefineBatch, Recommendation, SkillDetail[]> {
+function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void): Generator<SimBatch, Recommendation, SkillDetail[]> {
 	// One cache per distinct runner, so Owned versions that run identically share simulations.
 	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
 	let simulated = 0;
-	const simulate = (h: HorseDesc, id: string, n: number): SkillDetail => {
-		const d: SkillDetail = { ...skillDetail(id, { ...cm, horse: h, samples: n, seed }), screened: n < samples, src: JSON.stringify(h) };
-		onProgress?.({ phase: 'screen', done: ++simulated });
-		return d;
-	};
+	const standIns = new Map<string, SkillDetail>();
+	// Skills a pass asked for that no simulation has answered yet: runner key -> skill id -> samples wanted.
+	const missing = new Map<string, Map<string, number>>();
 	// `full` skips screening for values that feed a score directly (a version's own unique skill).
 	const detailerOf = (h: HorseDesc, full = false) => {
 		const key = JSON.stringify(h);
@@ -149,9 +147,15 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		if (!sim) sims.set(key, (sim = { horse: h, cache: new Map() }));
 		const { cache } = sim;
 		return (skillId: string) => {
-			let d = cache.get(skillId);
-			if (!d || (full && d.screened)) cache.set(skillId, (d = simulate(h, skillId, full ? samples : Math.min(samples, SCREEN_SAMPLES))));
-			return d;
+			const d = cache.get(skillId);
+			if (d && !(full && d.screened)) return d;
+			// Not simulated yet: note it and answer with a stand-in. The pass is run again once the batch is in, so no stand-in reaches a result.
+			const wanted = missing.get(key) ?? new Map<string, number>();
+			wanted.set(skillId, Math.max(wanted.get(skillId) ?? 0, full ? samples : Math.min(samples, SCREEN_SAMPLES)));
+			missing.set(key, wanted);
+			let standIn = standIns.get(skillId);
+			if (!standIn) standIns.set(skillId, (standIn = unsimulated(skillId, cm.courseId)));
+			return standIn;
 		};
 	};
 	// Ignores spark chance on purpose: it counts every distinct skill the veteran and its parents carry, marginal over what better picks supply.
@@ -186,8 +190,20 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 			.sort((a, b) => a.tier - b.tier || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick) : [];
 		return { aceSlot, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value), track };
 	};
+	// Runs the ranking until it asks for nothing new, simulating what each run asked for as one batch.
+	function* settle(): Generator<SimBatch, Recommendation, SkillDetail[]> {
+		for (;;) {
+			missing.clear();
+			const rec = pass();
+			if (!missing.size) return rec;
+			const asks = [...missing].flatMap(([key, wanted]) => [...wanted].map(([id, n]) => ({ key, id, n })));
+			const details = yield { scenario: { ...cm, seed }, requests: asks.map(({ key, id, n }) => ({ horse: sims.get(key)!.horse, id, samples: n })), progress: (done) => onProgress?.({ phase: 'screen', done: simulated + done }) };
+			asks.forEach(({ key, id, n }, i) => sims.get(key)!.cache.set(id, { ...details[i], screened: n < samples, src: key }));
+			simulated += asks.length;
+		}
+	}
 	// Rank on screened values, then re-simulate the skills the picks show at full samples and rank again from the cache, until every shown skill is full.
-	let rec = pass();
+	let rec = yield* settle();
 	for (;;) {
 		const todo = new Map<string, { key: string; id: string }>();
 		for (const d of shownDetails(rec)) if (d.screened && d.src) todo.set(`${d.src}|${d.skillId}`, { key: d.src, id: d.skillId });
@@ -196,7 +212,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const details = yield { scenario: { ...cm, seed }, requests: entries.map(({ key, id }) => ({ horse: sims.get(key)!.horse, id, samples })), progress: (done) => onProgress?.({ phase: 'refine', done: simulated + done, total: entries.length }) };
 		entries.forEach(({ key, id }, i) => sims.get(key)!.cache.set(id, { ...details[i], screened: false, src: key }));
 		simulated += entries.length;
-		rec = pass();
+		rec = yield* settle();
 	}
 }
 
