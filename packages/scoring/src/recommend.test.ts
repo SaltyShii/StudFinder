@@ -3,7 +3,7 @@ import { skillDetail } from './skillDetail';
 import { DEFAULT_ASSUMPTIONS } from './assumptions';
 import { skillChance } from './shared';
 import { sideLoopPicks, sideLoopPriority } from './sideLoop';
-import { recommend, recommendAsync, simulateSkill, type Candidate, type LineageHorse, type CandidateList } from './recommend';
+import { bestPair, recommend, recommendAsync, simulateSkill, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 30, seed: 7 };
@@ -277,4 +277,20 @@ test('recommendAsync, with the refine step simulated apart and out of order, giv
 	expect(batches).toBeGreaterThan(1); // the screen step, then the refine step
 	expect(got).toEqual(expected);
 	expect(apart).toEqual(serial);
+});
+
+test('bestPair picks the very pair ranking every pair would, ties to the earliest, with negative values too', () => {
+	let seed = 12345;
+	const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648);
+	for (let round = 0; round < 40; round++) {
+		const units = Array.from({ length: 12 }, (_, i) => cand(`u${i}`, horseOf()));
+		const solo = new Map(units.map((u) => [u, (next() % 9) - 3])); // small integers: many ties; some negative
+		// The first parent counts in full, the second only half of its solo value (also when negative, where that is more).
+		const rank = (cs: Candidate[]) => { const [a, b] = [...cs].sort((x, y) => solo.get(y)! - solo.get(x)! || x.id.localeCompare(y.id)); return [a, b].filter(Boolean).map((c, i) => ({ candidateId: c.id, score: solo.get(c)! * (i ? 0.5 : 1), reason: '', detail: [] })); };
+		const pairs: Candidate[][] = [];
+		for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) pairs.push([units[i], units[j]]);
+		const all = pairs.map((p) => { const parents = rank(p); return { parents, score: 2 + parents.reduce((s, x) => s + x.score, 0) }; });
+		const expected = all.reduce((a, b) => (b.score > a.score ? b : a));
+		expect(bestPair(pairs, rank, (c) => Math.max(0, solo.get(c)!), 2, () => false)).toEqual(expected);
+	}
 });
