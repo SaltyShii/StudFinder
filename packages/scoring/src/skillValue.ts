@@ -1,6 +1,6 @@
 import { courseFacts } from './ace';
 import { spotDensity, type SpotDensity } from './density';
-import { median, pairedRace, type ActivationSpot, type Scenario } from './pairedRace';
+import { median, pairedRace, type ActivationSpot, type PairedRun, type Scenario } from './pairedRace';
 
 export interface SkillValue {
 	/** % of runs where the skill activated. */
@@ -19,9 +19,8 @@ export interface SkillValue {
 	duration: number;
 }
 
-/** Paired race for one skill; proc and lengths are read over the runs where it activated. */
-export function skillValue(skillId: string, scenario: Scenario): SkillValue {
-	const runs = pairedRace([skillId], scenario);
+/** Paired race for one skill, or the `runs` already raced for it; proc and lengths are read over the runs where it activated. */
+export function skillValue(skillId: string, scenario: Scenario, runs: PairedRun[] = pairedRace([skillId], scenario)): SkillValue {
 	const hits = runs.filter((r) => r.activated);
 	const gains = hits.map((r) => r.lengths);
 	const spots = hits.flatMap((r) => (r.spot ? [r.spot] : []));

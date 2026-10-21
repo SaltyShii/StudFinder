@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { pairedRace, type Scenario } from './pairedRace';
+import { pairedRace, pairedRaces, type Scenario } from './pairedRace';
+import { assumesPosition } from './skillDetail';
 import { DEFAULT_ASSUMPTIONS, type SimAssumptions } from './assumptions';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
@@ -64,4 +65,29 @@ test('dueling changes the races of a front runner', () => {
 
 test('dueling rates are ignored while dueling is off', () => {
 	expect(withA({ dueling: false, duelingRates: RATES_100 })).toEqual(withA({ dueling: false }));
+});
+
+// Skills of every kind: self-only ('10071', '210051'), the order-reading '10081' and a set of all of them.
+const sets = [['10071'], ['210051'], ['10081'], ['10071', '210051', '10081'], []];
+
+test.each(['Senkou', 'Sasi', 'Oikomi'])('%s: a shared skill-less run gives the very runs of pairedRace', (strategy) => {
+	const sc = { ...s, horse: { ...horse, strategy } };
+	expect(pairedRaces(sets, sc, assumesPosition)).toEqual(sets.map((ids) => pairedRace(ids, sc)));
+});
+
+test('front runners and order-reading skills are raced as before, so they too match pairedRace', () => {
+	const front = { ...s, horse: { ...horse, strategy: 'Nige' } };
+	expect(pairedRaces(sets, front, assumesPosition)).toEqual(sets.map((ids) => pairedRace(ids, front)));
+	expect(pairedRaces(sets, s, () => true)).toEqual(sets.map((ids) => pairedRace(ids, s)));
+});
+
+test('front runners share the skill-less run once spot struggle is off, with the very runs of pairedRace', () => {
+	const front = { ...s, horse: { ...horse, strategy: 'Nige' }, assumptions: { ...DEFAULT_ASSUMPTIONS, spotStruggle: false } };
+	expect(pairedRaces(sets, front, assumesPosition)).toEqual(sets.map((ids) => pairedRace(ids, front)));
+});
+
+test('front runners with spot struggle off and dueling on still match pairedRace', () => {
+	const rates = { runaway: 100, frontRunner: 100, paceChaser: 100, lateSurger: 100, endCloser: 100 };
+	const front = { ...s, horse: { ...horse, strategy: 'Nige' }, assumptions: { ...DEFAULT_ASSUMPTIONS, spotStruggle: false, dueling: true, duelingRates: rates } };
+	expect(pairedRaces(sets, front, assumesPosition)).toEqual(sets.map((ids) => pairedRace(ids, front)));
 });

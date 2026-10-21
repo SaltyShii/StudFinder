@@ -4,8 +4,8 @@ import type { Veteran } from '@stud-finder/lineage/src/types';
 import { buildAce, categoryOf, courseFacts, STYLES, type Style } from './ace';
 import type { SimAssumptions } from './assumptions';
 import { rankVeterans } from './rankVeterans';
-import { skillDetail } from './skillDetail';
-import { median, pairedRace, type RaceConditions } from './pairedRace';
+import { assumesPosition, skillDetail } from './skillDetail';
+import { median, pairedRaces, type RaceConditions } from './pairedRace';
 import type { SkillDetail } from './shared';
 
 const CAREER_STYLE: Style[] = ['nige', 'senko', 'sashi', 'oikomi']; // game running_style 1-4
@@ -53,8 +53,10 @@ export function scoreVeteran(v: Veteran, { courseId, samples = 100, seed = 1, un
 	const equipped = [...new Set([...v.skillIds, ...(unique == null ? [] : [unique])].map(String))];
 	const ids = equipped.filter((id) => id in skillData); // skills the sim does not know are skipped
 	// Per-skill detail is each skill alone on the skill-less runner; the headline is the whole set together.
-	const detail = ids.map((skillId) => skillDetail(skillId, { horse, courseId, samples, seed, ...conditions }));
-	const setLengthsGained = median(pairedRace(ids, { horse, courseId, samples, seed, ...conditions }).map((r) => r.lengths)); // all runs, procced or not
+	const scenario = { horse, courseId, samples, seed, ...conditions };
+	const runs = pairedRaces([...ids.map((id) => [id]), ids], scenario, assumesPosition); // one skill-less runner for all of them where the sim allows
+	const detail = ids.map((skillId, i) => skillDetail(skillId, scenario, runs[i]));
+	const setLengthsGained = median(runs[ids.length].map((r) => r.lengths)); // all runs, procced or not
 	return {
 		trainedId: v.trainedId, cardId: v.cardId, style, rankScore: v.rankScore, createdAt: v.createdAt,
 		aptitude: { surface: v.aptitudes[surface], distance: v.aptitudes[category] },
