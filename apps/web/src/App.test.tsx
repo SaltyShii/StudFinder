@@ -569,11 +569,12 @@ it('shows the Ace as one combined skill list with a pick list of parents, and le
 	const rows = [...root.querySelectorAll('[data-testid=ace-skill-row]')];
 	expect(rows.length).toBeGreaterThan(0);
 	const row = rows.find((r) => r.textContent!.includes('Synthetic Skill'))!;
-	expect(row.textContent).toMatch(/%.*proc/s);
+	expect(row.querySelector('.skill-lengths')!.textContent).toMatch(/^[+-]\d+\.\d\d L$/);
+	expect(row.querySelector('.skill-proc')!.textContent).toMatch(/^\d+%$/);
+	expect(row.querySelector('.rarity-dot')!.getAttribute('title')).toMatch(/\d+% inherited/);
 	expect(row.textContent).toContain('*'); // position-conditioned: greyed and marked
 	expect(row.classList.contains('muted')).toBe(true);
 	expect(row.closest('[data-testid=track-overview]')).not.toBeNull(); // the chart sits under the overview
-	expect(row.textContent).toMatch(/\d+% inherited/);
 	expect(row.querySelector('svg')).not.toBeNull();
 	expect(row.querySelectorAll('[data-testid=spot-spread], [data-testid=spot-duration]').length).toBeGreaterThan(0);
 	const ace = root.querySelector('[data-testid=ace-parent]')!;
@@ -581,6 +582,21 @@ it('shows the Ace as one combined skill list with a pick list of parents, and le
 	expect(ace.querySelector('details, .headline')).toBeNull(); // no skill text, no per-parent score
 	expect(root.querySelectorAll('[data-testid=side-pick] [data-testid=ace-skill-row], [data-testid=core-pick] [data-testid=ace-skill-row]').length).toBe(0);
 	expect(root.querySelector('[data-testid=side-parent] details')).not.toBeNull(); // loops unchanged
+});
+
+it('lists the Ace skills as a table with Speed, Acceleration, Recovery and Other tabs, Speed first', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const tabs = () => [...root.querySelectorAll('[data-testid=skill-tabs] [role=tab]')];
+	expect(tabs().map((t) => t.textContent)).toEqual(['Speed', 'Acceleration', 'Recovery', 'Other']);
+	expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false']);
+	expect([...root.querySelectorAll('.skill-table .skill-head > *')].map((h) => h.textContent)).toEqual(['', 'Skill', 'Lengths gained', 'Proc', '']);
+	const names = () => [...root.querySelectorAll('[data-testid=ace-skill-row] .skill-name')].map((n) => n.textContent);
+	expect(names().some((n) => n!.includes('Synthetic Skill'))).toBe(true); // target speed
+	await act(async () => { (tabs()[1] as HTMLElement).click(); });
+	expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
+	expect(names().some((n) => n!.includes('Synthetic Skill'))).toBe(false); // each skill in one tab only
 });
 
 it('shows the app title, the selected CM with its course and the Ace running style in the header, and follows changes', async () => {
