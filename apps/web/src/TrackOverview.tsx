@@ -75,6 +75,7 @@ export function TrackOverview({ track, title, leftHanded, chips, stale }: { trac
 	const step = rulerStep(distance);
 	const finalLen = finalStraight(track);
 	return (
+		<div class="chart-scroll" data-testid="chart-scroll">
 		<section class="panel track-panel" aria-busy={stale} data-testid="track-overview">
 			<h3 class="course-title" data-testid="course-title">{title}{stale && ' (outdated, recomputing)'}</h3>
 			<div class="track-body" style={stale ? { opacity: 0.5 } : undefined}>
@@ -159,5 +160,6 @@ export function TrackOverview({ track, title, leftHanded, chips, stale }: { trac
 				</div>
 			</div>
 		</section>
+		</div>
 	);
 }

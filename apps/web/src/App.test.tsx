@@ -550,6 +550,7 @@ it('draws the Track overview of the selected CM on the Ace slot only, and redraw
 	expect(overview.querySelector('[data-testid=course-title]')!.textContent).toBe('2000m turf (right-handed)');
 	expect(overview.querySelector('.spurt-info')!.textContent).toMatch(/^Last spurt from [\d,]+m/);
 	expect(overview.querySelector('[data-testid=fx-legend]')!.textContent).toContain('only speed helps');
+	expect(overview.closest('[data-testid=chart-scroll]')).not.toBeNull(); // scrolls sideways on narrow screens
 	expect(overview.querySelector('[data-testid=height-profile]')!.getAttribute('d')).toMatch(/^M/);
 	expect([...overview.querySelectorAll('[data-testid=phase]')].map((p) => p.textContent)).toEqual(['Early-race400m', 'Mid-race1,600m', 'Late-race2,000m', 'Last spurt']);
 	for (const s of overview.querySelectorAll('[data-testid=slope]')) expect(s.textContent).toMatch(/^(Uphill|Downhill)/);

@@ -49,6 +49,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 	const axis = distanceAxis(track.distance);
 	const shown = rows.filter((r) => skillCategory(r.skillId) === tab).sort((a, b) => b.lengths.avg - a.lengths.avg);
 	return (
+		<div class="chart-scroll" data-testid="chart-scroll">
 		<section class="panel skill-panel skill-table" style={stale ? { opacity: 0.5 } : undefined}>
 			<div class="skill-tabs" role="tablist" data-testid="skill-tabs">
 				{SKILL_CATEGORIES.map((c) => (
@@ -90,6 +91,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 				</ul>
 			</div>
 		</section>
+		</div>
 	);
 }
 
