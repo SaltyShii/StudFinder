@@ -51,7 +51,7 @@ Read during review.
 
 ## Gotchas
 
-- Handoffs: newest file in `~/.claude/projects/-home-stijn-Documents-saltyuma-stud-finder/handoffs/`; `~/.claude/handoffs/` mixes repos
+- Handoffs: newest file in `~/.claude/projects/-home-stijn-Documents-saltyuma-stud-finder/handoffs/`; the global `/handoff` skill writes there and keeps the last 7
 
 - Issue tracker: GitHub Issues. Specs are issues, tickets are sub-issues labelled `ready-for-agent`, blockers use GitHub's native links
 - Read issues with `gh issue view N --json title,body`; plain `gh issue view`, `gh pr merge` and `gh pr edit` error on the Projects classic deprecation, so use `gh api` (REST) for merges and base changes
