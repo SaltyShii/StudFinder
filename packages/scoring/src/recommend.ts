@@ -39,6 +39,8 @@ export interface AcePick {
 export interface AceSkillRow extends SkillDetail {
 	/** Chance at least one of the 2 lineages passes it on: 1 - (1 - a)(1 - b); 1 for the Ace's own skill. */
 	inherit: number;
+	/** The Ace's own skill (its unique or a Buyable skill): certain, so no inherit chance applies. */
+	own: boolean;
 	mustHave: boolean;
 }
 
@@ -197,9 +199,9 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
 function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[]): AceSkillRow[] {
-	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves)] : [];
+	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
 	// The version's learnable skills are certain, so they are own rows and never inherited ones; the unique skill is not shown twice.
-	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && id in skillData) rows.push(rowOf(detailOf(id), 1, mustHaves));
+	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && id in skillData) rows.push(rowOf(detailOf(id), 1, mustHaves, true));
 	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
 	for (const id of ids) {
 		if (own.includes(id) || id === unique?.skillId || learnableSkillIds.includes(id)) continue;
@@ -210,8 +212,8 @@ function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses:
 	return chartRows(rows);
 }
 
-function rowOf(detail: SkillDetail, inherit: number, mustHaves: string[]): AceSkillRow {
-	return { ...detail, inherit, mustHave: mustHaves.includes(detail.skillId) };
+function rowOf(detail: SkillDetail, inherit: number, mustHaves: string[], own = false): AceSkillRow {
+	return { ...detail, inherit, own, mustHave: mustHaves.includes(detail.skillId) };
 }
 
 // Hidden when it never procs or gains nothing, unless its value rests on the default position assumption: those stay, to be greyed and marked.
