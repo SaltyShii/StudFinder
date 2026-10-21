@@ -6,7 +6,7 @@ import type { Style } from '../../../packages/scoring/src/ace';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { cardIdsOf, planCandidates, planRecommend, planVeterans, type TierEdits } from './jobs';
+import { cardIdsOf, planCandidates, planOwned, planRecommend, planVeterans, type TierEdits } from './jobs';
 import { runJob } from './runJob';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
@@ -107,4 +107,10 @@ it('Tier list edits move or disable a skill for the Core loop style only', () =>
 	expect(list({ sashi: { moved: { 'Late Surger Straightaways': 'T5' }, disabled: [] } })['Late Surger Straightaways']).toBe('T5');
 	expect(list({ sashi: { moved: {}, disabled: ['Late Surger Straightaways'] } })).not.toHaveProperty(['Late Surger Straightaways']);
 	expect(list({ oikomi: { moved: {}, disabled: ['Late Surger Straightaways'] } })['Late Surger Straightaways']).toBe('T1.5'); // another style's edit
+});
+
+it('plans an Owned version with the learnable skills of its card, without the unique skill', () => {
+	const [stud, withUnique] = planOwned(data, roster, [100201, 100101], course, false);
+	expect(stud.learnableSkillIds).toEqual(['10071']);
+	expect(withUnique.learnableSkillIds).toEqual([]);
 });

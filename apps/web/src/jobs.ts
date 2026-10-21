@@ -123,7 +123,7 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 export function planOwned(data: GameData, roster: ImportResult, ownedIds: Iterable<number>, course: Course | undefined, useBorrowed: boolean): OwnedVersion[] {
 	return [...ownedIds].flatMap((id) => {
 		const card = data.cards.get(id);
-		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
+		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), learnableSkillIds: card.skillIds.filter((s) => s !== card.uniqueSkillId).map(String), candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
 	});
 }
 

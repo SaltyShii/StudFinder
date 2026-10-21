@@ -200,11 +200,11 @@ test('rows sort by avg lengths gained, flag Must-haves, and hide zero-value skil
 	expect(rows.find((r) => r.skillId === '10071')!.assumesPosition).toBe(true); // stays, to be greyed with *
 });
 
-// The best Ace veteran of the version: her equipped skills are the Ace's own, so they show as certain rows.
-function aceRowsWithVeteran(cs: Candidate[], veteranSkillIds: string[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, veteranSkillIds, candidates: cs }], mustHaves).aceSlot!.skills; }
+// The version's own learnable skills: the Ace can buy them, so they show as certain rows.
+function aceRowsWithLearnable(cs: Candidate[], learnableSkillIds: string[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, learnableSkillIds, candidates: cs }], mustHaves).aceSlot!.skills; }
 
-test('the best Ace veteran equipped skills are own rows: certain, no parent, Must-have flagged, not duplicated by inheritance', () => {
-	const rows = aceRowsWithVeteran([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 })], ['10071', '10081'], ['10081'], '10071');
+test('a version learnable skills are own rows: certain, Must-have flagged, not duplicated by inheritance', () => {
+	const rows = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 })], ['10071', '10081'], ['10081'], '10071');
 	for (const id of ['10071', '10081']) {
 		const mine = rows.filter((r) => r.skillId === id);
 		expect(mine).toHaveLength(1);
@@ -214,7 +214,7 @@ test('the best Ace veteran equipped skills are own rows: certain, no parent, Mus
 	expect(rows.map((r) => r.lengths.avg)).toEqual([...rows.map((r) => r.lengths.avg)].sort((x, y) => y - x));
 });
 
-test('an Owned version with no veteran keeps the inherited rows', () => {
-	const row = aceRowsWithVeteran([unit('a', ['10071'], { affinity: 100 }), unit('b', [])], []).find((r) => r.skillId === '10071')!;
+test('an Owned version with no learnable skills keeps the inherited rows', () => {
+	const row = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', [])], []).find((r) => r.skillId === '10071')!;
 	expect(row.inherit).toBeLessThan(1);
 });
