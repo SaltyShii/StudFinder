@@ -16,6 +16,8 @@ export interface OwnedVersion {
 	cardId: number;
 	aptitudes: Aptitudes;
 	uniqueSkillId?: string;
+	/** Skills equipped by this version's best Ace veteran (best by Set lengths gained), if the user has one; they are the Ace's own skills. */
+	veteranSkillIds?: string[];
 	candidates: Candidate[];
 }
 /** The best Ace: a version in its best style, with 2 parents (their own parents are its 4 grandparents). */
@@ -36,8 +38,6 @@ export interface AcePick {
 export interface AceSkillRow extends SkillDetail {
 	/** Chance at least one of the 2 lineages passes it on: 1 - (1 - a)(1 - b); 1 for the Ace's own skill. */
 	inherit: number;
-	/** Candidate id of the parent most likely to supply it; absent for the Ace's own skill. */
-	parentId?: string;
 	mustHave: boolean;
 }
 
@@ -177,20 +177,22 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		// Simulated value only for the pairs still tied, as it needs a ranker run each.
 		const scored = pairs.flatMap((p, i) => keys[i] === topKey ? [{ parents: rank(p) }] : []).map((x) => ({ ...x, score: uniqueValue + x.parents.reduce((s, p) => s + p.score, 0) }));
 		const win = scored.reduce((a, b) => (b.score > a.score ? b : a));
-		out.push({ v, pick: { cardId: v.cardId, style, score: win.score, mustHaveChance: topKey / 1e9, distanceAChance: base >= GRADE_A ? 1 : topPink / 1e9, parents: win.parents, skills: aceRows(uniqueDetail, win.parents.map((p) => ({ id: p.candidateId, horses: units.find((c) => c.id === p.candidateId)?.horses ?? [] })), detailerOf(h), h.skills, mustHaves) } });
+		out.push({ v, pick: { cardId: v.cardId, style, score: win.score, mustHaveChance: topKey / 1e9, distanceAChance: base >= GRADE_A ? 1 : topPink / 1e9, parents: win.parents, skills: aceRows(uniqueDetail, win.parents.map((p) => ({ id: p.candidateId, horses: units.find((c) => c.id === p.candidateId)?.horses ?? [] })), detailerOf(h), h.skills, mustHaves, v.veteranSkillIds ?? []) } });
 	}
 	return out;
 }
 
 // Hidden when it never procs or gains nothing, unless its value rests on the default position assumption: those stay, to be greyed and marked.
-function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[]): AceSkillRow[] {
+function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], veteranSkillIds: string[]): AceSkillRow[] {
 	const rows: AceSkillRow[] = unique ? [{ ...unique, inherit: 1, mustHave: mustHaves.includes(unique.skillId) }] : [];
+	// The veteran's equipped skills are certain, so they are own rows and never inherited ones; the unique skill is not shown twice.
+	for (const id of new Set(veteranSkillIds)) if (id !== unique?.skillId && id in skillData) rows.push({ ...detailOf(id), inherit: 1, mustHave: mustHaves.includes(id) });
 	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
 	for (const id of ids) {
-		if (own.includes(id) || id === unique?.skillId) continue;
-		const chances = parents.map((p) => ({ id: p.id, chance: skillChance(p.horses, id) }));
-		const best = chances.reduce((a, b) => (b.chance > a.chance ? b : a));
-		rows.push({ ...detailOf(id), inherit: 1 - chances.reduce((q, c) => q * (1 - c.chance), 1), parentId: best.id, mustHave: mustHaves.includes(id) });
+		if (own.includes(id) || id === unique?.skillId || veteranSkillIds.includes(id)) continue;
+		// Which lineage supplies it does not matter: a parent and its 2 grandparents are one unit.
+		const inherit = 1 - parents.reduce((q, p) => q * (1 - skillChance(p.horses, id)), 1);
+		rows.push({ ...detailOf(id), inherit, mustHave: mustHaves.includes(id) });
 	}
 	return rows.filter((r) => r.assumesPosition || (r.proc > 0 && r.lengths.median > 0)).sort((a, b) => b.lengths.avg - a.lengths.avg || b.value - a.value);
 }

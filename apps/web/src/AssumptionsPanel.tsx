@@ -29,7 +29,7 @@ export function AssumptionsPanel({ value, onChange }: Props) {
 			))}
 			{value.dueling && (
 				<fieldset>
-					<legend>Dueling chance (%)</legend>
+					<legend>Dueling chance (%), unverified estimate: umalator has no such option</legend>
 					{(Object.keys(RATE_LABEL) as (keyof DuelingRates)[]).map((k) => (
 						<label>{RATE_LABEL[k]} <input type="number" name={`rate-${k}`} min={0} max={100} value={value.duelingRates[k]} onChange={(e) => {
 							const n = Number(e.currentTarget.value);
