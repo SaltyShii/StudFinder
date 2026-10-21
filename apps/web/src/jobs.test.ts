@@ -6,7 +6,9 @@ import type { Style } from '../../../packages/scoring/src/ace';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { cardIdsOf, planCandidates, planOwned, planRecommend, planVeterans, type TierEdits } from './jobs';
+import { cardIdsOf, planCandidates, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
+import { rankVeterans } from '../../../packages/scoring/src/rankVeterans';
+import { scoreVeterans, type AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import { runJob } from './runJob';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
@@ -114,4 +116,13 @@ it('Tier list edits move or disable a skill for the Core loop style only', () =>
 it('plans an Owned version with the buyable skill pool, not just its card skills', () => {
 	const [stud] = planOwned(data, roster, [100201], course, false);
 	expect(stud.learnableSkillIds).toEqual(['200162']);
+});
+
+it('veterans scored apart as pool tasks and ranked together equal the serial score', () => {
+	const apt = { turf: 8, dirt: 3, short: 4, mile: 7, middle: 7, long: 5, nige: 2, senko: 7, sashi: 6, oikomi: 1 };
+	const base = { ...roster.veterans[0], aptitudes: apt, skillIds: [10071] };
+	const vj = { ...planVeterans(data, roster, cm)!, samples: 5, veterans: [base, { ...base, trainedId: 2, skillIds: [] }] };
+	const apart = veteranTasks(vj).map((task) => runJob({ kind: 'veteran', task }, () => {}) as AceVeteranScore);
+	const { veterans, uniqueSkills, ...conditions } = vj;
+	expect(rankVeterans(apart)).toEqual(scoreVeterans(veterans, { ...conditions, uniqueSkills: new Map(uniqueSkills) }));
 });
