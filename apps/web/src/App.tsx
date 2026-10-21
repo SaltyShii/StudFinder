@@ -11,7 +11,9 @@ import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { SimRunner } from './SimRunner';
 import { TierEditor } from './TierEditor';
-import { SkillChart } from './SkillChart';
+import { SkillChart, SkillFootnote, skillChips } from './SkillChart';
+import { SKILL_CATEGORIES, type SkillCategory } from '../../../packages/scoring/src/skillCategory';
+import { courseTitle } from './trackAxis';
 import { TrackOverview } from './TrackOverview';
 import { LoopSlots } from './LoopSlots';
 import { PickList } from './PickList';
@@ -52,6 +54,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
+	const [skillTab, setSkillTab] = useState<SkillCategory>('speed');
 	const [tierEdits, setTierEdits] = useState<TierEdits>(() => loadTierEdits(localStorage));
 
 	const [assumptions, setAssumptions] = useState(() => loadAssumptions(localStorage));
@@ -107,13 +110,14 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		}
 	}
 
+	const chips = useMemo(() => (result?.aceSlot && data ? skillChips(result.aceSlot.skills, result.track, data) : []), [result, data]);
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
 
 	return (
 		<main class="layout">
 			<header class="app-header" data-testid="app-header">
-				<h1>Stud Finder</h1>
-				<p class="course" data-testid="header-cm">{cm.name}{course && ` · ${course.distance} m ${course.ground === 2 ? 'dirt' : 'turf'}`}</p>
+				<h1>{result?.aceSlot ? `${SKILL_CATEGORIES.find((c) => c.key === skillTab)!.label} skills` : 'Stud Finder'}</h1>
+				<p class="course" data-testid="header-cm">{cm.name}{course && ` - ${course.distance}m ${course.ground === 2 ? 'dirt' : 'turf'}`}</p>
 				<span class="badge" data-testid="style-badge">{STYLE_LABEL[style]}</span>
 			</header>
 			<div class="sidebar">
@@ -163,9 +167,11 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 				<div class="results">
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
-					{result && <TrackOverview track={result.track} stale={stale}>
-						{result.aceSlot && <SkillChart rows={result.aceSlot.skills} track={result.track} data={data} stale={stale} />}
-					</TrackOverview>}
+					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={course?.turn === 2} chips={chips} stale={stale} />}
+					{result?.aceSlot && <>
+						<SkillChart rows={result.aceSlot.skills} track={result.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />
+						<SkillFootnote rows={result.aceSlot.skills} />
+					</>}
 					<div class="picks">
 						{ownedVersions.length ? <>
 							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} />

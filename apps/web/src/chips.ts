@@ -3,6 +3,8 @@ export interface ChipInput {
 	label: string;
 	/** Metres where the chip points (the skill's median Activation spot). */
 	pos: number;
+	/** What the skill's effect does for the runner at that spot: speeds it up (accelerating), only lifts top speed (cruise), or neither. */
+	kind: 'accelerating' | 'cruise' | 'neutral';
 }
 export interface PlacedChip extends ChipInput {
 	/** 0 is the row nearest the track, higher rows stack above it. */
@@ -11,8 +13,10 @@ export interface PlacedChip extends ChipInput {
 	at: number;
 }
 
-const MAX_CHIPS = 6;
-const LANES = 2;
+const MAX_CHIPS = 10;
+const LANES = 4;
+// Names are cut to this many characters on screen, so longer ones take no more room.
+export const CHIP_CHARS = 11;
 // Rough on-screen size: the axis is about this many pixels wide, a label character about CHAR_PX.
 const AXIS_PX = 800;
 const CHAR_PX = 6.5;
@@ -26,7 +30,7 @@ export function placeChips(items: ChipInput[], distance: number): PlacedChip[] {
 	const out: PlacedChip[] = [];
 	for (const item of items) {
 		if (out.length >= MAX_CHIPS) break;
-		const half = metres(item.label.length * CHAR_PX + PAD_PX) / 2;
+		const half = metres(Math.min(item.label.length, CHIP_CHARS) * CHAR_PX + PAD_PX) / 2;
 		const at = Math.min(Math.max(item.pos, half), distance - half);
 		const from = at - half - metres(GAP_PX);
 		const to = at + half + metres(GAP_PX);

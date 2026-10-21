@@ -244,7 +244,7 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	expect(root.querySelector('[data-testid=ace-pick]')).not.toBeNull();
 	expect(root.querySelector('[data-testid=ace-parent]')).not.toBeNull();
 	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
-	expect(heads.slice(0, 5)).toEqual(['Ace', 'Track overview', 'Side loop', 'Core loop', 'Ace veteran list']);
+	expect(heads.slice(0, 5)).toEqual(['Ace', '2000m turf (right-handed)', 'Side loop', 'Core loop', 'Ace veteran list']);
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
@@ -546,17 +546,19 @@ it('draws the Track overview of the selected CM on the Ace slot only, and redraw
 	expect(overview.querySelector('[data-testid=speed-curve]')!.getAttribute('d')).toMatch(/^M/);
 	// Labelled rows, text inside the strips, a speed axis and a height row.
 	const labels = [...overview.querySelectorAll('.row-label > span')].map((l) => l.textContent);
-	expect(labels).toEqual(['Speed', 'Height', 'Slope', 'Track', 'Phase', 'Section', 'Metres']);
-	expect(overview.querySelector('.speed-axis')!.textContent).toMatch(/\d+\.\d m\/s.*\d+\.\d m\/s/);
+	expect(labels).toEqual(['m/s', 'height', 'slope', 'track', 'phase', 'section', 'metres']);
+	expect(overview.querySelector('[data-testid=course-title]')!.textContent).toBe('2000m turf (right-handed)');
+	expect(overview.querySelector('.spurt-info')!.textContent).toMatch(/^Last spurt from [\d,]+m/);
+	expect(overview.querySelector('[data-testid=fx-legend]')!.textContent).toContain('only speed helps');
 	expect(overview.querySelector('[data-testid=height-profile]')!.getAttribute('d')).toMatch(/^M/);
-	expect([...overview.querySelectorAll('[data-testid=phase]')].map((p) => p.textContent)).toEqual(['Early-race', 'Mid-race', 'Late-race', 'Last spurt']);
-	for (const s of overview.querySelectorAll('[data-testid=slope]')) expect(s.textContent).toMatch(/^(Uphill|Downhill) \d/);
-	expect([...overview.querySelectorAll('[data-testid=straight]')].every((s) => s.textContent === 'Straight')).toBe(true);
-	expect([...overview.querySelectorAll('[data-testid=corner]')].map((c) => c.textContent)).toEqual([...overview.querySelectorAll('[data-testid=corner]')].map((_, i) => `Corner ${i + 1}`));
+	expect([...overview.querySelectorAll('[data-testid=phase]')].map((p) => p.textContent)).toEqual(['Early-race400m', 'Mid-race1,600m', 'Late-race2,000m', 'Last spurt']);
+	for (const s of overview.querySelectorAll('[data-testid=slope]')) expect(s.textContent).toMatch(/^(Uphill|Downhill)/);
+	expect([...overview.querySelectorAll('[data-testid=straight]')].every((s) => s.textContent!.startsWith('Straight'))).toBe(true);
+	expect([...overview.querySelectorAll('[data-testid=corner]')].map((c) => c.textContent)).toEqual([...overview.querySelectorAll('[data-testid=corner]')].map(() => expect.stringMatching(/^Corner [↺↻][1-4]/)));
 	// Event bands sit in the panel body behind the rows and the skill chart.
 	const bands = [...overview.querySelectorAll('.bands [data-testid=event-band]')];
 	expect(bands.map((b) => b.textContent)).toEqual(['Start', 'Pace change', 'Last-spurt kick']);
-	expect(overview.querySelector('.track-body > .bands')!.nextElementSibling!.classList.contains('track-row')).toBe(true);
+	expect(overview.querySelector('.track-rows > .bands')!.nextElementSibling!.classList.contains('track-row')).toBe(true);
 	await chooseCm(2); // course 10811, 3200 m
 	await run();
 	expect(root.querySelector('[data-testid=track-overview] svg')!.getAttribute('aria-label')).toContain('3200 m');
@@ -574,9 +576,9 @@ it('shows the Ace as one combined skill list with a pick list of parents, and le
 	expect(row.querySelector('.rarity-dot')!.getAttribute('title')).toMatch(/\d+% inherited/);
 	expect(row.textContent).toContain('*'); // position-conditioned: greyed and marked
 	expect(row.classList.contains('muted')).toBe(true);
-	expect(row.closest('[data-testid=track-overview]')).not.toBeNull(); // the chart sits under the overview
-	expect(row.querySelector('svg')).not.toBeNull();
-	expect(row.querySelectorAll('[data-testid=spot-density], [data-testid=spot-pin]').length).toBeGreaterThan(0);
+	expect(row.closest('.skill-panel')).not.toBeNull(); // its own panel under the overview
+	expect(row.closest('[data-testid=track-overview]')).toBeNull();
+	expect(row.querySelectorAll('[data-testid=spot-density], [data-testid=spot-pin], [data-testid=spot-block]').length).toBeGreaterThan(0);
 	const ace = root.querySelector('[data-testid=ace-parent]')!;
 	expect(ace.querySelector('strong')!.textContent).toBeTruthy();
 	expect(ace.querySelector('details, .headline')).toBeNull(); // no skill text, no per-parent score
@@ -591,7 +593,7 @@ it('lists the Ace skills as a table with Speed, Acceleration, Recovery and Other
 	const tabs = () => [...root.querySelectorAll('[data-testid=skill-tabs] [role=tab]')];
 	expect(tabs().map((t) => t.textContent)).toEqual(['Speed', 'Acceleration', 'Recovery', 'Other']);
 	expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false']);
-	expect([...root.querySelectorAll('.skill-table .skill-head > *')].map((h) => h.textContent)).toEqual(['', 'Skill', 'Lengths gained', 'Proc', '']);
+	expect([...root.querySelectorAll('.skill-table .skill-head > *')].map((h) => h.textContent)).toEqual(['', 'Skill', 'Lengths gained', 'Proc', 'where it can firewhitegoldinherited unique']);
 	const names = () => [...root.querySelectorAll('[data-testid=ace-skill-row] .skill-name')].map((n) => n.textContent);
 	expect(names().some((n) => n!.includes('Synthetic Skill'))).toBe(true); // target speed
 	await act(async () => { (tabs()[1] as HTMLElement).click(); });
@@ -611,7 +613,7 @@ it('shows the app title, the selected CM with its course and the Ace running sty
 	};
 	await pick('cm', String(CMS[1].id));
 	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain(CMS[1].name);
-	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain('2000 m');
+	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain('2000m');
 	await pick('cm', String(CMS[0].id));
 	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain(CMS[0].name);
 	await pick('style', 'nige');
