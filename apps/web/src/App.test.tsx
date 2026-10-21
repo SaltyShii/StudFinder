@@ -569,3 +569,24 @@ it('shows the Ace as one combined skill list with a pick list of parents, and le
 	expect(root.querySelectorAll('[data-testid=side-pick] [data-testid=ace-skill-row], [data-testid=core-pick] [data-testid=ace-skill-row]').length).toBe(0);
 	expect(root.querySelector('[data-testid=side-parent] details')).not.toBeNull(); // loops unchanged
 });
+
+it('shows the app title, the selected CM with its course and the Ace running style in the header, and follows changes', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	const header = () => root.querySelector('header[data-testid=app-header]')!;
+	expect(header().querySelector('h1')!.textContent).toBe('Stud Finder');
+	const pick = async (name: string, value: string) => {
+		const el = root.querySelector(`select[name=${name}]`) as HTMLSelectElement;
+		el.value = value;
+		await act(() => { el.dispatchEvent(new Event('change')); });
+	};
+	await pick('cm', String(CMS[1].id));
+	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain(CMS[1].name);
+	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain('2000 m');
+	await pick('cm', String(CMS[0].id));
+	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain(CMS[0].name);
+	await pick('style', 'nige');
+	expect(header().querySelector('[data-testid=style-badge]')!.textContent).toBe('Front Runner');
+	await pick('style', 'oikomi');
+	expect(header().querySelector('[data-testid=style-badge]')!.textContent).toBe('End Closer');
+});
