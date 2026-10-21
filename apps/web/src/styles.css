@@ -1,40 +1,26 @@
-/* Tokens copied from lineageplanner-salty so the two tools read as one suite. */
+/* Dark palette with a green accent, sampled by eye from the reference screenshot; there is no light theme. */
 :root {
-	--bg: #eef0ec;
-	--surface: #fff;
-	--surface-2: #f2f4ef;
-	--border: #d3d8cd;
-	--text: #14181a;
-	--muted: #646d66;
-	--accent: #0f7a45;
-	--accent-soft: #dcf0e4;
-	--danger: #c4261f;
+	--bg: #07090a;
+	--surface: #0e1311;
+	--surface-2: #161d1a;
+	--border: #26332d;
+	--text: #e6eee9;
+	--muted: #8a968f;
+	--accent: #2fcf7a;
+	--accent-soft: #12331f;
+	--course: #f08a24;
+	--danger: #ff3b30;
 	--radius: 4px;
-	--shadow: 0 1px 0 rgb(0 0 0 / 4%), 0 6px 18px rgb(10 25 15 / 7%);
-	color-scheme: light;
+	--shadow: none;
+	color-scheme: dark;
 	font: 14px/1.4 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif;
 	color: var(--text);
-}
-@media (prefers-color-scheme: dark) {
-	:root {
-		--bg: #0b0f0e;
-		--surface: #141a18;
-		--surface-2: #1c2421;
-		--border: #28312d;
-		--text: #eaf0ec;
-		--muted: #8a968f;
-		--accent: #2fcf7a;
-		--accent-soft: #12331f;
-		--danger: #ff3b30;
-		--shadow: none;
-		color-scheme: dark;
-	}
 }
 
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); }
 h1, h2, h3, p { margin: 0; }
-h1 { font-size: 1.4rem; }
+h1 { font-size: 1.4rem; color: var(--accent); }
 h2 { font-size: 1rem; }
 h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 
@@ -58,7 +44,7 @@ h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; color
 	gap: 10px;
 	padding: 12px;
 	background: var(--surface);
-	border: 1px solid var(--border);
+	border: 1px solid var(--accent);
 	border-radius: var(--radius);
 	box-shadow: var(--shadow);
 }
@@ -119,7 +105,7 @@ details > summary { cursor: pointer; color: var(--accent); }
 .sim-runner { display: flex; align-items: center; gap: 8px; }
 .sim-runner button { margin-left: auto; }
 button.generic[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); }
-button.primary { align-self: stretch; padding: 10px; font-weight: 700; color: #fff; background: var(--accent); border-color: var(--accent); }
+button.primary { align-self: stretch; padding: 10px; font-weight: 700; color: #04120a; background: var(--accent); border-color: var(--accent); }
 button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .empty { color: var(--muted); }
 
@@ -155,3 +141,7 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .skill-chart .skill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .skill-chart svg { width: 100%; height: 22px; }
 .skill-chart .skill-nums { font-size: 0.85em; }
+
+.app-header { grid-column: 1 / -1; display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); }
+.app-header .course { font-size: 1.1rem; font-weight: 700; color: var(--course); }
+.app-header .badge { margin-left: auto; padding: 2px 12px; font-size: 0.85rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 999px; }

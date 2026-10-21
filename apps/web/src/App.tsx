@@ -111,9 +111,13 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 
 	return (
 		<main class="layout">
+			<header class="app-header" data-testid="app-header">
+				<h1>Stud Finder</h1>
+				<p class="course" data-testid="header-cm">{cm.name}{course && ` · ${course.distance} m ${course.ground === 2 ? 'dirt' : 'turf'}`}</p>
+				<span class="badge" data-testid="style-badge">{STYLE_LABEL[style]}</span>
+			</header>
 			<div class="sidebar">
 				<section class="panel">
-					<h1>Stud Finder</h1>
 					<p class="muted">Your export is read in this browser only and never sent anywhere.</p>
 					<input type="file" accept=".json,application/json" onChange={onFile} />
 				</section>
