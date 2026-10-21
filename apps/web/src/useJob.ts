@@ -54,10 +54,11 @@ export function useJob<In, Out, P = never>(run: JobRunner<In, Out, P>, input: In
 		if (input == null) { dispatch({ type: 'reset' }); return; }
 		let live = true;
 		dispatch({ type: 'start', clear: clearOnRestart });
+		const started = performance.now();
 		const stop = run(
 			input,
 			(progress) => { if (live) dispatch({ type: 'progress', progress }); },
-			(result) => { if (live) dispatch({ type: 'done', result }); },
+			(result) => { if (live) { console.info(`Job done in ${((performance.now() - started) / 1000).toFixed(1)} s`); dispatch({ type: 'done', result }); } }, // for timing a change without polling the page
 			(error) => { if (live) dispatch({ type: 'fail', error }); },
 		);
 		cancelRef.current = () => { live = false; stop(); dispatch({ type: 'cancel', clear: clearOnRestart }); };
