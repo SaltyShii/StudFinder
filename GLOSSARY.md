@@ -40,7 +40,7 @@ The final trainee run for the CM, picked from the Owned versions together with i
 _Avoid_: trainee (when meaning the final CM runner)
 
 **Ace veteran**:
-A veteran scored as a CM runner as herself, in the running style she ran in her career, with her actual stats and equipped skills. Ranked against other Ace veterans by lengths gained.
+A veteran scored as a CM runner as herself, in the running style she ran in her career, with her actual stats and equipped skills. Ranked against other Ace veterans by lengths gained. The best Ace veteran of the Ace's version contributes her equipped skills to the Ace chart as own skills (certain, not inherited).
 _Avoid_: ace (when it is a finished run rather than the one about to be trained)
 
 **Sim runner**:
