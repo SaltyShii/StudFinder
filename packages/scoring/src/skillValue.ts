@@ -1,3 +1,5 @@
+import { courseFacts } from './ace';
+import { spotDensity, type SpotDensity } from './density';
 import { median, pairedRace, type ActivationSpot, type Scenario } from './pairedRace';
 
 export interface SkillValue {
@@ -11,6 +13,8 @@ export interface SkillValue {
 	spots: ActivationSpot[];
 	/** Min, median and max of the activation positions (metres); all 0 when the skill never fired. */
 	spotSpread: { min: number; median: number; max: number };
+	/** Histogram of the activation positions over the course, lightly smoothed; empty when the skill never fired. */
+	density: SpotDensity;
 	/** Median effect duration in seconds over the runs that activated. */
 	duration: number;
 }
@@ -25,13 +29,15 @@ export function skillValue(skillId: string, scenario: Scenario): SkillValue {
 	const spotInfo = spots.length
 		? { spots, spotSpread: { min: Math.min(...positions), median: median(positions), max: Math.max(...positions) }, duration: median(spots.map((s) => s.duration)) }
 		: { spots, spotSpread: { min: 0, median: 0, max: 0 }, duration: 0 };
+	const density = spotDensity(positions, courseFacts(scenario.courseId).distance);
 	const proc = gains.length / runs.length;
-	if (!gains.length) return { proc, lengths: { min: 0, avg: 0, median: 0, max: 0 }, value: 0, ...spotInfo };
+	if (!gains.length) return { proc, lengths: { min: 0, avg: 0, median: 0, max: 0 }, value: 0, density, ...spotInfo };
 	const med = median(gains);
 	return {
 		proc: proc * 100,
 		lengths: { min: Math.min(...gains), avg: gains.reduce((x, y) => x + y) / gains.length, median: med, max: Math.max(...gains) },
 		value: proc * med,
+		density,
 		...spotInfo,
 	};
 }

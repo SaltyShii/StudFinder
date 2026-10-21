@@ -200,3 +200,14 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .rarity-dot[data-rarity='gold'] { background: #e9b93b; }
 .rarity-dot[data-rarity='unique'] { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 @media (max-width: 800px) { :root { --label-w: 200px; } }
+
+/* Effect colours of the skill density curves: green while the Baseline runner still accelerates, blue at cruise speed, grey once the effect ended. */
+:root { --fx-accel: #2fcf7a; --fx-cruise: #3d8ff0; --fx-ended: #6b7570; --fx-neutral: #b58cf0; }
+.skill-chips { position: relative; margin-left: var(--label-w); margin-bottom: 4px; }
+.skill-name-chip { position: absolute; transform: translateX(-50%); max-width: 200px; padding: 1px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; color: var(--text); background: var(--surface-2); border: 1px solid var(--accent); border-radius: 999px; }
+.fx-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 0.75rem; }
+.fx-legend .swatch { display: inline-block; width: 12px; height: 8px; margin-right: 6px; border-radius: 2px; }
+.swatch.accelerating { background: var(--fx-accel); }
+.swatch.cruise { background: var(--fx-cruise); }
+.swatch.ended { background: var(--fx-ended); }
+.swatch.neutral { background: var(--fx-neutral); }

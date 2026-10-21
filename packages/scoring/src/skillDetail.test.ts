@@ -8,6 +8,9 @@ test('skillDetail combines skill value with the position flag', () => {
 	expect(d.skillId).toBe('10071');
 	expect(d.proc).toBeGreaterThan(0);
 	expect(d.assumesPosition).toBe(true);
+	// The density covers the course and holds every activation.
+	expect(d.density.bins.reduce((a, b) => a + b, 0)).toBeCloseTo(1);
+	expect(d.density.bins.length * d.density.binWidth).toBeGreaterThanOrEqual(1000);
 });
 
 test('an id the sim has no data for assumes nothing', () => {
