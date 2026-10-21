@@ -164,7 +164,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
 					{result && <TrackOverview track={result.track} stale={stale}>
-						{result.aceSlot && <SkillChart rows={result.aceSlot.skills} distance={result.track.distance} data={data} stale={stale} />}
+						{result.aceSlot && <SkillChart rows={result.aceSlot.skills} track={result.track} data={data} stale={stale} />}
 					</TrackOverview>}
 					<div class="picks">
 						{ownedVersions.length ? <>
