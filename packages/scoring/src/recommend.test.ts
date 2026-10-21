@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { skillDetail } from './skillDetail';
+import { DEFAULT_ASSUMPTIONS } from './assumptions';
 import { skillChance } from './shared';
 import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
@@ -150,6 +151,18 @@ test('skills are screened at few samples, but every shown skill is re-simulated 
 	// the shown value is the full-sample one, not the screening one
 	const d = shown[0];
 	expect(d.value).toBe(skillDetail(d.skillId, { courseId: full.courseId, horse: full.runner, samples: 60, seed: full.seed }).value);
+});
+
+test('a Sim assumption reaches every slot: wit checks lower the proc and value of a white skill for a low-wit runner', () => {
+	const weak = { ...preset, runner: { ...horse, wisdom: 100 } };
+	const list: CandidateList = { candidates: [cand('w', horseOf(['200342']), horseOf(), horseOf())] };
+	const versions = [{ cardId: 1, aptitudes: apt, candidates: list.candidates }];
+	const run = (witCheck: boolean) => recommend(list, { ...weak, assumptions: { ...DEFAULT_ASSUMPTIONS, witCheck } }, undefined, versions, ['200342']);
+	const [off, on] = [run(false), run(true)];
+	expect(on.skills[0].proc).toBeLessThan(off.skills[0].proc);
+	expect(on.ace[0].score).toBeLessThan(off.ace[0].score);
+	expect(on.aceSlot!.score).toBeLessThan(off.aceSlot!.score);
+	expect(on.sideSlots[0].score).not.toBe(off.sideSlots[0].score);
 });
 
 test('the recommendation carries the Track overview of the selected course with the Baseline runner curve', () => {
