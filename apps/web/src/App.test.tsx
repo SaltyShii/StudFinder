@@ -594,7 +594,7 @@ it('lists the Ace skills as a table with Speed, Acceleration, Recovery and Other
 	const tabs = () => [...root.querySelectorAll('[data-testid=skill-tabs]')[0].querySelectorAll('[role=tab]')];
 	expect(tabs().map((t) => t.textContent)).toEqual(['Speed', 'Acceleration', 'Recovery', 'Other']);
 	expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false']);
-	expect([...root.querySelectorAll('.skill-table .skill-head')[0].children].map((h) => h.textContent)).toEqual(['', 'Skill', 'Lengths gained', 'Proc', 'where it can firewhitegoldinherited unique']);
+	expect([...root.querySelectorAll('.skill-table .skill-head')[0].children].map((h) => h.textContent)).toEqual(['', 'Skill', 'Lengths gained', 'Proc', 'Activation spotswhitegoldinherited unique']);
 	const names = () => [...root.querySelectorAll('.skill-table')[0].querySelectorAll('[data-testid=ace-skill-row] .skill-name')].map((n) => n.textContent);
 	expect(names().some((n) => n!.includes('Synthetic Skill'))).toBe(true); // target speed
 	await act(async () => { (tabs()[1] as HTMLElement).click(); });

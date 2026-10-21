@@ -43,7 +43,7 @@ interface Props {
 	stale?: boolean;
 }
 
-/** The skills of one slot (every skill the Ace can end up with, or a Side loop lineage's Must-haves and best simulated skills), as its own panel under the Track overview: rarity dot, name, lengths gained, Proc %, and a bar area on the overview's distance axis (where the skill can fire, how far the effect lasts). Tabs split the skills by what they do; rows resting on the default position assumption are greyed and marked `*`. */
+/** The skills of one slot (every skill the Ace can end up with, or a Side loop lineage's Must-haves and best simulated skills), as its own panel under the Track overview: rarity dot, name, lengths gained, Proc %, and a bar area on the overview's distance axis (its Activation spots, how far the effect lasts). Tabs split the skills by what they do; rows resting on the default position assumption are greyed and marked `*`. */
 export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 	if (!rows.length) return null;
 	const axis = distanceAxis(track.distance);
@@ -61,7 +61,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 				<span>Skill</span>
 				<span class="num">Lengths gained</span>
 				<span class="num">Proc</span>
-				<span class="fire">where it can fire
+				<span class="fire">Activation spots
 					<ul class="rarity-legend" data-testid="rarity-legend">
 						<li><i class="rarity-dot" data-rarity="white" />white</li>
 						<li><i class="rarity-dot" data-rarity="gold" />gold</li>
@@ -98,7 +98,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 export function SkillFootnote({ rows }: { rows: AceSkillRow[] }) {
 	return (
 		<p class="muted skill-footnote" data-testid="skill-footnote">
-			L = horse lengths gained at the finish · Proc = chance the skill fires · {rows.some((r) => r.assumesPosition) ? '* also needs a race position (assumed), so the sim cannot judge it fully · ' : ''}highlighted rows are Must-haves · hover a dot for its inherit chance
+			L = horse lengths gained at the finish · Proc = share of runs in which the skill procced · {rows.some((r) => r.assumesPosition) ? '* also needs a race position (assumed), so the sim cannot judge it fully · ' : ''}highlighted rows are Must-haves · hover a dot for its inherit chance
 		</p>
 	);
 }
