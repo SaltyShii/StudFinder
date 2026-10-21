@@ -109,7 +109,7 @@ export function saveAssumptions(storage: Storage, a: SimAssumptions): void {
 }
 
 const RATE_STYLES = Object.keys(DEFAULT_DUELING_RATES) as (keyof DuelingRates)[];
-const FLAGS = ['witCheck', 'rushed', 'spotStruggle', 'dueling', 'laneMovement'] as const;
+const FLAGS = (Object.keys(DEFAULT_ASSUMPTIONS) as (keyof SimAssumptions)[]).filter((k): k is Exclude<keyof SimAssumptions, 'duelingRates'> => typeof DEFAULT_ASSUMPTIONS[k] === 'boolean');
 
 /** The stored Sim assumptions; umalator's defaults when absent, stale-versioned or malformed. Not wiped by Clear data: they are settings, not Roster data. */
 export function loadAssumptions(storage: Storage): SimAssumptions {
@@ -118,7 +118,10 @@ export function loadAssumptions(storage: Storage): SimAssumptions {
 		if (!a || typeof a !== 'object' || !FLAGS.every((k) => typeof a[k] === 'boolean')) return null;
 		const rates = a.duelingRates as Partial<DuelingRates> | undefined;
 		if (!rates || !RATE_STYLES.every((k) => typeof rates[k] === 'number' && rates[k]! >= 0 && rates[k]! <= 100)) return null;
-		return { ...Object.fromEntries(FLAGS.map((k) => [k, a[k]])), duelingRates: Object.fromEntries(RATE_STYLES.map((k) => [k, rates[k]])) } as unknown as SimAssumptions;
+		const out: SimAssumptions = { ...DEFAULT_ASSUMPTIONS, duelingRates: { ...DEFAULT_DUELING_RATES } };
+		for (const k of FLAGS) out[k] = a[k] as boolean;
+		for (const k of RATE_STYLES) out.duelingRates[k] = rates[k] as number;
+		return out;
 	}) ?? DEFAULT_ASSUMPTIONS;
 }
 
