@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { effectStretches, isFixedSpot, spotDensity } from './density';
+import { effectStretches, isFixedSpot, rowEffect, spotDensity } from './density';
 
 test('density bins the spots over the whole course and sums to 1', () => {
 	const d = spotDensity([100, 105, 110, 900], 1200, { binWidth: 10, smooth: 0 });
@@ -46,10 +46,17 @@ test('effect stretches follow the Baseline speed curve: green while accelerating
 	]);
 });
 
-test('effect stretches are clipped to where the skill can fire and the course', () => {
+test('effect stretches are clipped to the Activation spots reach and the course', () => {
 	expect(effectStretches(curve, 300, 400, 1000)).toEqual([
 		{ start: 300, end: 400, kind: 'cruise' },
 		{ start: 400, end: 1000, kind: 'ended' },
 	]);
 	expect(effectStretches(curve, 950, 1200, 1000)).toEqual([{ start: 950, end: 1000, kind: 'accelerating' }]);
+});
+
+test('a row reaches to the median end of its spots, never before the floor', () => {
+	const spots = [{ end: 350 }, { end: 400 }, { end: 450 }];
+	expect(rowEffect(curve, spots, 300, 1000).reach).toBe(400);
+	expect(rowEffect(curve, spots, 300, 1000, 500).reach).toBe(500);
+	expect(rowEffect(curve, spots, 300, 1000).stretches).toEqual(effectStretches(curve, 300, 400, 1000));
 });

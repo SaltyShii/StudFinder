@@ -1,8 +1,7 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { AceSkillRow } from '../../../packages/scoring/src/recommend';
-import { median } from '../../../packages/scoring/src/pairedRace';
 import type { TrackOverview as Track } from '../../../packages/scoring/src/trackOverview';
-import { effectStretches, isFixedSpot, type EffectKind } from '../../../packages/scoring/src/density';
+import { isFixedSpot, rowEffect, type EffectKind } from '../../../packages/scoring/src/density';
 import { placeChips, type ChipInput, type PlacedChip } from './chips';
 import { SKILL_CATEGORIES, skillCategory, type SkillCategory } from '../../../packages/scoring/src/skillCategory';
 import { AXIS, distanceAxis, type DistanceAxis } from './trackAxis';
@@ -28,7 +27,7 @@ function isSpeedEffect(c: SkillCategory) {
 export function skillChips(rows: AceSkillRow[], track: Track, data: GameData): PlacedChip[] {
 	const items: ChipInput[] = [...rows].filter((r) => r.spots.length).sort((a, b) => b.lengths.avg - a.lengths.avg).map((r) => {
 		const at = r.spotSpread.median;
-		const hit = isSpeedEffect(skillCategory(r.skillId)) ? effectStretches(track.curve, at, Math.max(median(r.spots.map((s) => s.end)), at + 1), track.distance).find((s) => s.start <= at + 1 && at <= s.end) : undefined;
+		const hit = isSpeedEffect(skillCategory(r.skillId)) ? rowEffect(track.curve, r.spots, at, track.distance, at + 1).stretches.find((s) => s.start <= at + 1 && at <= s.end) : undefined;
 		return { id: r.skillId, label: data.skills.get(Number(r.skillId))?.name ?? r.skillId, pos: at, kind: hit?.kind === 'accelerating' ? 'accelerating' : hit?.kind === 'cruise' ? 'cruise' : 'neutral' };
 	});
 	return placeChips(items, track.distance);
@@ -47,7 +46,7 @@ interface Props {
 export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 	if (!rows.length) return null;
 	const axis = distanceAxis(track.distance);
-	const shown = rows.filter((r) => skillCategory(r.skillId) === tab).sort((a, b) => b.lengths.avg - a.lengths.avg);
+	const shown = rows.map((r) => ({ r, category: skillCategory(r.skillId) })).filter((x) => x.category === tab).sort((a, b) => b.r.lengths.avg - a.r.lengths.avg);
 	return (
 		<div class="chart-scroll" data-testid="chart-scroll">
 		<section class="panel skill-panel skill-table" style={stale ? { opacity: 0.5 } : undefined}>
@@ -72,7 +71,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 			<div class="skill-body">
 				<EventBands track={track} axis={axis} />
 				<ul class="skill-chart" data-testid="skill-chart">
-					{shown.map((r) => {
+					{shown.map(({ r, category }) => {
 						const skill = data.skills.get(Number(r.skillId));
 						const name = skill?.name ?? r.skillId;
 						return (
@@ -82,7 +81,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 								<span class="skill-lengths num">{`${r.lengths.avg < 0 ? '-' : '+'}${Math.abs(r.lengths.avg).toFixed(2)} L`}</span>
 								<span class="skill-proc num">{r.proc.toFixed(0)}%</span>
 								<div class="bar-area" role="img" aria-label={`Activation spots of ${name}`}>
-									{r.spots.length > 0 && <SpotShape row={r} speedEffect={isSpeedEffect(skillCategory(r.skillId))} axis={axis} track={track} />}
+									{r.spots.length > 0 && <SpotShape row={r} speedEffect={isSpeedEffect(category)} axis={axis} track={track} />}
 								</div>
 							</li>
 						);
@@ -107,15 +106,15 @@ export function SkillFootnote({ rows }: { rows: AceSkillRow[] }) {
 function SpotShape({ row: r, speedEffect, axis, track }: { row: AceSkillRow; speedEffect: boolean; axis: DistanceAxis; track: Track }) {
 	const { distance } = track;
 	const { min, max, median: mid } = r.spotSpread;
-	const reach = Math.max(median(r.spots.map((s) => s.end)), mid);
+	const { reach, stretches: whole } = rowEffect(track.curve, r.spots, min, distance, mid);
 	const lastEnd = Math.max(...r.spots.map((s) => s.end), reach);
-	const all = speedEffect ? effectStretches(track.curve, min, reach, distance) : [];
+	const all = speedEffect ? whole : [];
 	const stretches = all.filter((s) => s.kind !== 'ended');
 	const title = `Procs ${Math.round(min)}-${Math.round(max)} m, median ${Math.round(mid)} m; effect lasts about ${r.duration.toFixed(1)} s`;
 	const left = (m: number) => pct(axis.x(m));
 	const box = (a: number, b: number) => ({ left: left(a), width: pct(Math.max(axis.span(a, b), 3)) });
 	if (isFixedSpot(r.spotSpread)) {
-		const first = speedEffect ? effectStretches(track.curve, mid, reach, distance)[0]?.kind : undefined;
+		const first = speedEffect ? rowEffect(track.curve, r.spots, mid, distance).stretches[0]?.kind : undefined;
 		return <div data-testid="spot-pin" title={title}>
 			<span class="tail" style={box(mid, lastEnd)} />
 			<span class="pin" style={{ left: left(mid), background: FX_VAR[first ?? 'neutral'] }} />

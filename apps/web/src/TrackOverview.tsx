@@ -1,9 +1,9 @@
-import type { TrackOverview as Track } from '../../../packages/scoring/src/trackOverview';
+import { LAST_SPURT_KICK, type TrackOverview as Track } from '../../../packages/scoring/src/trackOverview';
 import { CHIP_CHARS, type PlacedChip } from './chips';
 import { AXIS, coverSpans, cornerNumber, distanceAxis, rulerStep, rulerTicks, type DistanceAxis } from './trackAxis';
 
 const PHASE_LABEL = ['Early-race', 'Mid-race', 'Late-race', 'Last spurt'];
-const EVENT_CLASS = { Start: 'start', 'Pace change': 'pace', 'Last-spurt kick': 'kick' } as const;
+const EVENT_CLASS = { Start: 'start', 'Pace change': 'pace', [LAST_SPURT_KICK]: 'kick' } as const;
 const CURVE_H = 150;
 const HEIGHT_H = 56;
 const CHIP_LANE_PX = 21;
@@ -34,7 +34,7 @@ export function EventBands({ track, axis, labels }: { track: Track; axis: Distan
 
 /** Course facts for the left column: where the last spurt starts and how long the final straight is. */
 function lastSpurtFrom(track: Track) {
-	const kick = track.events.find((e) => e.name === 'Last-spurt kick');
+	const kick = track.events.find((e) => e.name === LAST_SPURT_KICK);
 	return kick && kick.start < track.distance ? kick.start : track.phases[3].start;
 }
 function finalStraight(track: Track) {

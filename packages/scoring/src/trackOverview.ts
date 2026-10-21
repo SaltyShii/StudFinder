@@ -9,6 +9,9 @@ export interface Span {
 	start: number;
 	end: number;
 }
+/** The kick before the finish: its own name because the UI keys on it. */
+export const LAST_SPURT_KICK = 'Last-spurt kick';
+
 export interface TrackOverview {
 	/** Every position below is metres on this axis (0 to distance). */
 	distance: number;
@@ -23,7 +26,7 @@ export interface TrackOverview {
 	/** Relative height in metres by position, ascending, from 0 at the start: the slopes added up (the course data has no absolute heights). */
 	heights: { pos: number; height: number }[];
 	/** Where the race changes gear for the Baseline runner: the start dash, the rest of the position-keep window, and the last-spurt kick. */
-	events: { name: 'Start' | 'Pace change' | 'Last-spurt kick'; start: number; end: number }[];
+	events: { name: 'Start' | 'Pace change' | typeof LAST_SPURT_KICK; start: number; end: number }[];
 	/** Speed (m/s) of the Baseline runner by position, ascending. */
 	curve: { pos: number; speed: number }[];
 }
@@ -61,7 +64,7 @@ export function trackOverview({ horse, courseId, seed = 1, season, ground, weath
 			{ name: 'Start', start: 0, end: dash },
 			{ name: 'Pace change', start: dash, end: Math.max(solver.posKeepEnd, dash) },
 			// A runner that never reaches its spurt speed before the finish is kicking to the line.
-			{ name: 'Last-spurt kick', start: kickStart < 0 ? distance : kickStart, end: kickEnd < 0 ? distance : kickEnd },
+			{ name: LAST_SPURT_KICK, start: kickStart < 0 ? distance : kickStart, end: kickEnd < 0 ? distance : kickEnd },
 		],
 		slopes,
 		straights: course.straights.map((s) => ({ start: s.start, end: s.end })),

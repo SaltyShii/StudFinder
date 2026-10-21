@@ -1,10 +1,12 @@
+import type { EffectKind } from '../../../packages/scoring/src/density';
+
 export interface ChipInput {
 	id: string;
 	label: string;
 	/** Metres where the chip points (the skill's median Activation spot). */
 	pos: number;
 	/** What the skill's effect does for the runner at that spot: speeds it up (accelerating), only lifts top speed (cruise), or neither. */
-	kind: 'accelerating' | 'cruise' | 'neutral';
+	kind: Exclude<EffectKind, 'ended'> | 'neutral';
 }
 export interface PlacedChip extends ChipInput {
 	/** 0 is the row nearest the track, higher rows stack above it. */
