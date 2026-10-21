@@ -244,7 +244,7 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	expect(root.querySelector('[data-testid=ace-pick]')).not.toBeNull();
 	expect(root.querySelector('[data-testid=ace-parent]')).not.toBeNull();
 	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
-	expect(heads.slice(0, 5)).toEqual(['Ace', 'Track overview', 'Side loop', 'Core loop', 'Ace veteran list']);
+	expect(heads.slice(0, 5)).toEqual(['Ace', '2000m turf (right-handed)', 'Side loop', 'Core loop', 'Ace veteran list']);
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
@@ -544,6 +544,22 @@ it('draws the Track overview of the selected CM on the Ace slot only, and redraw
 	expect(overview.querySelectorAll('[data-testid=section]').length).toBe(24);
 	expect(overview.querySelectorAll('[data-testid=phase]').length).toBe(4);
 	expect(overview.querySelector('[data-testid=speed-curve]')!.getAttribute('d')).toMatch(/^M/);
+	// Labelled rows, text inside the strips, a speed axis and a height row.
+	const labels = [...overview.querySelectorAll('.row-label > span')].map((l) => l.textContent);
+	expect(labels).toEqual(['m/s', 'height', 'slope', 'track', 'phase', 'section', 'metres']);
+	expect(overview.querySelector('[data-testid=course-title]')!.textContent).toBe('2000m turf (right-handed)');
+	expect(overview.querySelector('.spurt-info')!.textContent).toMatch(/^Last spurt from [\d,]+m/);
+	expect(overview.querySelector('[data-testid=fx-legend]')!.textContent).toContain('only speed helps');
+	expect(overview.closest('[data-testid=chart-scroll]')).not.toBeNull(); // scrolls sideways on narrow screens
+	expect(overview.querySelector('[data-testid=height-profile]')!.getAttribute('d')).toMatch(/^M/);
+	expect([...overview.querySelectorAll('[data-testid=phase]')].map((p) => p.textContent)).toEqual(['Early-race400m', 'Mid-race1,600m', 'Late-race2,000m', 'Last spurt']);
+	for (const s of overview.querySelectorAll('[data-testid=slope]')) expect(s.textContent).toMatch(/^(Uphill|Downhill)/);
+	expect([...overview.querySelectorAll('[data-testid=straight]')].every((s) => s.textContent!.startsWith('Straight'))).toBe(true);
+	expect([...overview.querySelectorAll('[data-testid=corner]')].map((c) => c.textContent)).toEqual([...overview.querySelectorAll('[data-testid=corner]')].map(() => expect.stringMatching(/^Corner [↺↻][1-4]/)));
+	// Event bands sit in the panel body behind the rows and the skill chart.
+	const bands = [...overview.querySelectorAll('.bands [data-testid=event-band]')];
+	expect(bands.map((b) => b.textContent)).toEqual(['Start', 'Pace change', 'Last-spurt kick']);
+	expect(overview.querySelector('.track-rows > .bands')!.nextElementSibling!.classList.contains('track-row')).toBe(true);
 	await chooseCm(2); // course 10811, 3200 m
 	await run();
 	expect(root.querySelector('[data-testid=track-overview] svg')!.getAttribute('aria-label')).toContain('3200 m');
@@ -556,16 +572,79 @@ it('shows the Ace as one combined skill list with a pick list of parents, and le
 	const rows = [...root.querySelectorAll('[data-testid=ace-skill-row]')];
 	expect(rows.length).toBeGreaterThan(0);
 	const row = rows.find((r) => r.textContent!.includes('Synthetic Skill'))!;
-	expect(row.textContent).toMatch(/%.*proc/s);
+	expect(row.querySelector('.skill-lengths')!.textContent).toMatch(/^[+-]\d+\.\d\d L$/);
+	expect(row.querySelector('.skill-proc')!.textContent).toMatch(/^\d+%$/);
+	expect(row.querySelector('.rarity-dot')!.getAttribute('title')).toMatch(/\d+% inherited/);
 	expect(row.textContent).toContain('*'); // position-conditioned: greyed and marked
 	expect(row.classList.contains('muted')).toBe(true);
-	expect(row.closest('[data-testid=track-overview]')).not.toBeNull(); // the chart sits under the overview
-	expect(row.textContent).toMatch(/\d+% inherited/);
-	expect(row.querySelector('svg')).not.toBeNull();
-	expect(row.querySelectorAll('[data-testid=spot-spread], [data-testid=spot-duration]').length).toBeGreaterThan(0);
+	expect(row.closest('.skill-panel')).not.toBeNull(); // its own panel under the overview
+	expect(row.closest('[data-testid=track-overview]')).toBeNull();
+	expect(row.querySelectorAll('[data-testid=spot-density], [data-testid=spot-pin], [data-testid=spot-block]').length).toBeGreaterThan(0);
 	const ace = root.querySelector('[data-testid=ace-parent]')!;
 	expect(ace.querySelector('strong')!.textContent).toBeTruthy();
 	expect(ace.querySelector('details, .headline')).toBeNull(); // no skill text, no per-parent score
 	expect(root.querySelectorAll('[data-testid=side-pick] [data-testid=ace-skill-row], [data-testid=core-pick] [data-testid=ace-skill-row]').length).toBe(0);
 	expect(root.querySelector('[data-testid=side-parent] details')).not.toBeNull(); // loops unchanged
+});
+
+it('lists the Ace skills as a table with Speed, Acceleration, Recovery and Other tabs, Speed first', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const tabs = () => [...root.querySelectorAll('[data-testid=skill-tabs]')[0].querySelectorAll('[role=tab]')];
+	expect(tabs().map((t) => t.textContent)).toEqual(['Speed', 'Acceleration', 'Recovery', 'Other']);
+	expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false']);
+	expect([...root.querySelectorAll('.skill-table .skill-head')[0].children].map((h) => h.textContent)).toEqual(['', 'Skill', 'Lengths gained', 'Proc', 'Activation spotswhitegoldinherited unique']);
+	const names = () => [...root.querySelectorAll('.skill-table')[0].querySelectorAll('[data-testid=ace-skill-row] .skill-name')].map((n) => n.textContent);
+	expect(names().some((n) => n!.includes('Synthetic Skill'))).toBe(true); // target speed
+	await act(async () => { (tabs()[1] as HTMLElement).click(); });
+	expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
+	expect(names().some((n) => n!.includes('Synthetic Skill'))).toBe(false); // each skill in one tab only
+});
+
+it('shows the app title, the selected CM with its course and the Ace running style in the header, and follows changes', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	const header = () => root.querySelector('header[data-testid=app-header]')!;
+	expect(header().querySelector('h1')!.textContent).toBe('Stud Finder');
+	const pick = async (name: string, value: string) => {
+		const el = root.querySelector(`select[name=${name}]`) as HTMLSelectElement;
+		el.value = value;
+		await act(() => { el.dispatchEvent(new Event('change')); });
+	};
+	await pick('cm', String(CMS[1].id));
+	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain(CMS[1].name);
+	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain('2000m');
+	await pick('cm', String(CMS[0].id));
+	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain(CMS[0].name);
+	await pick('style', 'nige');
+	expect(header().querySelector('[data-testid=style-badge]')!.textContent).toBe('Front Runner');
+	await pick('style', 'oikomi');
+	expect(header().querySelector('[data-testid=style-badge]')!.textContent).toBe('End Closer');
+});
+
+it('charts the selected Side loop pick with the same tabs, table and footnote as the Ace, and follows the selection', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const chart = () => root.querySelector('[data-testid=side-chart]')!;
+	expect(chart()).not.toBeNull();
+	expect(chart().querySelector('.chart-title')!.textContent).toMatch(/^Side loop skills: /);
+	expect([...chart().querySelectorAll('[data-testid=skill-tabs] [role=tab]')].map((t) => t.textContent)).toEqual(['Speed', 'Acceleration', 'Recovery', 'Other']);
+	expect(chart().querySelectorAll('.skill-table [data-testid=ace-skill-row]').length).toBeGreaterThan(0);
+	expect(chart().querySelector('[data-testid=skill-footnote]')).not.toBeNull();
+	// Side loop tabs are their own: switching them leaves the Ace chart alone.
+	const aceTabs = [...root.querySelectorAll('[data-testid=skill-tabs]')][0];
+	await click(chart().querySelectorAll('[role=tab]')[1]);
+	expect(chart().querySelectorAll('[role=tab]')[1].getAttribute('aria-selected')).toBe('true');
+	expect(aceTabs.querySelectorAll('[role=tab]')[0].getAttribute('aria-selected')).toBe('true');
+	// Selecting another pick moves the chart to it.
+	const buttons = [...root.querySelectorAll('[data-testid=side-select]')];
+	expect(buttons.length).toBeGreaterThan(1);
+	expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+	const first = chart().querySelector('.chart-title')!.textContent;
+	await click(buttons[1]);
+	expect(root.querySelectorAll('[data-testid=side-select]')[1].getAttribute('aria-pressed')).toBe('true');
+	expect(chart().querySelector('.chart-title')!.textContent).not.toBe(first);
+	expect(chart().querySelector('[data-testid=side-chart-empty]')).not.toBeNull(); // this lineage carries no simulated skill
 });

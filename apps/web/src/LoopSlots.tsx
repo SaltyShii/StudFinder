@@ -12,10 +12,13 @@ interface Props {
 	cardIds: Map<string, number>;
 	stale: boolean;
 	data: GameData;
+	/** Card id of the pick whose chart is shown; picks get a button to select it. */
+	selected?: number;
+	onSelect?: (cardId: number) => void;
 }
 
 /** A loop as full lineages: the version to train with the 2 parents to run it with, best version first. */
-export function LoopSlots({ title, testId, picks, ownedVersions, cardIds, stale, data }: Props) {
+export function LoopSlots({ title, testId, picks, ownedVersions, cardIds, stale, data, selected, onSelect }: Props) {
 	return (
 		<section class="panel" aria-busy={stale}>
 			<h3>{title}{stale && ' (outdated, recomputing)'}</h3>
@@ -23,10 +26,13 @@ export function LoopSlots({ title, testId, picks, ownedVersions, cardIds, stale,
 				{picks?.map((pick) => {
 					const byId = new Map(ownedVersions.find((v) => v.cardId === pick.cardId)?.candidates.map((c) => [c.id, c]));
 					return (
+						<div class="loop-pick" data-selected={pick.cardId === selected || undefined}>
 						<ol class="cards">
 							<UmaCard testId={`${testId}-pick`} cardId={pick.cardId} name={nameOf(data, pick.cardId)} headline={pick.score.toFixed(2)} />
 							<ParentCards parents={pick.parents} byId={byId} cardIds={cardIds} data={data} testId={testId} />
 						</ol>
+						{onSelect && <button class="select-pick" data-testid={`${testId}-select`} aria-pressed={pick.cardId === selected} onClick={() => onSelect(pick.cardId)}>{pick.cardId === selected ? 'Skills shown below' : 'Show skills'}</button>}
+						</div>
 					);
 				})}
 			</div>

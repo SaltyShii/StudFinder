@@ -104,7 +104,7 @@ Where on the track a skill procced in a simulated run. Over many runs the spots 
 _Avoid_: fire point, trigger point
 
 **Track overview**:
-The chart of the selected CM's course (speed of a neutral baseline runner, slope, straights and corners, phases, sections) with each Ace skill's activation spots and effect length drawn on it. Only the Ace slot has one; the side loop judges skills by spark % and value alone.
+The chart of the selected CM's course (speed of a neutral baseline runner, slope, straights and corners, phases, sections) with each skill's activation spots and effect length drawn on it, in tabs by what the skill does (speed, acceleration, recovery, other). The Ace slot charts every skill the Ace can end up with; the side loop charts the picked lineage's Must-have skills and the track's best simulated ones, but still ranks by spark % first.
 
 **Baseline runner**:
 A neutral runner with no skills, used only to draw the speed curve of the Track overview (start dash, end of pace-down, last spurt kick). Not any veteran.

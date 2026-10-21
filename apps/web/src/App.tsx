@@ -3,15 +3,18 @@ import type { SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import { AssumptionsPanel } from './AssumptionsPanel';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { STYLE_LABEL, STYLES, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
-import { AceHero } from './AceHero';
+import { AceHero, nameOf } from './AceHero';
 import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { SimRunner } from './SimRunner';
 import { TierEditor } from './TierEditor';
-import { SkillChart } from './SkillChart';
+import { skillChips } from './SkillChart';
+import { SkillPanel } from './SkillPanel';
+import { SKILL_CATEGORIES, type SkillCategory } from '../../../packages/scoring/src/skillCategory';
+import { courseTitle, isLeftHanded } from './trackAxis';
 import { TrackOverview } from './TrackOverview';
 import { LoopSlots } from './LoopSlots';
 import { PickList } from './PickList';
@@ -52,6 +55,9 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
+	const [skillTab, setSkillTab] = useState<SkillCategory>('speed');
+	const [sideTab, setSideTab] = useState<SkillCategory>('speed');
+	const [sideCard, setSideCard] = useState<number | null>(null);
 	const [tierEdits, setTierEdits] = useState<TierEdits>(() => loadTierEdits(localStorage));
 
 	const [assumptions, setAssumptions] = useState(() => loadAssumptions(localStorage));
@@ -107,13 +113,20 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		}
 	}
 
+	const chips = useMemo(() => (result?.aceSlot && data ? skillChips(result.aceSlot.skills, result.track, data) : []), [result, data]);
+	// The Side loop chart follows the selected pick; the best pick until one is chosen.
+	const sidePick = result?.sideSlots.find((s) => s.cardId === sideCard) ?? result?.sideSlots[0];
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
 
 	return (
 		<main class="layout">
+			<header class="app-header" data-testid="app-header">
+				<h1>{result?.aceSlot ? `${SKILL_CATEGORIES.find((c) => c.key === skillTab)!.label} skills` : 'Stud Finder'}</h1>
+				<p class="course" data-testid="header-cm">{cm.name}{course && ` - ${course.distance}m ${surfaceOf(course.ground)}`}</p>
+				<span class="badge" data-testid="style-badge">{STYLE_LABEL[style]}</span>
+			</header>
 			<div class="sidebar">
 				<section class="panel">
-					<h1>Stud Finder</h1>
 					<p class="muted">Your export is read in this browser only and never sent anywhere.</p>
 					<input type="file" accept=".json,application/json" onChange={onFile} />
 				</section>
@@ -159,18 +172,18 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 				<div class="results">
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
-					{result && <TrackOverview track={result.track} stale={stale}>
-						{result.aceSlot && <SkillChart rows={result.aceSlot.skills} distance={result.track.distance} data={data} stale={stale} />}
-					</TrackOverview>}
+					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={!!course && isLeftHanded(course)} chips={chips} stale={stale} />}
+					{result?.aceSlot && <SkillPanel rows={result.aceSlot.skills} track={result.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />}
 					<div class="picks">
 						{ownedVersions.length ? <>
-							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} />
+							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} selected={sidePick?.cardId} onSelect={setSideCard} />
 							<LoopSlots title="Core loop" testId="core" picks={result?.coreSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} />
 						</> : <>
 							<PickList title="Side loop" testId="side-card" picks={result?.side} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
 							<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
 						</>}
 					</div>
+					{sidePick && <SkillPanel rows={sidePick.skills} track={result!.track} data={data} tab={sideTab} onTab={setSideTab} stale={stale} heading={{ testId: 'side-chart', title: `Side loop skills: ${nameOf(data, sidePick.cardId)}`, empty: 'This lineage carries no skill that gains lengths on this track.' }} />}
 					<details>
 						<summary>Ace veteran list</summary>
 						<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} cardIds={cardIds} stale={stale} data={data} />

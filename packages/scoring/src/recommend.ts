@@ -39,6 +39,8 @@ export interface AcePick {
 export interface AceSkillRow extends SkillDetail {
 	/** Chance at least one of the 2 lineages passes it on: 1 - (1 - a)(1 - b); 1 for the Ace's own skill. */
 	inherit: number;
+	/** The Ace's own skill (its unique or a Buyable skill): certain, so no inherit chance applies. */
+	own: boolean;
 	mustHave: boolean;
 }
 
@@ -49,13 +51,18 @@ export interface LoopPick {
 	parents: CandidatePick[];
 }
 
+/** A Side loop lineage with the skills its chart shows: its Must-haves and its best simulated skills. */
+export interface SideLoopPick extends LoopPick {
+	skills: AceSkillRow[];
+}
+
 export interface Recommendation {
 	aceSlot: AcePick | null;
 	ace: CandidatePick[];
 	core: CandidatePick[];
 	side: CandidatePick[];
 	/** Per Owned version, best first: the loops as full lineages. */
-	sideSlots: LoopPick[];
+	sideSlots: SideLoopPick[];
 	coreSlots: LoopPick[];
 	/** Every skill simulated for the Sim runner on this track (those the candidates carry), best value first. */
 	skills: SkillDetail[];
@@ -64,6 +71,8 @@ export interface Recommendation {
 }
 
 const TOP = 5;
+// Besides its Must-haves, a Side loop chart shows this many of the lineage's best simulated skills.
+const SIDE_CHART_BEST = 8;
 const PARENTS = 2;
 
 /** Reported per simulated skill: screening runs first (total unknown), then the finalists are re-simulated at full samples. */
@@ -124,7 +133,7 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 		const sum = (ps: CandidatePick[]) => ps.reduce((t, p) => t + p.score, 0);
 		const horsesOf = (v: OwnedVersion, ps: CandidatePick[]) => ps.flatMap((p) => v.candidates.find((c) => c.id === p.candidateId)?.horses ?? []);
 		// Each loop lineage uses the loop's own greedy ranking over the version's candidates, so the 2 parents complement each other.
-		const sideSlots = owned.map((v) => { const parents = sideLoopPicks(v.candidates, detailOf, PARENTS, horse.skills, mustHaves); return { pick: { cardId: v.cardId, score: sum(parents), parents }, key: mustHaves.length ? sideLoopPriority(horsesOf(v, parents), mustHaves) : 0 }; })
+		const sideSlots = owned.map((v) => { const parents = sideLoopPicks(v.candidates, detailOf, PARENTS, horse.skills, mustHaves); return { pick: { cardId: v.cardId, score: sum(parents), parents, skills: sideRows(horsesOf(v, parents), detailOf, horse.skills ?? [], mustHaves) }, key: mustHaves.length ? sideLoopPriority(horsesOf(v, parents), mustHaves) : 0 }; })
 			.sort((a, b) => b.key - a.key || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick);
 		const coreSlots = tierList ? owned.map((v) => { const parents = coreLoopPicks(v.candidates, tierList, PARENTS, horse.skills, v.aptitudes.dirt); return { pick: { cardId: v.cardId, score: sum(parents), parents }, tier: coreTier(v) }; })
 			.sort((a, b) => a.tier - b.tier || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick) : [];
@@ -144,7 +153,7 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 /** Every skill detail a pick of the recommendation shows. */
 function shownDetails(r: Recommendation): SkillDetail[] {
 	const picks = [...(r.aceSlot?.parents ?? []), ...r.ace, ...r.side, ...r.core, ...r.sideSlots.flatMap((l) => l.parents), ...r.coreSlots.flatMap((l) => l.parents)];
-	return [...picks.flatMap((p) => p.detail), ...(r.aceSlot?.skills ?? [])];
+	return [...picks.flatMap((p) => p.detail), ...(r.aceSlot?.skills ?? []), ...r.sideSlots.flatMap((l) => l.skills)];
 }
 
 /** A version's best Ace pick; its chart rows are built on demand (the learnable pool is simulated skill by skill). */
@@ -188,19 +197,37 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 	return out;
 }
 
-// Hidden when it never procs or gains nothing, unless its value rests on the default position assumption: those stay, to be greyed and marked.
+// The Ace's own skills, learnable skills and everything either parent lineage can pass on.
 function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[]): AceSkillRow[] {
-	const rows: AceSkillRow[] = unique ? [{ ...unique, inherit: 1, mustHave: mustHaves.includes(unique.skillId) }] : [];
+	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
 	// The version's learnable skills are certain, so they are own rows and never inherited ones; the unique skill is not shown twice.
-	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && id in skillData) rows.push({ ...detailOf(id), inherit: 1, mustHave: mustHaves.includes(id) });
+	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && id in skillData) rows.push(rowOf(detailOf(id), 1, mustHaves, true));
 	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
 	for (const id of ids) {
 		if (own.includes(id) || id === unique?.skillId || learnableSkillIds.includes(id)) continue;
 		// Which lineage supplies it does not matter: a parent and its 2 grandparents are one unit.
 		const inherit = 1 - parents.reduce((q, p) => q * (1 - skillChance(p.horses, id)), 1);
-		rows.push({ ...detailOf(id), inherit, mustHave: mustHaves.includes(id) });
+		rows.push(rowOf(detailOf(id), inherit, mustHaves));
 	}
+	return chartRows(rows);
+}
+
+function rowOf(detail: SkillDetail, inherit: number, mustHaves: string[], own = false): AceSkillRow {
+	return { ...detail, inherit, own, mustHave: mustHaves.includes(detail.skillId) };
+}
+
+// Hidden when it never procs or gains nothing, unless its value rests on the default position assumption: those stay, to be greyed and marked.
+function chartRows(rows: AceSkillRow[]): AceSkillRow[] {
 	return rows.filter((r) => r.assumesPosition || (r.proc > 0 && r.lengths.median > 0)).sort((a, b) => b.lengths.avg - a.lengths.avg || b.value - a.value);
+}
+
+// A Side loop lineage's chart: every Must-have it carries plus its best simulated skills. The Ace's own skills are left out (nothing to inherit).
+// Reads the ranking's result only; it never changes which lineage or parents win.
+function sideRows(horses: LineageHorse[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[]): AceSkillRow[] {
+	const ids = [...new Set(horses.flatMap((h) => h.skills.map((s) => s.skillId)))].filter((id) => !own.includes(id) && id in skillData);
+	const rows = chartRows(ids.map((id) => rowOf(detailOf(id), skillChance(horses, id), mustHaves)));
+	const best = rows.filter((r) => !r.mustHave).sort((a, b) => b.value - a.value).slice(0, SIDE_CHART_BEST);
+	return rows.filter((r) => r.mustHave || best.includes(r));
 }
 
 // Distance A first (or reachable through pink sparks, likelier first), then Must-have chance, then simulated value; an F-sprint uma with no way up never wins.
