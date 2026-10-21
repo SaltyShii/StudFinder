@@ -7,7 +7,7 @@ import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { GRADE_A } from '@stud-finder/lineage/src/inheritance';
-import { aceSupply, chanceKey, dirtAChance, greedyRank, distanceAChance, mustHaveChance, skillChance, maxStars, newShare, type Candidate, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
+import { aceSupply, chanceKey, dirtAChance, greedyRank, distanceAChance, mustHaveChance, skillChance, maxStars, newShare, type Candidate, type LineageHorse, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
 export type { Candidate, CmPreset, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
@@ -28,6 +28,17 @@ export interface AcePick {
 	/** Chance the 2 parents and 4 grandparents lift the distance aptitude to A through pink sparks (1 when it starts at A). */
 	distanceAChance: number;
 	parents: CandidatePick[];
+	/** The combined chart: the Ace's own skills plus everything either parent lineage can pass on, best avg lengths first. */
+	skills: AceSkillRow[];
+}
+
+/** One skill the Ace can end up with. */
+export interface AceSkillRow extends SkillDetail {
+	/** Chance at least one of the 2 lineages passes it on: 1 - (1 - a)(1 - b); 1 for the Ace's own skill. */
+	inherit: number;
+	/** Candidate id of the parent most likely to supply it; absent for the Ace's own skill. */
+	parentId?: string;
+	mustHave: boolean;
 }
 
 /** A Side loop or Core loop lineage: the version to train with the 2 parents (and their grandparents) to run it with. */
@@ -130,7 +141,7 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 /** Every skill detail a pick of the recommendation shows. */
 function shownDetails(r: Recommendation): SkillDetail[] {
 	const picks = [...(r.aceSlot?.parents ?? []), ...r.ace, ...r.side, ...r.core, ...r.sideSlots.flatMap((l) => l.parents), ...r.coreSlots.flatMap((l) => l.parents)];
-	return picks.flatMap((p) => p.detail);
+	return [...picks.flatMap((p) => p.detail), ...(r.aceSlot?.skills ?? [])];
 }
 
 // Every version runs the sim runner's Target stats in its own best style, so only aptitudes and the unique skill differ.
@@ -153,7 +164,8 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const input = { aptitudes: v.aptitudes, style, category: categoryOf(course.distance), surface: course.surface, target: { speed, stamina, power, guts, wisdom } };
 		const h = buildAce({ ...input, uniqueSkillId: v.uniqueSkillId });
 		// Measured on the runner without it, as every skill's value is.
-		const uniqueValue = v.uniqueSkillId && v.uniqueSkillId in skillData ? detailerOf(buildAce(input), true)(v.uniqueSkillId).value : 0;
+		const uniqueDetail = v.uniqueSkillId && v.uniqueSkillId in skillData ? detailerOf(buildAce(input), true)(v.uniqueSkillId) : undefined;
+		const uniqueValue = uniqueDetail?.value ?? 0;
 		// Distance below A is raised by pink sparks: those pairs come first, then Must-have inheritance.
 		const base = v.aptitudes[category];
 		const pinkKeys = pairs.map((p) => base >= GRADE_A ? 0 : chanceKey(distanceAChance(p.flatMap((c) => c.horses), base)));
@@ -165,9 +177,22 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		// Simulated value only for the pairs still tied, as it needs a ranker run each.
 		const scored = pairs.flatMap((p, i) => keys[i] === topKey ? [{ parents: rank(p) }] : []).map((x) => ({ ...x, score: uniqueValue + x.parents.reduce((s, p) => s + p.score, 0) }));
 		const win = scored.reduce((a, b) => (b.score > a.score ? b : a));
-		out.push({ v, pick: { cardId: v.cardId, style, score: win.score, mustHaveChance: topKey / 1e9, distanceAChance: base >= GRADE_A ? 1 : topPink / 1e9, parents: win.parents } });
+		out.push({ v, pick: { cardId: v.cardId, style, score: win.score, mustHaveChance: topKey / 1e9, distanceAChance: base >= GRADE_A ? 1 : topPink / 1e9, parents: win.parents, skills: aceRows(uniqueDetail, win.parents.map((p) => ({ id: p.candidateId, horses: units.find((c) => c.id === p.candidateId)?.horses ?? [] })), detailerOf(h), h.skills, mustHaves) } });
 	}
 	return out;
+}
+
+// Hidden when it never procs or gains nothing, unless its value rests on the default position assumption: those stay, to be greyed and marked.
+function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[]): AceSkillRow[] {
+	const rows: AceSkillRow[] = unique ? [{ ...unique, inherit: 1, mustHave: mustHaves.includes(unique.skillId) }] : [];
+	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
+	for (const id of ids) {
+		if (own.includes(id) || id === unique?.skillId) continue;
+		const chances = parents.map((p) => ({ id: p.id, chance: skillChance(p.horses, id) }));
+		const best = chances.reduce((a, b) => (b.chance > a.chance ? b : a));
+		rows.push({ ...detailOf(id), inherit: 1 - chances.reduce((q, c) => q * (1 - c.chance), 1), parentId: best.id, mustHave: mustHaves.includes(id) });
+	}
+	return rows.filter((r) => r.assumesPosition || (r.proc > 0 && r.lengths.median > 0)).sort((a, b) => b.lengths.avg - a.lengths.avg || b.value - a.value);
 }
 
 // Distance A first (or reachable through pink sparks, likelier first), then Must-have chance, then simulated value; an F-sprint uma with no way up never wins.

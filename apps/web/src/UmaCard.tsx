@@ -41,7 +41,7 @@ export function UmaCard({ testId, cardId, name, headline, chips = [], meta, cave
 			<Portrait key={cardId} cardId={cardId} />
 			<div class="card-body">
 				<strong>{name}</strong>
-				<div class="headline">{headline}</div>
+				{headline != null && <div class="headline">{headline}</div>}
 				{chips.length > 0 && <div class="chips">{chips.map((c) => <span class="chip">{c}</span>)}</div>}
 				{meta && <div class="muted">{meta}</div>}
 				{caveats.map((c) => <div class="caveat">{c}</div>)}

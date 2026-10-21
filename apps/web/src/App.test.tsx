@@ -499,3 +499,20 @@ it('draws the Track overview of the selected CM on the Ace slot only, and redraw
 	await run();
 	expect(root.querySelector('[data-testid=track-overview] svg')!.getAttribute('aria-label')).toContain('3200 m');
 });
+
+it('shows the Ace as one combined skill list with a pick list of parents, and leaves the loops without it', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const rows = [...root.querySelectorAll('[data-testid=ace-skill-row]')];
+	expect(rows.length).toBeGreaterThan(0);
+	const row = rows.find((r) => r.textContent!.includes('Synthetic Skill'))!;
+	expect(row.textContent).toMatch(/%.*proc/s);
+	expect(row.textContent).toContain('*'); // position-conditioned: greyed and marked
+	expect(row.classList.contains('muted')).toBe(true);
+	const ace = root.querySelector('[data-testid=ace-parent]')!;
+	expect(ace.querySelector('strong')!.textContent).toBeTruthy();
+	expect(ace.querySelector('details, .headline')).toBeNull(); // no skill text, no per-parent score
+	expect(root.querySelectorAll('[data-testid=side-pick] [data-testid=ace-skill-row], [data-testid=core-pick] [data-testid=ace-skill-row]').length).toBe(0);
+	expect(root.querySelector('[data-testid=side-parent] details')).not.toBeNull(); // loops unchanged
+});
