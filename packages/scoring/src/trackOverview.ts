@@ -9,6 +9,9 @@ export interface Span {
 	start: number;
 	end: number;
 }
+/** The kick before the finish: its own name because the UI keys on it. */
+export const LAST_SPURT_KICK = 'Last-spurt kick';
+
 export interface TrackOverview {
 	/** Every position below is metres on this axis (0 to distance). */
 	distance: number;
@@ -20,11 +23,11 @@ export interface TrackOverview {
 	phases: (Span & { phase: 0 | 1 | 2 | 3 })[];
 	/** The 24 equal sections the course is divided in. */
 	sections: Span[];
-	/** Speed (m/s) of the Baseline runner by position, ascending. */
 	/** Relative height in metres by position, ascending, from 0 at the start: the slopes added up (the course data has no absolute heights). */
 	heights: { pos: number; height: number }[];
 	/** Where the race changes gear for the Baseline runner: the start dash, the rest of the position-keep window, and the last-spurt kick. */
-	events: { name: 'Start' | 'Pace change' | 'Last-spurt kick'; start: number; end: number }[];
+	events: { name: 'Start' | 'Pace change' | typeof LAST_SPURT_KICK; start: number; end: number }[];
+	/** Speed (m/s) of the Baseline runner by position, ascending. */
 	curve: { pos: number; speed: number }[];
 }
 
@@ -61,7 +64,7 @@ export function trackOverview({ horse, courseId, seed = 1, season, ground, weath
 			{ name: 'Start', start: 0, end: dash },
 			{ name: 'Pace change', start: dash, end: Math.max(solver.posKeepEnd, dash) },
 			// A runner that never reaches its spurt speed before the finish is kicking to the line.
-			{ name: 'Last-spurt kick', start: kickStart < 0 ? distance : kickStart, end: kickEnd < 0 ? distance : kickEnd },
+			{ name: LAST_SPURT_KICK, start: kickStart < 0 ? distance : kickStart, end: kickEnd < 0 ? distance : kickEnd },
 		],
 		slopes,
 		straights: course.straights.map((s) => ({ start: s.start, end: s.end })),
@@ -74,12 +77,12 @@ export function trackOverview({ horse, courseId, seed = 1, season, ground, weath
 
 function heightProfile(slopes: (Span & { slope: number })[], distance: number): { pos: number; height: number }[] {
 	const points = [{ pos: 0, height: 0 }];
-	let h = 0;
+	let height = 0;
 	let at = 0;
-	const push = (pos: number) => points.push({ pos, height: h });
+	const push = (pos: number) => points.push({ pos, height });
 	for (const s of [...slopes].sort((a, b) => a.start - b.start)) {
 		if (s.start > at) push(s.start);
-		h += ((s.end - s.start) * s.slope) / 100;
+		height += ((s.end - s.start) * s.slope) / 100;
 		at = s.end;
 		push(s.end);
 	}

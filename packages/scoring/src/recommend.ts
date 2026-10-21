@@ -197,17 +197,21 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
 function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[]): AceSkillRow[] {
-	const rows: AceSkillRow[] = unique ? [{ ...unique, inherit: 1, mustHave: mustHaves.includes(unique.skillId) }] : [];
+	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves)] : [];
 	// The version's learnable skills are certain, so they are own rows and never inherited ones; the unique skill is not shown twice.
-	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && id in skillData) rows.push({ ...detailOf(id), inherit: 1, mustHave: mustHaves.includes(id) });
+	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && id in skillData) rows.push(rowOf(detailOf(id), 1, mustHaves));
 	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
 	for (const id of ids) {
 		if (own.includes(id) || id === unique?.skillId || learnableSkillIds.includes(id)) continue;
 		// Which lineage supplies it does not matter: a parent and its 2 grandparents are one unit.
 		const inherit = 1 - parents.reduce((q, p) => q * (1 - skillChance(p.horses, id)), 1);
-		rows.push({ ...detailOf(id), inherit, mustHave: mustHaves.includes(id) });
+		rows.push(rowOf(detailOf(id), inherit, mustHaves));
 	}
 	return chartRows(rows);
+}
+
+function rowOf(detail: SkillDetail, inherit: number, mustHaves: string[]): AceSkillRow {
+	return { ...detail, inherit, mustHave: mustHaves.includes(detail.skillId) };
 }
 
 // Hidden when it never procs or gains nothing, unless its value rests on the default position assumption: those stay, to be greyed and marked.
@@ -219,7 +223,7 @@ function chartRows(rows: AceSkillRow[]): AceSkillRow[] {
 // Reads the ranking's result only; it never changes which lineage or parents win.
 function sideRows(horses: LineageHorse[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[]): AceSkillRow[] {
 	const ids = [...new Set(horses.flatMap((h) => h.skills.map((s) => s.skillId)))].filter((id) => !own.includes(id) && id in skillData);
-	const rows = chartRows(ids.map((id) => ({ ...detailOf(id), inherit: skillChance(horses, id), mustHave: mustHaves.includes(id) })));
+	const rows = chartRows(ids.map((id) => rowOf(detailOf(id), skillChance(horses, id), mustHaves)));
 	const best = rows.filter((r) => !r.mustHave).sort((a, b) => b.value - a.value).slice(0, SIDE_CHART_BEST);
 	return rows.filter((r) => r.mustHave || best.includes(r));
 }

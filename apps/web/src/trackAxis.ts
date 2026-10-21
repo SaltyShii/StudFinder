@@ -1,3 +1,5 @@
+import { surfaceOf } from '../../../packages/scoring/src/ace';
+
 /** Horizontal layout shared by every drawing on the track's distance axis (the Track overview and the Ace skill chart rows). */
 export const AXIS = { left: 8, width: 984, viewWidth: 1000 } as const;
 
@@ -55,9 +57,14 @@ export function cornerNumber(index: number, count: number): number {
 	return ((((index - count) % 4) + 4) % 4) + 1;
 }
 
+/** Game ids: ground 2 is dirt (surfaceOf names it), turn 2 is left-handed. */
+export function isLeftHanded(course: { turn: number }): boolean {
+	return course.turn === 2;
+}
+
 /** "Tokyo 1600m dirt (left-handed)": the course as the game names it. The turn code is 1 right, 2 left, 4 straight. */
 export function courseTitle(course: { trackId: number; distance: number; ground: number; turn: number }, tracks: Map<number, string>): string {
-	const turn = course.turn === 2 ? ' (left-handed)' : course.turn === 1 ? ' (right-handed)' : course.turn === 4 ? ' (straight)' : '';
+	const turn = isLeftHanded(course) ? ' (left-handed)' : course.turn === 1 ? ' (right-handed)' : course.turn === 4 ? ' (straight)' : '';
 	const track = tracks.get(course.trackId);
-	return `${track ? `${track} ` : ''}${course.distance}m ${course.ground === 2 ? 'dirt' : 'turf'}${turn}`;
+	return `${track ? `${track} ` : ''}${course.distance}m ${surfaceOf(course.ground)}${turn}`;
 }

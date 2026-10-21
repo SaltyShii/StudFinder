@@ -148,6 +148,10 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Track overview: a label column and one shared track axis. Every row's axis column is the same width, so metres line up from the speed curve down to the skill rows. */
 :root { --fx-accel: #2faa66; --fx-cruise: #4c82c8; --fx-ended: #5a5f66; --fx-neutral: #8a76b8; --speed-line: #e8505b; }
 .track-panel { padding: 8px 14px 14px; }
+/* Charts keep their proportions and axis alignment on narrow screens: the wrapper scrolls sideways instead of squeezing them. */
+.chart-scroll { overflow-x: auto; max-width: 100%; }
+.chart-scroll > .panel { min-width: 900px; }
+.fx-legend { flex-wrap: wrap; }
 .course-title { font-size: 1.7rem; font-weight: 700; text-align: center; text-transform: none; letter-spacing: 0; color: var(--course); }
 .track-body { display: flex; flex-direction: column; font-size: 0.8rem; }
 .track-rows { position: relative; display: flex; flex-direction: column; }
@@ -240,7 +244,6 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .rarity-dot[data-rarity='gold'] { background: #f0b52b; }
 .rarity-dot[data-rarity='unique'] { background: #a66cf0; }
 .skill-footnote { grid-column: 1 / -1; padding: 0 4px; }
-@media (max-width: 800px) { :root { --label-w: 200px; } .fx-legend { display: none; } }
 .loop-pick + .loop-pick { margin-top: 10px; }
 .loop-pick[data-selected] .card:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .select-pick { margin-top: 4px; font-size: 0.8rem; }

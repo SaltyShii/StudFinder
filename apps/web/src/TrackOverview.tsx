@@ -1,9 +1,9 @@
-import type { TrackOverview as Track } from '../../../packages/scoring/src/trackOverview';
+import { LAST_SPURT_KICK, type TrackOverview as Track } from '../../../packages/scoring/src/trackOverview';
 import { CHIP_CHARS, type PlacedChip } from './chips';
 import { AXIS, coverSpans, cornerNumber, distanceAxis, rulerStep, rulerTicks, type DistanceAxis } from './trackAxis';
 
 const PHASE_LABEL = ['Early-race', 'Mid-race', 'Late-race', 'Last spurt'];
-const EVENT_CLASS = { Start: 'start', 'Pace change': 'pace', 'Last-spurt kick': 'kick' } as const;
+const EVENT_CLASS = { Start: 'start', 'Pace change': 'pace', [LAST_SPURT_KICK]: 'kick' } as const;
 const CURVE_H = 150;
 const HEIGHT_H = 56;
 const CHIP_LANE_PX = 21;
@@ -34,7 +34,7 @@ export function EventBands({ track, axis, labels }: { track: Track; axis: Distan
 
 /** Course facts for the left column: where the last spurt starts and how long the final straight is. */
 function lastSpurtFrom(track: Track) {
-	const kick = track.events.find((e) => e.name === 'Last-spurt kick');
+	const kick = track.events.find((e) => e.name === LAST_SPURT_KICK);
 	return kick && kick.start < track.distance ? kick.start : track.phases[3].start;
 }
 function finalStraight(track: Track) {
@@ -57,24 +57,25 @@ export function TrackOverview({ track, title, leftHanded, chips, stale }: { trac
 	const left = (m: number) => pct(axis.x(m));
 	const width = (a: number, b: number) => pct(axis.span(a, b));
 	const speeds = track.curve.map((p) => p.speed);
-	const hi = Math.max(...speeds);
+	const topSpeed = Math.max(...speeds);
 	// The start dash begins far below cruise speed; the axis shows the top of the range so the interesting part is not flattened.
-	const lo = Math.max(Math.min(...speeds), hi - SPEED_RANGE);
-	const y = (v: number) => CURVE_H - 8 - ((Math.max(v, lo) - lo) / Math.max(hi - lo, 0.01)) * (CURVE_H - 40);
-	const path = track.curve.map((p, i) => `${i ? 'L' : 'M'}${axis.x(p.pos).toFixed(1)} ${y(p.speed).toFixed(1)}`).join('');
+	const lowSpeed = Math.max(Math.min(...speeds), topSpeed - SPEED_RANGE);
+	const speedY = (v: number) => CURVE_H - 8 - ((Math.max(v, lowSpeed) - lowSpeed) / Math.max(topSpeed - lowSpeed, 0.01)) * (CURVE_H - 40);
+	const path = track.curve.map((p, i) => `${i ? 'L' : 'M'}${axis.x(p.pos).toFixed(1)} ${speedY(p.speed).toFixed(1)}`).join('');
 	const speedTicks: number[] = [];
-	for (let v = Math.ceil(lo / SPEED_STEP) * SPEED_STEP; v <= hi; v += SPEED_STEP) speedTicks.push(v);
-	const hs = track.heights.map((p) => p.height);
-	const hLo = Math.min(...hs);
-	const hHi = Math.max(...hs);
-	const hy = (v: number) => HEIGHT_H - 14 - ((v - hLo) / Math.max(hHi - hLo, 0.01)) * (HEIGHT_H - 28);
-	const heightPath = track.heights.map((p, i) => `${i ? 'L' : 'M'}${axis.x(p.pos).toFixed(1)} ${hy(p.height).toFixed(1)}`).join('');
+	for (let v = Math.ceil(lowSpeed / SPEED_STEP) * SPEED_STEP; v <= topSpeed; v += SPEED_STEP) speedTicks.push(v);
+	const heights = track.heights.map((p) => p.height);
+	const lowHeight = Math.min(...heights);
+	const topHeight = Math.max(...heights);
+	const heightY = (v: number) => HEIGHT_H - 14 - ((v - lowHeight) / Math.max(topHeight - lowHeight, 0.01)) * (HEIGHT_H - 28);
+	const heightPath = track.heights.map((p, i) => `${i ? 'L' : 'M'}${axis.x(p.pos).toFixed(1)} ${heightY(p.height).toFixed(1)}`).join('');
 	const corners = [...track.corners].sort((a, b) => a.start - b.start);
 	const cornerAt = new Map(corners.map((c, i) => [c.start, cornerNumber(i, corners.length)]));
 	const tiled = coverSpans([...track.straights.map((s) => ({ ...s, corner: false })), ...corners.map((c) => ({ ...c, corner: true }))], distance);
 	const step = rulerStep(distance);
 	const finalLen = finalStraight(track);
 	return (
+		<div class="chart-scroll" data-testid="chart-scroll">
 		<section class="panel track-panel" aria-busy={stale} data-testid="track-overview">
 			<h3 class="course-title" data-testid="course-title">{title}{stale && ' (outdated, recomputing)'}</h3>
 			<div class="track-body" style={stale ? { opacity: 0.5 } : undefined}>
@@ -90,11 +91,11 @@ export function TrackOverview({ track, title, leftHanded, chips, stale }: { trac
 								{LEGEND.map(([k, text]) => <li><i class={`swatch ${k}`} />{text}</li>)}
 							</ul>
 							<span class="unit">m/s</span>
-							{speedTicks.map((v) => <b class="y-tick" style={{ top: `${(y(v) / CURVE_H) * 100}%` }}>{v}</b>)}
+							{speedTicks.map((v) => <b class="y-tick" style={{ top: `${(speedY(v) / CURVE_H) * 100}%` }}>{v}</b>)}
 						</div>
 						<div class="row-axis">
 							<svg viewBox={`0 0 ${AXIS.viewWidth} ${CURVE_H}`} preserveAspectRatio="none" role="img" aria-label={`Track overview, ${distance} m`}>
-								{speedTicks.map((v) => <line class="grid" x1={0} x2={AXIS.viewWidth} y1={y(v)} y2={y(v)} vector-effect="non-scaling-stroke" />)}
+								{speedTicks.map((v) => <line class="grid" x1={0} x2={AXIS.viewWidth} y1={speedY(v)} y2={speedY(v)} vector-effect="non-scaling-stroke" />)}
 								<path data-testid="speed-curve" class="curve" d={path} fill="none" vector-effect="non-scaling-stroke" />
 							</svg>
 						</div>
@@ -159,5 +160,6 @@ export function TrackOverview({ track, title, leftHanded, chips, stale }: { trac
 				</div>
 			</div>
 		</section>
+		</div>
 	);
 }

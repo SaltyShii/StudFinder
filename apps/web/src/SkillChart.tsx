@@ -1,8 +1,7 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { AceSkillRow } from '../../../packages/scoring/src/recommend';
-import { median } from '../../../packages/scoring/src/pairedRace';
 import type { TrackOverview as Track } from '../../../packages/scoring/src/trackOverview';
-import { effectStretches, isFixedSpot, type EffectKind } from '../../../packages/scoring/src/density';
+import { isFixedSpot, rowEffect, type EffectKind } from '../../../packages/scoring/src/density';
 import { placeChips, type ChipInput, type PlacedChip } from './chips';
 import { SKILL_CATEGORIES, skillCategory, type SkillCategory } from '../../../packages/scoring/src/skillCategory';
 import { AXIS, distanceAxis, type DistanceAxis } from './trackAxis';
@@ -28,7 +27,7 @@ function isSpeedEffect(c: SkillCategory) {
 export function skillChips(rows: AceSkillRow[], track: Track, data: GameData): PlacedChip[] {
 	const items: ChipInput[] = [...rows].filter((r) => r.spots.length).sort((a, b) => b.lengths.avg - a.lengths.avg).map((r) => {
 		const at = r.spotSpread.median;
-		const hit = isSpeedEffect(skillCategory(r.skillId)) ? effectStretches(track.curve, at, Math.max(median(r.spots.map((s) => s.end)), at + 1), track.distance).find((s) => s.start <= at + 1 && at <= s.end) : undefined;
+		const hit = isSpeedEffect(skillCategory(r.skillId)) ? rowEffect(track.curve, r.spots, at, track.distance, at + 1).stretches.find((s) => s.start <= at + 1 && at <= s.end) : undefined;
 		return { id: r.skillId, label: data.skills.get(Number(r.skillId))?.name ?? r.skillId, pos: at, kind: hit?.kind === 'accelerating' ? 'accelerating' : hit?.kind === 'cruise' ? 'cruise' : 'neutral' };
 	});
 	return placeChips(items, track.distance);
@@ -43,12 +42,13 @@ interface Props {
 	stale?: boolean;
 }
 
-/** The skills of one slot (every skill the Ace can end up with, or a Side loop lineage's Must-haves and best simulated skills), as its own panel under the Track overview: rarity dot, name, lengths gained, Proc %, and a bar area on the overview's distance axis (where the skill can fire, how far the effect lasts). Tabs split the skills by what they do; rows resting on the default position assumption are greyed and marked `*`. */
+/** The skills of one slot (every skill the Ace can end up with, or a Side loop lineage's Must-haves and best simulated skills), as its own panel under the Track overview: rarity dot, name, lengths gained, Proc %, and a bar area on the overview's distance axis (its Activation spots, how far the effect lasts). Tabs split the skills by what they do; rows resting on the default position assumption are greyed and marked `*`. */
 export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 	if (!rows.length) return null;
 	const axis = distanceAxis(track.distance);
-	const shown = rows.filter((r) => skillCategory(r.skillId) === tab).sort((a, b) => b.lengths.avg - a.lengths.avg);
+	const shown = rows.map((r) => ({ r, category: skillCategory(r.skillId) })).filter((x) => x.category === tab).sort((a, b) => b.r.lengths.avg - a.r.lengths.avg);
 	return (
+		<div class="chart-scroll" data-testid="chart-scroll">
 		<section class="panel skill-panel skill-table" style={stale ? { opacity: 0.5 } : undefined}>
 			<div class="skill-tabs" role="tablist" data-testid="skill-tabs">
 				{SKILL_CATEGORIES.map((c) => (
@@ -60,7 +60,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 				<span>Skill</span>
 				<span class="num">Lengths gained</span>
 				<span class="num">Proc</span>
-				<span class="fire">where it can fire
+				<span class="fire">Activation spots
 					<ul class="rarity-legend" data-testid="rarity-legend">
 						<li><i class="rarity-dot" data-rarity="white" />white</li>
 						<li><i class="rarity-dot" data-rarity="gold" />gold</li>
@@ -71,7 +71,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 			<div class="skill-body">
 				<EventBands track={track} axis={axis} />
 				<ul class="skill-chart" data-testid="skill-chart">
-					{shown.map((r) => {
+					{shown.map(({ r, category }) => {
 						const skill = data.skills.get(Number(r.skillId));
 						const name = skill?.name ?? r.skillId;
 						return (
@@ -81,7 +81,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 								<span class="skill-lengths num">{`${r.lengths.avg < 0 ? '-' : '+'}${Math.abs(r.lengths.avg).toFixed(2)} L`}</span>
 								<span class="skill-proc num">{r.proc.toFixed(0)}%</span>
 								<div class="bar-area" role="img" aria-label={`Activation spots of ${name}`}>
-									{r.spots.length > 0 && <SpotShape row={r} speedEffect={isSpeedEffect(skillCategory(r.skillId))} axis={axis} track={track} />}
+									{r.spots.length > 0 && <SpotShape row={r} speedEffect={isSpeedEffect(category)} axis={axis} track={track} />}
 								</div>
 							</li>
 						);
@@ -90,13 +90,14 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 				</ul>
 			</div>
 		</section>
+		</div>
 	);
 }
 
 export function SkillFootnote({ rows }: { rows: AceSkillRow[] }) {
 	return (
 		<p class="muted skill-footnote" data-testid="skill-footnote">
-			L = horse lengths gained at the finish · Proc = chance the skill fires · {rows.some((r) => r.assumesPosition) ? '* also needs a race position (assumed), so the sim cannot judge it fully · ' : ''}highlighted rows are Must-haves · hover a dot for its inherit chance
+			L = horse lengths gained at the finish · Proc = share of runs in which the skill procced · {rows.some((r) => r.assumesPosition) ? '* also needs a race position (assumed), so the sim cannot judge it fully · ' : ''}highlighted rows are Must-haves · hover a dot for its inherit chance
 		</p>
 	);
 }
@@ -105,18 +106,18 @@ export function SkillFootnote({ rows }: { rows: AceSkillRow[] }) {
 function SpotShape({ row: r, speedEffect, axis, track }: { row: AceSkillRow; speedEffect: boolean; axis: DistanceAxis; track: Track }) {
 	const { distance } = track;
 	const { min, max, median: mid } = r.spotSpread;
-	const reach = Math.max(median(r.spots.map((s) => s.end)), mid);
+	const { reach, stretches: whole } = rowEffect(track.curve, r.spots, min, distance, mid);
 	const lastEnd = Math.max(...r.spots.map((s) => s.end), reach);
-	const all = speedEffect ? effectStretches(track.curve, min, reach, distance) : [];
-	const stretches = all.filter((s) => s.kind !== 'ended');
+	const toFinish = speedEffect ? whole : [];
+	const stretches = toFinish.filter((s) => s.kind !== 'ended');
 	const title = `Procs ${Math.round(min)}-${Math.round(max)} m, median ${Math.round(mid)} m; effect lasts about ${r.duration.toFixed(1)} s`;
 	const left = (m: number) => pct(axis.x(m));
 	const box = (a: number, b: number) => ({ left: left(a), width: pct(Math.max(axis.span(a, b), 3)) });
 	if (isFixedSpot(r.spotSpread)) {
-		const first = speedEffect ? effectStretches(track.curve, mid, reach, distance)[0]?.kind : undefined;
+		const firstKind = speedEffect ? rowEffect(track.curve, r.spots, mid, distance).stretches[0]?.kind : undefined;
 		return <div data-testid="spot-pin" title={title}>
 			<span class="tail" style={box(mid, lastEnd)} />
-			<span class="pin" style={{ left: left(mid), background: FX_VAR[first ?? 'neutral'] }} />
+			<span class="pin" style={{ left: left(mid), background: FX_VAR[firstKind ?? 'neutral'] }} />
 		</div>;
 	}
 	if (max - min <= distance * BLOCK_SPREAD) {
@@ -131,20 +132,20 @@ function SpotShape({ row: r, speedEffect, axis, track }: { row: AceSkillRow; spe
 	const peak = Math.max(...bins, 1e-9);
 	const top = (v: number) => ROW_H - 3 - (v / peak) * (ROW_H - 8);
 	const pts = bins.map((v, i) => `${axis.x(i * binWidth + binWidth / 2).toFixed(1)} ${top(v).toFixed(1)}`);
-	const d = `M${axis.x(0).toFixed(1)} ${ROW_H - 3}L${pts.join('L')}L${axis.x(distance).toFixed(1)} ${ROW_H - 3}Z`;
+	const areaPath = `M${axis.x(0).toFixed(1)} ${ROW_H - 3}L${pts.join('L')}L${axis.x(distance).toFixed(1)} ${ROW_H - 3}Z`;
 	const gid = `fx-${r.skillId}`;
 	return <div data-testid="spot-density" title={title}>
 		<span class="tail" style={box(min, lastEnd)} />
 		<svg viewBox={`0 0 ${AXIS.viewWidth} ${ROW_H}`} preserveAspectRatio="none" aria-hidden="true">
 			{speedEffect && <defs>
 				<linearGradient id={gid} gradientUnits="userSpaceOnUse" x1={axis.x(0)} x2={axis.x(distance)} y1={0} y2={0}>
-					{all.flatMap((s) => [
+					{toFinish.flatMap((s) => [
 						<stop offset={s.start / distance} stop-color={FX_VAR[s.kind]} />,
 						<stop offset={s.end / distance} stop-color={FX_VAR[s.kind]} />,
 					])}
 				</linearGradient>
 			</defs>}
-			<path d={d} fill={speedEffect && stretches.length ? `url(#${gid})` : FX_VAR.neutral} opacity={0.95} />
+			<path d={areaPath} fill={speedEffect && stretches.length ? `url(#${gid})` : FX_VAR.neutral} opacity={0.95} />
 		</svg>
 	</div>;
 }
