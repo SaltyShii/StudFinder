@@ -23,6 +23,8 @@ type SimSkill = { alternatives: { precondition: string; condition: string }[] };
 /** The skills (those the sim knows) the Ace can meet the running style, distance and surface conditions of; everything else, such as another style's skills, is dropped. */
 export function skillsAceCanMeet(ids: string[], { style, category, surface }: { style: Style; category: Category; surface: 'turf' | 'dirt' }): string[] {
 	const ctx = { running_style: STYLES.find((s) => s.key === style)!.id, distance_type: DISTANCES.find((d) => d.key === category)!.id, ground_type: SURFACES.find((s) => s.key === surface)!.id };
+	// JSON import boundary: the sim data has no type for its alternatives
+	// eslint-disable-next-line no-restricted-syntax
 	const data = skillData as unknown as Record<string, SimSkill>;
 	return ids.filter((id) => {
 		const sim = data[id];

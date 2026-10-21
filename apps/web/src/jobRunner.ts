@@ -31,6 +31,8 @@ export function workerRunner<In, Out, P = never>(make: () => Worker): JobRunner<
 
 /** Worker side of `workerRunner`: runs `fn` per posted input and replies with progress, result or error. */
 export function serveJob<In, Out, P = never>(fn: (input: In, onProgress: (p: P) => void) => Out): void {
+	// worker global has no DOM-free typing
+	// eslint-disable-next-line no-restricted-syntax
 	const w = self as unknown as { postMessage(m: JobMessage<Out, P>): void; onmessage: (e: MessageEvent<In>) => void };
 	w.onmessage = (e) => {
 		try { w.postMessage({ result: fn(e.data, (progress) => w.postMessage({ progress })) }); }
