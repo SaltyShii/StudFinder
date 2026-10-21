@@ -9,6 +9,7 @@ import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { SimRunner } from './SimRunner';
 import { TierEditor } from './TierEditor';
+import { TrackOverview } from './TrackOverview';
 import { LoopSlots } from './LoopSlots';
 import { PickList } from './PickList';
 import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planOwned, planRecommend, planVeterans, type RecommendJob, type RecommendRunner, type VeteranJob, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
@@ -143,6 +144,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 				<div class="results">
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
+					{result && <TrackOverview track={result.track} stale={stale} />}
 					<div class="picks">
 						{ownedVersions.length ? <>
 							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} />

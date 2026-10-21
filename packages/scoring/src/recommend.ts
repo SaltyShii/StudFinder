@@ -1,3 +1,4 @@
+import { trackOverview, type TrackOverview } from './trackOverview';
 import { sideLoopPicks, sideLoopPriority } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillDetail } from './skillDetail';
@@ -46,6 +47,8 @@ export interface Recommendation {
 	coreSlots: LoopPick[];
 	/** Every skill simulated for the Sim runner on this track (those the candidates carry), best value first. */
 	skills: SkillDetail[];
+	/** The selected course and the Baseline runner's speed curve on it, for the Ace slot. */
+	track: TrackOverview;
 }
 
 const TOP = 5;
@@ -92,6 +95,7 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 		const reason = detail.length ? `${detail.length} inheritable skills` : 'no inheritable skills';
 		return { pick: { candidateId: c.id, score, reason, detail }, supply: stars };
 	});
+	const track = trackOverview({ ...cm, horse, seed });
 	const pass = (): Recommendation => {
 		const detailFor = detailerOf(horse);
 		const seen = new Map<string, SkillDetail>();
@@ -110,7 +114,7 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 			.sort((a, b) => b.key - a.key || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick);
 		const coreSlots = tierList ? owned.map((v) => { const parents = coreLoopPicks(v.candidates, tierList, PARENTS, horse.skills, v.aptitudes.dirt); return { pick: { cardId: v.cardId, score: sum(parents), parents }, tier: coreTier(v) }; })
 			.sort((a, b) => a.tier - b.tier || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick) : [];
-		return { aceSlot, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value) };
+		return { aceSlot, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value), track };
 	};
 	// Rank on screened values, then re-simulate the skills the picks show at full samples and rank again from the cache, until every shown skill is full.
 	let rec = pass();
