@@ -36,6 +36,27 @@ test("the Ace counts the skills of the veteran and of its parents, each once", (
 	expect(detail.map((d) => d.skillId).sort()).toEqual(['10071', '10081']);
 });
 
+test('skill detail carries the activation spots and effect duration of the runs it was valued on', () => {
+	const list = { candidates: [cand('r', horseOf(['10071', '210051']))] };
+	const detail = recommend(list, preset).ace[0].detail;
+	const fixed = detail.find((d) => d.skillId === '10071')!; // fires at 50% of the course
+	const random = detail.find((d) => d.skillId === '210051')!; // random spot in the opening phase
+	for (const d of [fixed, random]) {
+		expect(d.spots).toHaveLength(Math.round((d.proc / 100) * 30));
+		expect(d.duration).toBeGreaterThan(0);
+		expect(d.spotSpread.min).toBeLessThanOrEqual(d.spotSpread.median);
+		expect(d.spotSpread.median).toBeLessThanOrEqual(d.spotSpread.max);
+	}
+	expect(fixed.spotSpread.max - fixed.spotSpread.min).toBeLessThan(5);
+	expect(random.spotSpread.max - random.spotSpread.min).toBeGreaterThan(50);
+});
+
+test('a skill that never fires has no activation spots', () => {
+	const d = skillDetail('99999', { courseId: 10101, horse, samples: 10, seed: 7 });
+	expect(d.spots).toEqual([]);
+	expect(d.duration).toBe(0);
+});
+
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 function owned(cardId: number, uniqueSkillId?: string, aptitudes = apt) { return { cardId, aptitudes, uniqueSkillId, candidates: [cand('p', horseOf(['10071']), horseOf(['10081']), horseOf()), cand('q', horseOf(['10081']), horseOf(), horseOf())] }; }
 
