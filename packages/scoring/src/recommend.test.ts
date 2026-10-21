@@ -274,7 +274,7 @@ test('recommendAsync, with the refine step simulated apart and out of order, giv
 		for (const r of [...batch.requests].reverse()) { out.unshift(simulateSkill(r, batch.scenario)); batch.progress(out.length); }
 		return out;
 	}, lineage, preset, undefined, [], [], (p) => apart.push(p));
-	expect(batches).toBeGreaterThan(0);
+	expect(batches).toBeGreaterThan(1); // the screen step, then the refine step
 	expect(got).toEqual(expected);
 	expect(apart).toEqual(serial);
 });
