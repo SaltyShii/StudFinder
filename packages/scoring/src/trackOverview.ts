@@ -20,11 +20,11 @@ export interface TrackOverview {
 	phases: (Span & { phase: 0 | 1 | 2 | 3 })[];
 	/** The 24 equal sections the course is divided in. */
 	sections: Span[];
-	/** Speed (m/s) of the Baseline runner by position, ascending. */
 	/** Relative height in metres by position, ascending, from 0 at the start: the slopes added up (the course data has no absolute heights). */
 	heights: { pos: number; height: number }[];
 	/** Where the race changes gear for the Baseline runner: the start dash, the rest of the position-keep window, and the last-spurt kick. */
 	events: { name: 'Start' | 'Pace change' | 'Last-spurt kick'; start: number; end: number }[];
+	/** Speed (m/s) of the Baseline runner by position, ascending. */
 	curve: { pos: number; speed: number }[];
 }
 
