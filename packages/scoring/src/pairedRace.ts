@@ -104,13 +104,14 @@ export function pairedRace(skillIds: string[], scenario: Scenario): PairedRun[] 
 /**
  * `pairedRace` for several skill sets of one horse, simulating the skill-less runner once per sample instead of once per set.
  * Gives the same runs as `pairedRace` only where the skill-less runner and the skilled one cannot affect each other:
- * not for front runners (their spot struggle needs the other runner) and not for sets with a skill whose condition reads the order of the field.
+ * not for front runners while the Sim assumptions have spot struggle on (it needs the other runner) and not for sets with a skill whose condition reads the order of the field.
  * Those sets are raced as before.
  */
 export function pairedRaces(skillSets: string[][], scenario: Scenario, assumesPosition: (skillId: string) => boolean): PairedRun[][] {
 	const { samples = 100 } = scenario;
 	const { distance } = courseFacts(scenario.courseId);
-	const apart = styleOfStrategy(scenario.horse.strategy) !== 'nige';
+	const { spotStruggle } = scenario.assumptions ?? DEFAULT_ASSUMPTIONS;
+	const apart = styleOfStrategy(scenario.horse.strategy) !== 'nige' || !spotStruggle;
 	const shared = skillSets.map((ids) => apart && !ids.some(assumesPosition));
 	const results = skillSets.map((ids, k) => (shared[k] ? [] : pairedRace(ids, scenario)));
 	if (!shared.includes(true)) return results;

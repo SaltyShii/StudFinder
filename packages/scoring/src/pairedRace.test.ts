@@ -80,3 +80,8 @@ test('front runners and order-reading skills are raced as before, so they too ma
 	expect(pairedRaces(sets, front, assumesPosition)).toEqual(sets.map((ids) => pairedRace(ids, front)));
 	expect(pairedRaces(sets, s, () => true)).toEqual(sets.map((ids) => pairedRace(ids, s)));
 });
+
+test('front runners share the skill-less run once spot struggle is off, with the very runs of pairedRace', () => {
+	const front = { ...s, horse: { ...horse, strategy: 'Nige' }, assumptions: { ...DEFAULT_ASSUMPTIONS, spotStruggle: false } };
+	expect(pairedRaces(sets, front, assumesPosition)).toEqual(sets.map((ids) => pairedRace(ids, front)));
+});
