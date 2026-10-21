@@ -95,6 +95,10 @@ _Avoid_: bashin (in UI copy)
 **Paired race**:
 The same runner and seed raced twice, once without and once with the skills, with the gap measured when the first of them finishes. Skill value and Set lengths gained are both read off paired races.
 
+**Skill-less run**:
+The first half of a paired race: the runner with no skills. One per sample, so a veteran's skills may share it where the two runners cannot affect each other (not for front runners while spot struggle is on, nor for skills whose condition reads the order of the field).
+_Avoid_: baseline runner (that is the Track overview's neutral runner)
+
 **Set lengths gained**:
 The median lengths gained by a veteran's whole equipped skill set together, over all runs whether or not each skill procced. The Ace veteran headline and ranking use it.
 _Avoid_: lengths gained (when meaning the whole set; that term is per skill, over runs where it procced)
