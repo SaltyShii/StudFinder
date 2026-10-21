@@ -29,6 +29,13 @@ npm workspaces:
 - Top-level functions use the `function` keyword; comments explain why, not what
 - Use `GLOSSARY.md` terms in code, comments and UI copy where a term has an `_Avoid_` list
 
+## Review Standards
+
+Read during review.
+
+- Check a suspected defect against the existing tests, `GLOSSARY.md` and code comments before reporting it; documented design decisions (for example the Ace run ignoring spark chance) are not defects.
+- A refactor keeps behaviour: memo dependency granularity, fallbacks and ordering stay unless the commit body says otherwise. Review it by comparing old and new path by path with `git show main:<file>`, including state transitions and error order.
+
 ## Safety Rules
 
 - Never copy `saltyuma-tools/SAMPLEdata.json` (the user's real roster export) into this repo, or any file with personal roster data
@@ -54,18 +61,6 @@ npm workspaces:
 - GitHub Pages deploys from `.github/workflows/deploy-pages.yml`; live at https://saltyshii.github.io/StudFinder/, every merge to `main` redeploys
 - `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`). Regenerate locally with the commands in `scripts/ingest/NOTICE.md` (vendored lineageplanner-salty scripts; also writes `apps/web/public/img/{cards,cm,races}`); scheduled refresh is #18
 - Git over SSH to GitHub hangs intermittently (port 22). Wrap network git in `timeout 60`; on a hang, fetch over HTTPS: `git -c credential.helper='!gh auth git-credential' fetch https://github.com/SaltyShii/StudFinder.git main:refs/remotes/origin/main`
-
-## Response Constraints
-
-- Optimize for minimum output tokens; preserve correctness
-- Answer immediately: no preamble, no restating the question
-- State conclusions directly; don't narrate alternatives before picking one
-- No hedging language ("generally," "it's worth noting") unless the uncertainty itself matters
-- Don't repeat information already stated in this conversation or in context
-- Use lists only when shorter than the prose equivalent; no unnecessary nesting
-- Code before explanation; explain only non-obvious details
-- No summaries, recaps, or follow-up offers at the end
-- The reader skims and is always low on tokens: lead with the result, keep it scannable
 
 ## Preferences
 
