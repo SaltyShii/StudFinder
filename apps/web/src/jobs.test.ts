@@ -6,7 +6,7 @@ import type { Style } from '../../../packages/scoring/src/ace';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { cardIdsOf, planCandidates, planRecommend, planVeterans, type TierEdits } from './jobs';
+import { cardIdsOf, planCandidates, planOwned, planRecommend, planVeterans, type TierEdits } from './jobs';
 import { runJob } from './runJob';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
@@ -26,6 +26,8 @@ const data = new GameData({
 		20005: { id: 20005, name: 'Firm Conditions', rarity: 1, groupId: 2004, conditions: [{ pre: '', cond: 'ground_condition==1' }] },
 		20006: { id: 20006, name: 'Spring Runner', rarity: 1, groupId: 2005, conditions: [{ pre: '', cond: 'season==1' }] },
 		20007: { id: 20007, name: 'Right-Handed', rarity: 1, groupId: 2006, conditions: [{ pre: '', cond: 'rotation==1' }] },
+		200162: { id: 200162, name: 'Wet Conditions', rarity: 1, groupId: 20016, gradeValue: 129, conditions: [] },
+		200163: { id: 200163, name: 'Wet Conditions x', rarity: 1, groupId: 20016, gradeValue: -129, conditions: [] },
 	}, factors: {
 		1201: { id: 1201, groupId: 12, type: 2, stars: 1, name: 'Dirt', targets: [], skillId: null },
 		1202: { id: 1202, groupId: 4001, type: 4, stars: 3, name: 'Synthetic Spark', targets: [], skillId: 10071 },
@@ -107,4 +109,9 @@ it('Tier list edits move or disable a skill for the Core loop style only', () =>
 	expect(list({ sashi: { moved: { 'Late Surger Straightaways': 'T5' }, disabled: [] } })['Late Surger Straightaways']).toBe('T5');
 	expect(list({ sashi: { moved: {}, disabled: ['Late Surger Straightaways'] } })).not.toHaveProperty(['Late Surger Straightaways']);
 	expect(list({ oikomi: { moved: {}, disabled: ['Late Surger Straightaways'] } })['Late Surger Straightaways']).toBe('T1.5'); // another style's edit
+});
+
+it('plans an Owned version with the buyable skill pool, not just its card skills', () => {
+	const [stud] = planOwned(data, roster, [100201], course, false);
+	expect(stud.learnableSkillIds).toEqual(['200162']);
 });

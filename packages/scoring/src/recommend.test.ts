@@ -1,5 +1,7 @@
 import { expect, test } from 'vitest';
 import { skillDetail } from './skillDetail';
+import { DEFAULT_ASSUMPTIONS } from './assumptions';
+import { skillChance } from './shared';
 import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
@@ -34,6 +36,27 @@ test("the Ace counts the skills of the veteran and of its parents, each once", (
 	const lineage = cand('v', horseOf(['10071']), horseOf(['10071', '10081']));
 	const detail = recommend({ candidates: [lineage] }, preset).ace[0].detail;
 	expect(detail.map((d) => d.skillId).sort()).toEqual(['10071', '10081']);
+});
+
+test('skill detail carries the activation spots and effect duration of the runs it was valued on', () => {
+	const list = { candidates: [cand('r', horseOf(['10071', '210051']))] };
+	const detail = recommend(list, preset).ace[0].detail;
+	const fixed = detail.find((d) => d.skillId === '10071')!; // fires at 50% of the course
+	const random = detail.find((d) => d.skillId === '210051')!; // random spot in the opening phase
+	for (const d of [fixed, random]) {
+		expect(d.spots).toHaveLength(Math.round((d.proc / 100) * 30));
+		expect(d.duration).toBeGreaterThan(0);
+		expect(d.spotSpread.min).toBeLessThanOrEqual(d.spotSpread.median);
+		expect(d.spotSpread.median).toBeLessThanOrEqual(d.spotSpread.max);
+	}
+	expect(fixed.spotSpread.max - fixed.spotSpread.min).toBeLessThan(5);
+	expect(random.spotSpread.max - random.spotSpread.min).toBeGreaterThan(50);
+});
+
+test('a skill that never fires has no activation spots', () => {
+	const d = skillDetail('99999', { courseId: 10101, horse, samples: 10, seed: 7 });
+	expect(d.spots).toEqual([]);
+	expect(d.duration).toBe(0);
 });
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
@@ -128,4 +151,83 @@ test('skills are screened at few samples, but every shown skill is re-simulated 
 	// the shown value is the full-sample one, not the screening one
 	const d = shown[0];
 	expect(d.value).toBe(skillDetail(d.skillId, { courseId: full.courseId, horse: full.runner, samples: 60, seed: full.seed }).value);
+});
+
+test('a Sim assumption reaches every slot: wit checks lower the proc and value of a white skill for a low-wit runner', () => {
+	const weak = { ...preset, runner: { ...horse, wisdom: 100 } };
+	const list: CandidateList = { candidates: [cand('w', horseOf(['200342']), horseOf(), horseOf())] };
+	const versions = [{ cardId: 1, aptitudes: apt, candidates: list.candidates }];
+	const run = (witCheck: boolean) => recommend(list, { ...weak, assumptions: { ...DEFAULT_ASSUMPTIONS, witCheck } }, undefined, versions, ['200342']);
+	const [off, on] = [run(false), run(true)];
+	expect(on.skills[0].proc).toBeLessThan(off.skills[0].proc);
+	expect(on.ace[0].score).toBeLessThan(off.ace[0].score);
+	expect(on.aceSlot!.score).toBeLessThan(off.aceSlot!.score);
+	expect(on.sideSlots[0].score).not.toBe(off.sideSlots[0].score);
+});
+
+test('the recommendation carries the Track overview of the selected course with the Baseline runner curve', () => {
+	const { track } = recommend(candidateList, preset);
+	expect(track.distance).toBeGreaterThan(0);
+	expect(track.curve.length).toBeGreaterThan(10);
+	expect(track.phases).toHaveLength(4);
+});
+
+// Combined Ace rows: her own skills plus everything either recommended lineage can pass on.
+function aceRows(cs: Candidate[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, candidates: cs }], mustHaves).aceSlot!.skills; }
+
+test('a skill both lineages can pass shows the combined inherit chance', () => {
+	const rows = aceRows([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10071'], { affinity: 10 })]);
+	const row = rows.find((r) => r.skillId === '10071')!;
+	const a = skillChance([horseOf(['10071'], { affinity: 100 })], '10071');
+	const b = skillChance([horseOf(['10071'], { affinity: 10 })], '10071');
+	expect(a).toBeGreaterThan(b);
+	expect(row.inherit).toBeCloseTo(1 - (1 - a) * (1 - b), 9);
+	expect(row.proc).toBeGreaterThan(0);
+});
+
+test('the Ace own unique skill is a row with a certain inherit', () => {
+	const row = aceRows([unit('a', []), unit('b', [])], [], '10071').find((r) => r.skillId === '10071')!;
+	expect(row.inherit).toBe(1);
+});
+
+test('rows sort by avg lengths gained, flag Must-haves, and hide zero-value skills except position-conditioned ones', () => {
+	const rows = aceRows([unit('a', ['10071', '99999'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 })], ['10081']);
+	expect(rows.map((r) => r.skillId)).not.toContain('99999'); // unknown to the sim: proc 0
+	for (const r of rows) if (!r.assumesPosition) expect(r.proc > 0 && r.lengths.median !== 0).toBe(true);
+	expect(rows.find((r) => r.skillId === '10081')!.mustHave).toBe(true);
+	expect(rows.find((r) => r.skillId === '10071')!.mustHave).toBe(false);
+	expect(rows.map((r) => r.lengths.avg)).toEqual([...rows.map((r) => r.lengths.avg)].sort((x, y) => y - x));
+	expect(rows.find((r) => r.skillId === '10071')!.assumesPosition).toBe(true); // stays, to be greyed with *
+});
+
+// The version's own learnable skills: the Ace can buy them, so they show as certain rows.
+function aceRowsWithLearnable(cs: Candidate[], learnableSkillIds: string[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, learnableSkillIds, candidates: cs }], mustHaves).aceSlot!.skills; }
+
+test('a version learnable skills are own rows: certain, Must-have flagged, not duplicated by inheritance', () => {
+	const rows = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 })], ['10071', '10081'], ['10081'], '10071');
+	for (const id of ['10071', '10081']) {
+		const mine = rows.filter((r) => r.skillId === id);
+		expect(mine).toHaveLength(1);
+		expect(mine[0].inherit).toBe(1);
+	}
+	expect(rows.find((r) => r.skillId === '10081')!.mustHave).toBe(true);
+	expect(rows.map((r) => r.lengths.avg)).toEqual([...rows.map((r) => r.lengths.avg)].sort((x, y) => y - x));
+});
+
+test('an Owned version with no learnable skills keeps the inherited rows', () => {
+	const row = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', [])], []).find((r) => r.skillId === '10071')!;
+	expect(row.inherit).toBeLessThan(1);
+});
+
+test('a learnable skill the Ace cannot meet the conditions of is not even simulated', () => {
+	const sims = (learnableSkillIds: string[]) => { let n = 0; recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, learnableSkillIds, candidates: [unit('a', []), unit('b', [])] }], [], () => { n++; }); return n; };
+	expect(sims(['201672'])).toBe(sims([])); // dirt only, on a turf course
+	expect(sims(['200162'])).toBeGreaterThan(sims([]));
+});
+
+test('only the Ace slot version has its learnable skills simulated', () => {
+	const sims = (versions: number, learnableSkillIds: string[]) => { let n = 0; recommend(candidateList, preset, undefined, Array.from({ length: versions }, (_, i) => ({ cardId: i + 1, aptitudes: { ...apt, mile: i + 1 }, learnableSkillIds, candidates: [unit('a', []), unit('b', [])] })), [], () => { n++; }); return n; };
+	const extra = (versions: number) => sims(versions, ['200162']) - sims(versions, []);
+	expect(extra(1)).toBeGreaterThan(0);
+	expect(extra(3)).toBe(extra(1));
 });

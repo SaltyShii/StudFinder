@@ -244,7 +244,7 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	expect(root.querySelector('[data-testid=ace-pick]')).not.toBeNull();
 	expect(root.querySelector('[data-testid=ace-parent]')).not.toBeNull();
 	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
-	expect(heads.slice(0, 4)).toEqual(['Ace', 'Side loop', 'Core loop', 'Ace veteran list']);
+	expect(heads.slice(0, 5)).toEqual(['Ace', 'Track overview', 'Side loop', 'Core loop', 'Ace veteran list']);
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
@@ -363,6 +363,55 @@ it('Core loop style follows the Sim runner style until overridden', async () => 
 	expect(core.value).toBe('oikomi');
 });
 
+it('shows the Sim assumptions with umalator defaults, re-runs every slot on a change, resets and persists them', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };
+	const mount = () => render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root);
+	mount();
+	await importFile();
+	const box = (name: string) => root.querySelector<HTMLInputElement>(`.sim-assumptions input[name=${name}]`)!;
+	const flip = (name: string) => click(box(name));
+	expect(box('witCheck').checked).toBe(false);
+	for (const name of ['rushed', 'spotStruggle', 'laneMovement']) expect(box(name).checked).toBe(true);
+	expect(box('dueling').checked).toBe(false);
+	expect(root.querySelector('.sim-assumptions input[name=rate-frontRunner]')).toBeNull(); // rates show only while dueling is on
+	await run();
+	expect(jobs).toHaveLength(1);
+	expect(jobs[0].preset.assumptions).toMatchObject({ witCheck: false, rushed: true, dueling: false });
+	await flip('witCheck'); // results exist, so the change runs by itself
+	expect(jobs).toHaveLength(2);
+	expect(jobs[1].preset.assumptions!.witCheck).toBe(true);
+	await flip('dueling');
+	const rate = root.querySelector<HTMLInputElement>('.sim-assumptions input[name=rate-frontRunner]')!;
+	rate.value = '40';
+	await act(() => { rate.dispatchEvent(new Event('change')); });
+	expect(jobs.at(-1)!.preset.assumptions).toMatchObject({ dueling: true, duelingRates: { frontRunner: 40 } });
+	render(null, root);
+	mount();
+	await flush();
+	await flush();
+	expect(box('witCheck').checked).toBe(true);
+	expect(box('rate-frontRunner').value).toBe('40');
+	await click(root.querySelector('.sim-assumptions button[name=reset-assumptions]'));
+	expect(box('witCheck').checked).toBe(false);
+	expect(box('dueling').checked).toBe(false);
+	expect(root.querySelector('.sim-assumptions input[name=rate-frontRunner]')).toBeNull();
+});
+
+it('shows it is recomputing after an assumption change, and runs nothing before the first Run', async () => {
+	const jobs: RecommendJob[] = [];
+	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };
+	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
+	await importFile();
+	await click(root.querySelector('.sim-assumptions input[name=rushed]'));
+	expect(jobs).toHaveLength(0);
+	await run();
+	expect(jobs[0].preset.assumptions!.rushed).toBe(false);
+	await click(root.querySelector('.sim-assumptions input[name=laneMovement]'));
+	expect(jobs).toHaveLength(2);
+	expect(root.textContent).toContain('Computing');
+});
+
 it('adds Must-have skills in a popup by search or suggestion chip, passes them to the job and persists them', async () => {
 	const jobs: RecommendJob[] = [];
 	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };
@@ -475,4 +524,48 @@ it('edits the Tier list in a popup per Core loop style, resets it, and persists 
 	await run();
 	expect(tier()).toBe('URA');
 	expect(localStorage.getItem('stud-finder:tier-edits')).not.toContain('Racing');
+});
+
+async function chooseCm(id: number) {
+	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
+	cm.value = String(id);
+	await act(() => { cm.dispatchEvent(new Event('change')); });
+}
+
+it('draws the Track overview of the selected CM on the Ace slot only, and redraws when the CM changes', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await chooseCm(1); // course 10606, 2400 m
+	await pickAce();
+	const overviews = root.querySelectorAll('[data-testid=track-overview]');
+	expect(overviews.length).toBe(1);
+	const overview = overviews[0];
+	expect(overview.querySelector('svg')!.getAttribute('aria-label')).toContain('2400 m');
+	expect(overview.querySelectorAll('[data-testid=section]').length).toBe(24);
+	expect(overview.querySelectorAll('[data-testid=phase]').length).toBe(4);
+	expect(overview.querySelector('[data-testid=speed-curve]')!.getAttribute('d')).toMatch(/^M/);
+	await chooseCm(2); // course 10811, 3200 m
+	await run();
+	expect(root.querySelector('[data-testid=track-overview] svg')!.getAttribute('aria-label')).toContain('3200 m');
+});
+
+it('shows the Ace as one combined skill list with a pick list of parents, and leaves the loops without it', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const rows = [...root.querySelectorAll('[data-testid=ace-skill-row]')];
+	expect(rows.length).toBeGreaterThan(0);
+	const row = rows.find((r) => r.textContent!.includes('Synthetic Skill'))!;
+	expect(row.textContent).toMatch(/%.*proc/s);
+	expect(row.textContent).toContain('*'); // position-conditioned: greyed and marked
+	expect(row.classList.contains('muted')).toBe(true);
+	expect(row.closest('[data-testid=track-overview]')).not.toBeNull(); // the chart sits under the overview
+	expect(row.textContent).toMatch(/\d+% inherited/);
+	expect(row.querySelector('svg')).not.toBeNull();
+	expect(row.querySelectorAll('[data-testid=spot-spread], [data-testid=spot-duration]').length).toBeGreaterThan(0);
+	const ace = root.querySelector('[data-testid=ace-parent]')!;
+	expect(ace.querySelector('strong')!.textContent).toBeTruthy();
+	expect(ace.querySelector('details, .headline')).toBeNull(); // no skill text, no per-parent score
+	expect(root.querySelectorAll('[data-testid=side-pick] [data-testid=ace-skill-row], [data-testid=core-pick] [data-testid=ace-skill-row]').length).toBe(0);
+	expect(root.querySelector('[data-testid=side-parent] details')).not.toBeNull(); // loops unchanged
 });

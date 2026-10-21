@@ -48,7 +48,7 @@ The uma every simulation runs against, chosen by the user, with its running styl
 _Avoid_: ace (for this selector)
 
 **Owned version**:
-A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
+A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace chart also lists every skill it can buy with skill points (white and gold, whose running style, distance and surface conditions it can meet) as its own skills: certain, not inherited. The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
 
 **Must-have skill**:
 A skill the user decides manually the lineage should pass on. One shared list: the Ace slot ranks lineages by the best inheritance chance of these, and the side loop by their spark %. The core loop ignores it.
@@ -90,6 +90,19 @@ The same runner and seed raced twice, once without and once with the skills, wit
 **Set lengths gained**:
 The median lengths gained by a veteran's whole equipped skill set together, over all runs whether or not each skill procced. The Ace veteran headline and ranking use it.
 _Avoid_: lengths gained (when meaning the whole set; that term is per skill, over runs where it procced)
+
+**Activation spot**:
+Where on the track a skill procced in a simulated run. Over many runs the spots form a spread along the distance, which the Track overview draws for each skill.
+_Avoid_: fire point, trigger point
+
+**Track overview**:
+The chart of the selected CM's course (speed of a neutral baseline runner, slope, straights and corners, phases, sections) with each Ace skill's activation spots and effect length drawn on it. Only the Ace slot has one; the side loop judges skills by spark % and value alone.
+
+**Baseline runner**:
+A neutral runner with no skills, used only to draw the speed curve of the Track overview (start dash, end of pace-down, last spurt kick). Not any veteran.
+
+**Sim assumptions**:
+The race conditions the simulator assumes for every score (wit check, rushing, spot struggle, dueling with a rate per running style, lane movement), each switchable by the user. Defaults match umalator's where umalator has the option (dueling, which it lacks, defaults off); they apply to all slots. Sync RNG is not an option (the paired race always shares its seed) and position keep is left out (the paired race runs no pacemaker).
 
 **CM preset**:
 The course, season and conditions of a specific Champions Meeting, used to pick the course and rank styles.

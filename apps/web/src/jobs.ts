@@ -6,7 +6,9 @@ import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candida
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
 import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
+import { buyableSkillIds } from '../../../packages/scoring/src/learnable';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
+import type { SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { JobRunner } from './jobRunner';
 
 export interface RecommendJob {
@@ -19,6 +21,7 @@ export interface RecommendJob {
 export interface VeteranJob {
 	veterans: Veteran[];
 	courseId: number;
+	assumptions?: SimAssumptions;
 	season?: number;
 	ground?: number;
 	weather?: number;
@@ -102,10 +105,11 @@ export interface PlanOptions {
 	owned?: OwnedVersion[];
 	tierEdits?: TierEdits;
 	mustHaves?: string[];
+	assumptions?: SimAssumptions;
 }
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
-	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], tierEdits = {}, mustHaves = [] } = options;
+	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], tierEdits = {}, mustHaves = [], assumptions } = options;
 	// Manual choice wins; otherwise the best-ranked style for this Sim runner on the CM course.
 	const base = card ?? GENERIC_RUNNER;
 	const style: Style = styleChoice ?? (course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
@@ -113,21 +117,22 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: cmPreset(cm, runner), tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, mustHaves } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, mustHaves } };
 }
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */
 export function planOwned(data: GameData, roster: ImportResult, ownedIds: Iterable<number>, course: Course | undefined, useBorrowed: boolean): OwnedVersion[] {
+	const pool = buyableSkillIds(data.skills.values());
 	return [...ownedIds].flatMap((id) => {
 		const card = data.cards.get(id);
-		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
+		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), learnableSkillIds: pool, candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
 	});
 }
 
 /** Needs no Sim runner or Target stats. Null until game data is loaded, so unique skills are never missing from a run. */
-export function planVeterans(data: GameData | null, roster: ImportResult | null, cm: Cm): VeteranJob | null {
+export function planVeterans(data: GameData | null, roster: ImportResult | null, cm: Cm, assumptions?: SimAssumptions): VeteranJob | null {
 	if (!data || !roster || !data.courses.has(cm.courseId)) return null;
 	const uniqueSkills: [number, number][] = [];
 	data.cards.forEach((c) => { if (c.uniqueSkillId != null) uniqueSkills.push([c.id, c.uniqueSkillId]); });
-	return { veterans: roster.veterans, courseId: cm.courseId, season: cm.season, ground: cm.ground, weather: cm.weather, time: cm.time, uniqueSkills };
+	return { veterans: roster.veterans, courseId: cm.courseId, assumptions, season: cm.season, ground: cm.ground, weather: cm.weather, time: cm.time, uniqueSkills };
 }

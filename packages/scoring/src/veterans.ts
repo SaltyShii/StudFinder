@@ -2,6 +2,7 @@ import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Veteran } from '@stud-finder/lineage/src/types';
 import { buildAce, categoryOf, courseFacts, STYLES, type Style } from './ace';
+import type { SimAssumptions } from './assumptions';
 import { skillDetail } from './skillDetail';
 import { median, pairedRace, type RaceConditions } from './pairedRace';
 import type { SkillDetail } from './shared';
@@ -31,6 +32,7 @@ export interface VeteranScoreOptions extends RaceConditions {
 	courseId: number;
 	samples?: number;
 	seed?: number;
+	assumptions?: SimAssumptions;
 	/** Unique skill id per card id; the unique skill counts as equipped even if the export's skill list omits it. */
 	uniqueSkills?: ReadonlyMap<number, number>;
 	/** Called after each veteran is scored. Cancel by terminating the worker, as with recommend(). */
