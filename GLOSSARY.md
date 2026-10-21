@@ -43,6 +43,14 @@ _Avoid_: trainee (when meaning the final CM runner)
 A veteran scored as a CM runner as herself, in the running style she ran in her career, with her actual stats and equipped skills. Ranked against other Ace veterans by lengths gained.
 _Avoid_: ace (when it is a finished run rather than the one about to be trained)
 
+**Ace hero**:
+The Ace slot's panel: the Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
+_Avoid_: equipped skills (that is the Ace veteran's term), ace (for the finished run)
+
+**Buyable skill**:
+A general skill (white or gold) the Ace can buy with skill points after its run, when it meets the skill's running style, distance and surface conditions. The chart lists them as the Ace's own skills (certain, not inherited) next to the inheritable ones.
+_Avoid_: learnable skill, equipped skill
+
 **Sim runner**:
 The uma every simulation runs against, chosen by the user, with its running style and Target stats. It is a measuring stick, not a recommendation: the Ace is picked separately.
 _Avoid_: ace (for this selector)
