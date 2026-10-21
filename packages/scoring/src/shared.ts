@@ -1,5 +1,5 @@
 import { FactorType } from '@stud-finder/lineage/src/types';
-import { GRADE_A, aptitudeChance, chanceAny, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
+import { GRADE_A, INSPIRATIONS, aptitudeChance, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Tier } from '@stud-finder/lineage/src/tiers';
 import type { SimAssumptions } from './assumptions';
@@ -107,7 +107,26 @@ export function mustHaveChance(horses: LineageHorse[], mustHaves: string[]): num
 
 /** Chance these horses pass one skill on (any of their sparks for it procs). */
 export function skillChance(horses: LineageHorse[], skillId: string): number {
-	return chanceAny(horses.flatMap((h) => h.skills.filter((s) => s.skillId === skillId).map((s) => procChance(FactorType.Skill, s.stars, h.affinity))));
+	let miss = 1; // multiplied in the order chanceAny would, so the result is the very same number
+	for (const h of horses) for (const f of missFactors(h).get(skillId) ?? NONE) miss *= f;
+	return 1 - miss;
+}
+
+// The ranking asks about the same horses over and over (every pair of candidates, every round), so each horse's chance to miss, per spark and skill, is worked out once.
+// Assumes a horse's skills and affinity do not change after it is first asked about.
+const NONE: number[] = [];
+const MISS_FACTORS = new WeakMap<LineageHorse, Map<string, number[]>>();
+function missFactors(h: LineageHorse): Map<string, number[]> {
+	let bySkill = MISS_FACTORS.get(h);
+	if (!bySkill) {
+		MISS_FACTORS.set(h, (bySkill = new Map()));
+		for (const s of h.skills) {
+			const factor = (1 - procChance(FactorType.Skill, s.stars, h.affinity)) ** INSPIRATIONS;
+			const factors = bySkill.get(s.skillId);
+			if (factors) factors.push(factor); else bySkill.set(s.skillId, [factor]);
+		}
+	}
+	return bySkill;
 }
 
 /** Chance rounded to 1e-9 so float noise between equal chances does not skip a tie-break; compare these, never raw chances. */

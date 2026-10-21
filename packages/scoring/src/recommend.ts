@@ -137,6 +137,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	// One cache per distinct runner, so Owned versions that run identically share simulations.
 	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
 	let simulated = 0;
+	const standIns = new Map<string, SkillDetail>();
 	// Skills a pass asked for that no simulation has answered yet: runner key -> skill id -> samples wanted.
 	const missing = new Map<string, Map<string, number>>();
 	// `full` skips screening for values that feed a score directly (a version's own unique skill).
@@ -152,7 +153,9 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 			const wanted = missing.get(key) ?? new Map<string, number>();
 			wanted.set(skillId, Math.max(wanted.get(skillId) ?? 0, full ? samples : Math.min(samples, SCREEN_SAMPLES)));
 			missing.set(key, wanted);
-			return unsimulated(skillId, cm.courseId);
+			let standIn = standIns.get(skillId);
+			if (!standIn) standIns.set(skillId, (standIn = unsimulated(skillId, cm.courseId)));
+			return standIn;
 		};
 	};
 	// Ignores spark chance on purpose: it counts every distinct skill the veteran and its parents carry, marginal over what better picks supply.
