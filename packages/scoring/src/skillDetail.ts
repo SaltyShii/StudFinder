@@ -1,5 +1,5 @@
 import skills from '@stud-finder/sim/src/data/skill_data.json';
-import type { Scenario } from './pairedRace';
+import type { PairedRun, Scenario } from './pairedRace';
 import type { SkillDetail } from './shared';
 import { skillValue } from './skillValue';
 
@@ -14,7 +14,7 @@ export function assumesPosition(id: string): boolean {
 	return alts.some((a: unknown) => typeof a === 'object' && a !== null && POSITION.test(String((a as { condition?: unknown }).condition)));
 }
 
-/** One skill's value in a scenario plus whether that value rests on the sim's default position assumption. */
-export function skillDetail(skillId: string, scenario: Scenario): SkillDetail {
-	return { skillId, ...skillValue(skillId, scenario), assumesPosition: assumesPosition(skillId) };
+/** One skill's value in a scenario (or from its already raced `runs`) plus whether that value rests on the sim's default position assumption. */
+export function skillDetail(skillId: string, scenario: Scenario, runs?: PairedRun[]): SkillDetail {
+	return { skillId, ...skillValue(skillId, scenario, runs), assumesPosition: assumesPosition(skillId) };
 }
