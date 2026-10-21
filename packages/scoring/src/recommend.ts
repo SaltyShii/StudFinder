@@ -167,12 +167,20 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const reason = detail.length ? `${detail.length} inheritable skills` : 'no inheritable skills';
 		return { pick: { candidateId: c.id, score, reason, detail }, supply: stars };
 	});
+	// The most a candidate can add to an Ace pick, whatever the other parent supplies: only skills that add value count, since a skill with negative value gains by being supplied already.
+	const aceBound = (c: Candidate, h: HorseDesc, detailOf: (id: string) => SkillDetail) => {
+		const stars = maxStars(c.horses.flatMap((x) => x.skills));
+		const supplied = aceSupply(h.skills);
+		let total = 0;
+		for (const id of stars.keys()) { const share = newShare(stars.get(id), supplied.get(id)); if (share > 0) total += Math.max(0, detailOf(id).value * share); }
+		return total;
+	};
 	const track = trackOverview({ ...cm, horse, seed });
 	const pass = (): Recommendation => {
 		const detailFor = detailerOf(horse);
 		const seen = new Map<string, SkillDetail>();
 		const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
-		const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return (cs) => rankAce(cs, PARENTS, h, d); }, detailerOf, mustHaves);
+		const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return { rank: (cs) => rankAce(cs, PARENTS, h, d), bound: (c) => aceBound(c, h, d) }; }, detailerOf, mustHaves, () => missing.size > 0);
 		const best = bestAceSlot(versions, categoryOf(courseFacts(cm.courseId).distance));
 			// The chart simulates the whole buyable pool, so only the shown Ace's rows are built.
 			const aceSlot = best && { ...best.pick, skills: best.rows() };
@@ -229,7 +237,7 @@ interface AceCandidate { v: OwnedVersion; pick: AcePick; rows: () => AceSkillRow
 // A parent and its own 2 grandparents are permanently linked, so each candidate is one unit and the slot takes the best PAIR of units (never grandparents alone).
 // Dirt plays no part here: pair order is Must-have inheritance chance, then simulated value on the selected track.
 // The score is the version's own unique skill value plus its parents' marginal value; a version with no roster candidates still scores by its unique alone.
-function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, rankerFor: (h: HorseDesc) => (cs: Candidate[]) => CandidatePick[], detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[]): AceCandidate[] {
+function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, rankerFor: (h: HorseDesc) => { rank: (cs: Candidate[]) => CandidatePick[]; bound: (c: Candidate) => number }, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean): AceCandidate[] {
 	const out: AceCandidate[] = [];
 	for (const v of owned) {
 		const units = v.candidates;
@@ -254,13 +262,36 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		pairs.splice(0, pairs.length, ...pairs.filter((_, i) => pinkKeys[i] === topPink));
 		const keys = pairs.map((p) => chanceKey(mustHaveChance(p.flatMap((c) => c.horses), mustHaves)));
 		const topKey = Math.max(...keys);
-		const rank = rankerFor(h);
+		const { rank, bound } = rankerFor(h);
 		// Simulated value only for the pairs still tied, as it needs a ranker run each.
-		const scored = pairs.flatMap((p, i) => keys[i] === topKey ? [{ parents: rank(p) }] : []).map((x) => ({ ...x, score: uniqueValue + x.parents.reduce((s, p) => s + p.score, 0) }));
-		const win = scored.reduce((a, b) => (b.score > a.score ? b : a));
+		const win = bestPair(pairs.filter((_, i) => keys[i] === topKey), rank, bound, uniqueValue, partial);
 		out.push({ v, pick: { cardId: v.cardId, style, score: win.score, mustHaveChance: topKey / 1e9, distanceAChance: base >= GRADE_A ? 1 : topPink / 1e9, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueDetail, win.parents.map((p) => ({ id: p.candidateId, horses: units.find((c) => c.id === p.candidateId)?.horses ?? [] })), detailerOf(h), h.skills, mustHaves, skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface })) });
 	}
 	return out;
+}
+
+/**
+ * The pair with the best score (unique skill value plus its parents' ranked scores); the earliest of equal ones.
+ * A pair scores at most the sum of its two units' bounds, so pairs are tried best bound first and the rest are skipped once the bound falls below the best found:
+ * the same winner as ranking every pair, without ranking them all.
+ * While a pass still waits for simulations its values are stand-ins and its result is thrown away, so it only needs to ask for the skills.
+ */
+export function bestPair(pairs: Candidate[][], rank: (cs: Candidate[]) => CandidatePick[], boundOf: (c: Candidate) => number, uniqueValue: number, partial: () => boolean): { parents: CandidatePick[]; score: number } {
+	const bounds = new Map<Candidate, number>();
+	const bound = (c: Candidate) => { let v = bounds.get(c); if (v === undefined) bounds.set(c, (v = boundOf(c))); return v; };
+	const scoreOf = (p: Candidate[]) => { const parents = rank(p); return { parents, score: uniqueValue + parents.reduce((s, x) => s + x.score, 0) }; };
+	const pairBound = pairs.map((p) => p.reduce((s, c) => s + bound(c), 0));
+	if (partial()) return scoreOf(pairs[0]);
+	const order = pairs.map((_, i) => i).sort((a, b) => pairBound[b] - pairBound[a] || a - b);
+	let win: { parents: CandidatePick[]; score: number } | undefined;
+	let winAt = Infinity;
+	for (const i of order) {
+		// Slack for the float noise of adding the same numbers in another order.
+		if (win && uniqueValue + pairBound[i] + 1e-9 * (Math.abs(win.score) + 1) < win.score) break;
+		const x = scoreOf(pairs[i]);
+		if (!win || x.score > win.score || (x.score === win.score && i < winAt)) { win = x; winAt = i; }
+	}
+	return win;
 }
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
