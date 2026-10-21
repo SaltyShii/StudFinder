@@ -1,15 +1,26 @@
 import type { JobProgress, JobRequest, RecommendRunner, VeteranRunner } from './jobs';
 import { veteranTasks } from './jobs';
 import { POOL_WORKERS, poolRunner, workerRunner } from './jobRunner';
+import type { SimBatch } from '../../../packages/scoring/src/recommend';
+import type { SkillDetail } from '../../../packages/scoring/src/shared';
 import { rankVeterans } from '../../../packages/scoring/src/rankVeterans';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 
 const make = () => new Worker(new URL('./jobs.worker.ts', import.meta.url), { type: 'module' });
-const run = workerRunner<JobRequest, unknown, JobProgress>(() => new Worker(new URL('./recommend.worker.ts', import.meta.url), { type: 'module' }));
 
 // Veterans score independently, so a pool shares them.
 export const veteranRunner: VeteranRunner = poolRunner<Parameters<VeteranRunner>[0], JobRequest, AceVeteranScore, AceVeteranScore[]>(
 	make, POOL_WORKERS, (job) => veteranTasks(job).map((task): JobRequest => ({ kind: 'veteran', task })), rankVeterans,
+);
+
+// The skill sims of a Recommend run's batches are independent too. The pool is started here, not in recommend.worker.ts, which asks for it with a call.
+type Batch = Pick<SimBatch, 'scenario' | 'requests'>;
+const skillPool = poolRunner<Batch, JobRequest, SkillDetail, SkillDetail[]>(
+	make, POOL_WORKERS, (batch) => batch.requests.map((request): JobRequest => ({ kind: 'skill', task: { request, scenario: batch.scenario } })), (parts) => parts,
+);
+const run = workerRunner<JobRequest, unknown, JobProgress>(
+	() => new Worker(new URL('./recommend.worker.ts', import.meta.url), { type: 'module' }),
+	(batch, onProgress, done, onError) => skillPool(batch as Batch, ([n]) => onProgress(n), done, onError),
 );
 
 // The worker answers with whatever the request's kind produces; the cast restates that for recommend.

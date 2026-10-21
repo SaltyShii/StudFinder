@@ -79,3 +79,44 @@ it('pool: the first failure terminates every worker and reports once; cancel ter
 	expect(cancelled.calls).toEqual({ progress: [], done: [], error: [] });
 	expect(cancelled.ws.every((w) => w.terminated)).toBe(true);
 });
+
+// Firefox stalls a pool that a worker starts itself (nested workers), so the page starts it and the worker calls it through its parent.
+function withCalls() {
+	const served: { payload: unknown; progress: (n: number) => void; done: (r: unknown) => void; fail: (e: Error) => void; stop: ReturnType<typeof vi.fn> }[] = [];
+	const calls = { done: [] as unknown[], error: [] as string[] };
+	workerRunner<number, string>(() => new FakeWorker() as unknown as Worker, (payload, progress, done, fail) => {
+		const stop = vi.fn();
+		served.push({ payload, progress, done, fail, stop });
+		return stop;
+	})(1, () => {}, (r) => calls.done.push(r), (e) => calls.error.push(e.message));
+	return { calls, served, w: FakeWorker.last };
+}
+
+it('call: runs what the worker asks for and replies with its progress, result and error', () => {
+	const { served, w } = withCalls();
+	w.onmessage({ data: { call: { id: 7, payload: 'batch' } } });
+	w.onmessage({ data: { call: { id: 8, payload: 'other' } } });
+	expect(served.map((s) => s.payload)).toEqual(['batch', 'other']);
+	served[0].progress(5);
+	served[0].done(['d']);
+	served[1].fail(new Error('boom'));
+	expect(w.postMessage.mock.calls.slice(1)).toEqual([[{ reply: { id: 7, progress: 5 } }], [{ reply: { id: 7, result: ['d'] } }], [{ reply: { id: 8, error: 'boom' } }]]);
+	expect(w.terminated).toBe(false);
+});
+
+it('call: stops the calls still running when the job is cancelled, ends or fails', () => {
+	const cancelled = withCalls();
+	cancelled.w.onmessage({ data: { call: { id: 1, payload: 'x' } } });
+	cancelled.w.onerror({ message: 'boom' });
+	expect(cancelled.served[0].stop).toHaveBeenCalled();
+	const finished = withCalls();
+	finished.w.onmessage({ data: { call: { id: 1, payload: 'x' } } });
+	finished.w.onmessage({ data: { result: 'ok' } });
+	expect(finished.served[0].stop).toHaveBeenCalled();
+});
+
+it('call: a worker that asks without a call runner is an error', () => {
+	const { calls, w } = start();
+	w.onmessage({ data: { call: { id: 1, payload: 'x' } } });
+	expect(calls.error).toHaveLength(1);
+});
