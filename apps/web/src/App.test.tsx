@@ -192,6 +192,35 @@ it('scores veterans on Run, reruns on CM change, and cancels', async () => {
 	expect(root.textContent).not.toContain('Scoring');
 });
 
+it('keeps the veteran scores on Run when nothing they depend on changed', async () => {
+	const jobs: VeteranJob[] = [];
+	const finish: VeteranRunner = (job, _p, done) => { jobs.push(job); done([]); return () => {}; };
+	render(<App loadData={async () => data} run={inline} runVeterans={finish} />, root);
+	await importFile();
+	await run();
+	expect(jobs).toHaveLength(1);
+	await run(); // same CM, roster and assumptions: the scores on screen are current
+	expect(jobs).toHaveLength(1);
+	const style = root.querySelector('select[name=style]') as HTMLSelectElement; // the Sim runner does not enter the veterans' scores
+	style.value = 'oikomi';
+	await act(() => { style.dispatchEvent(new Event('change')); });
+	await run();
+	expect(jobs).toHaveLength(1);
+	await click(root.querySelector('.sim-assumptions input[name=rushed]')); // a new assumption changes every score
+	expect(jobs).toHaveLength(2);
+});
+
+it('rescores the veterans on Run after they were cancelled', async () => {
+	let started = 0;
+	const manual: VeteranRunner = () => { started++; return () => {}; };
+	render(<App loadData={async () => data} run={inline} runVeterans={manual} />, root);
+	await importFile();
+	await run();
+	await act(() => { (root.querySelector('button[name=cancel-veterans]') as HTMLButtonElement).click(); });
+	await run();
+	expect(started).toBe(2);
+});
+
 it('shows top 5 Ace veterans, expands to all, and notes ranking is relative only', async () => {
 	const score = (i: number) => ({ trainedId: i, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 2, aptitude: { surface: 7, distance: 7 }, setLengthsGained: 1, gap: i, detail: [], assumesPosition: false });
 	const seven: VeteranRunner = (_j, _p, done) => { done([0, 1, 2, 3, 4, 5, 6].map(score)); return () => {}; };

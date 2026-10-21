@@ -81,7 +81,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const veteranJob = useMemo(() => planVeterans(data, roster, cm, assumptions), [data, roster, cm, assumptions]);
 	// Nothing computes until Run: the jobs run the snapshot taken then, and any later change to `job` marks the results outdated.
 	const [ran, setRan] = useState<{ job: RecommendJob; veteranJob: VeteranJob | null; run: RecommendJob; vRun: VeteranJob | null } | null>(null);
-	const snapshot = () => job && setRan({ job, veteranJob, run: { ...job }, vRun: veteranJob && { ...veteranJob } });
+	// The veteran scores depend on the CM, roster and assumptions only: while those are unchanged, a finished or running job stays as it is (a cancelled or failed one has no result and runs again).
+	const snapshot = () => job && setRan({ job, veteranJob, run: { ...job }, vRun: ran?.veteranJob === veteranJob && (vs.busy || vs.result) ? ran.vRun : veteranJob && { ...veteranJob } });
 	// A new assumption changes every score, so results already on screen are recomputed rather than left outdated.
 	const lastAssumptions = useRef(assumptions);
 	useEffect(() => {
