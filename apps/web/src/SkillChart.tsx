@@ -6,7 +6,7 @@ import { AXIS, distanceAxis } from './trackAxis';
 const ROW_H = 22;
 
 /** Every skill the Ace can end up with, on the Track overview's distance axis: the spread of activation spots, a bar for how far the effect lasts, and the numbers. Rows resting on the default position assumption are greyed and marked `*`. */
-export function SkillChart({ rows, distance, data, parentNames, stale }: { rows: AceSkillRow[]; distance: number; data: GameData; parentNames: Map<string, string>; stale?: boolean }) {
+export function SkillChart({ rows, distance, data, stale }: { rows: AceSkillRow[]; distance: number; data: GameData; stale?: boolean }) {
 	if (!rows.length) return null;
 	const axis = distanceAxis(distance);
 	return (
@@ -18,7 +18,6 @@ export function SkillChart({ rows, distance, data, parentNames, stale }: { rows:
 					<li data-testid="ace-skill-row" class={r.assumesPosition ? 'muted' : undefined} data-must-have={r.mustHave || undefined}>
 						<span class="skill-name" title={name}>
 							{name}{r.assumesPosition && ' *'}
-							{r.parentId != null && <small class="muted"> from {parentNames.get(r.parentId) ?? r.parentId}</small>}
 						</span>
 						<svg viewBox={`0 0 ${AXIS.viewWidth} ${ROW_H}`} role="img" aria-label={`Activation spots of ${name}`}>
 							{axis.ticks.map((m) => <line x1={axis.x(m)} x2={axis.x(m)} y1={0} y2={ROW_H} stroke="currentColor" opacity={0.12} />)}
