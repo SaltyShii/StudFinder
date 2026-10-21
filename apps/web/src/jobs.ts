@@ -6,6 +6,7 @@ import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candida
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
 import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
+import { buyableSkillIds } from '../../../packages/scoring/src/learnable';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import type { SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { JobRunner } from './jobRunner';
@@ -121,9 +122,10 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */
 export function planOwned(data: GameData, roster: ImportResult, ownedIds: Iterable<number>, course: Course | undefined, useBorrowed: boolean): OwnedVersion[] {
+	const pool = buyableSkillIds(data.skills.values());
 	return [...ownedIds].flatMap((id) => {
 		const card = data.cards.get(id);
-		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), learnableSkillIds: card.skillIds.filter((s) => s !== card.uniqueSkillId).map(String), candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
+		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), learnableSkillIds: pool, candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
 	});
 }
 

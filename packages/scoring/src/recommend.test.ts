@@ -218,3 +218,16 @@ test('an Owned version with no learnable skills keeps the inherited rows', () =>
 	const row = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', [])], []).find((r) => r.skillId === '10071')!;
 	expect(row.inherit).toBeLessThan(1);
 });
+
+test('a learnable skill the Ace cannot meet the conditions of is not even simulated', () => {
+	const sims = (learnableSkillIds: string[]) => { let n = 0; recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, learnableSkillIds, candidates: [unit('a', []), unit('b', [])] }], [], () => { n++; }); return n; };
+	expect(sims(['201672'])).toBe(sims([])); // dirt only, on a turf course
+	expect(sims(['200162'])).toBeGreaterThan(sims([]));
+});
+
+test('only the Ace slot version has its learnable skills simulated', () => {
+	const sims = (versions: number, learnableSkillIds: string[]) => { let n = 0; recommend(candidateList, preset, undefined, Array.from({ length: versions }, (_, i) => ({ cardId: i + 1, aptitudes: { ...apt, mile: i + 1 }, learnableSkillIds, candidates: [unit('a', []), unit('b', [])] })), [], () => { n++; }); return n; };
+	const extra = (versions: number) => sims(versions, ['200162']) - sims(versions, []);
+	expect(extra(1)).toBeGreaterThan(0);
+	expect(extra(3)).toBe(extra(1));
+});

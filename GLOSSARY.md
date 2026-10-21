@@ -48,7 +48,7 @@ The uma every simulation runs against, chosen by the user, with its running styl
 _Avoid_: ace (for this selector)
 
 **Owned version**:
-A version the user marks as owned, taken with its default aptitudes and skills (no configuration). Its learnable skills (beside the unique skill) are the Ace's own skills in the Ace chart: certain, not inherited. The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
+A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace chart also lists every skill it can buy with skill points (white and gold, whose running style, distance and surface conditions it can meet) as its own skills: certain, not inherited. The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
 
 **Must-have skill**:
 A skill the user decides manually the lineage should pass on. One shared list: the Ace slot ranks lineages by the best inheritance chance of these, and the side loop by their spark %. The core loop ignores it.
