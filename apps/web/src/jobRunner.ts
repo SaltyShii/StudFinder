@@ -68,13 +68,17 @@ export function poolRunner<In, Task, Part, Out>(make: () => Worker, size: number
 	};
 }
 
-/** Worker side of `workerRunner`: runs `fn` per posted input and replies with progress, result or error. */
-export function serveJob<In, Out, P = never>(fn: (input: In, onProgress: (p: P) => void) => Out): void {
+/** Workers a pool runs at once; leaves cores for the page and bounds the sim data each worker loads. */
+export const POOL_WORKERS = 4;
+
+/** Worker side of `workerRunner`: runs `fn` per posted input and replies with progress, result or error. `fn` may answer later with a promise. */
+export function serveJob<In, Out, P = never>(fn: (input: In, onProgress: (p: P) => void) => Out | Promise<Out>): void {
 	// worker global has no DOM-free typing
 	// eslint-disable-next-line no-restricted-syntax
 	const w = self as unknown as { postMessage(m: JobMessage<Out, P>): void; onmessage: (e: MessageEvent<In>) => void };
+	const fail = (err: unknown) => w.postMessage({ error: err instanceof Error ? err.message : String(err) });
 	w.onmessage = (e) => {
-		try { w.postMessage({ result: fn(e.data, (progress) => w.postMessage({ progress })) }); }
-		catch (err) { w.postMessage({ error: err instanceof Error ? err.message : String(err) }); }
+		try { Promise.resolve(fn(e.data, (progress) => w.postMessage({ progress }))).then((result) => w.postMessage({ result }), fail); }
+		catch (err) { fail(err); }
 	};
 }
