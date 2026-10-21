@@ -2,6 +2,7 @@ import { trackOverview, type TrackOverview } from './trackOverview';
 import { sideLoopPicks, sideLoopPriority } from './sideLoop';
 import { coreLoopPicks } from './coreLoop';
 import { skillDetail } from './skillDetail';
+import type { Scenario } from './pairedRace';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { skillsAceCanMeet } from './learnable';
@@ -86,13 +87,59 @@ export interface RecommendProgress {
 // Skills are first simulated at this many samples to rank cheaply; only the ones a pick shows are re-simulated at full samples.
 const SCREEN_SAMPLES = 20;
 
-export function recommend(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void): Recommendation {
+/** One skill to simulate at full samples for one runner. */
+export interface SimRequest {
+	horse: HorseDesc;
+	id: string;
+	samples: number;
+}
+
+/** The skills a recommendation shows, to be re-simulated at full samples. They are independent, so a caller may simulate them in any order, in parallel. */
+export interface RefineBatch {
+	/** What every request shares: the course, conditions and seed. */
+	scenario: Omit<Scenario, 'horse' | 'samples'>;
+	requests: SimRequest[];
+	/** Tell how many requests are done so far. */
+	progress(done: number): void;
+}
+
+export function simulateSkill({ horse, id, samples }: SimRequest, scenario: RefineBatch['scenario']): SkillDetail {
+	return skillDetail(id, { ...scenario, horse, samples });
+}
+
+/** Simulates a batch right here, one skill after the other. */
+function simulateBatch(batch: RefineBatch): SkillDetail[] {
+	return batch.requests.map((r, i) => { const d = simulateSkill(r, batch.scenario); batch.progress(i + 1); return d; });
+}
+
+export function recommend(...args: Parameters<typeof recommendSteps>): Recommendation {
+	const steps = recommendSteps(...args);
+	let details: SkillDetail[] = []; // the first next() ignores its argument
+	for (;;) {
+		const step = steps.next(details);
+		if (step.done) return step.value;
+		details = simulateBatch(step.value as RefineBatch); // narrowing by `done` needs strictNullChecks, which this package lacks
+	}
+}
+
+/** `recommend` with the refine step handed to `runBatch`, so a pool can simulate it in parallel. Same result. */
+export async function recommendAsync(runBatch: (batch: RefineBatch) => Promise<SkillDetail[]>, ...args: Parameters<typeof recommendSteps>): Promise<Recommendation> {
+	const steps = recommendSteps(...args);
+	let details: SkillDetail[] = [];
+	for (;;) {
+		const step = steps.next(details);
+		if (step.done) return step.value;
+		details = await runBatch(step.value as RefineBatch);
+	}
+}
+
+function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void): Generator<RefineBatch, Recommendation, SkillDetail[]> {
 	// One cache per distinct runner, so Owned versions that run identically share simulations.
 	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
 	let simulated = 0;
-	const simulate = (h: HorseDesc, id: string, n: number, phase: 'screen' | 'refine', total?: number): SkillDetail => {
+	const simulate = (h: HorseDesc, id: string, n: number): SkillDetail => {
 		const d: SkillDetail = { ...skillDetail(id, { ...cm, horse: h, samples: n, seed }), screened: n < samples, src: JSON.stringify(h) };
-		onProgress?.({ phase, done: ++simulated, total });
+		onProgress?.({ phase: 'screen', done: ++simulated });
 		return d;
 	};
 	// `full` skips screening for values that feed a score directly (a version's own unique skill).
@@ -103,7 +150,7 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 		const { cache } = sim;
 		return (skillId: string) => {
 			let d = cache.get(skillId);
-			if (!d || (full && d.screened)) cache.set(skillId, (d = simulate(h, skillId, full ? samples : Math.min(samples, SCREEN_SAMPLES), 'screen')));
+			if (!d || (full && d.screened)) cache.set(skillId, (d = simulate(h, skillId, full ? samples : Math.min(samples, SCREEN_SAMPLES))));
 			return d;
 		};
 	};
@@ -145,7 +192,10 @@ export function recommend(candidateList: CandidateList, { samples = 100, seed = 
 		const todo = new Map<string, { key: string; id: string }>();
 		for (const d of shownDetails(rec)) if (d.screened && d.src) todo.set(`${d.src}|${d.skillId}`, { key: d.src, id: d.skillId });
 		if (!todo.size) return rec;
-		for (const { key, id } of todo.values()) { const sim = sims.get(key)!; sim.cache.set(id, simulate(sim.horse, id, samples, 'refine', todo.size)); }
+		const entries = [...todo.values()];
+		const details = yield { scenario: { ...cm, seed }, requests: entries.map(({ key, id }) => ({ horse: sims.get(key)!.horse, id, samples })), progress: (done) => onProgress?.({ phase: 'refine', done: simulated + done, total: entries.length }) };
+		entries.forEach(({ key, id }, i) => sims.get(key)!.cache.set(id, { ...details[i], screened: false, src: key }));
+		simulated += entries.length;
 		rec = pass();
 	}
 }

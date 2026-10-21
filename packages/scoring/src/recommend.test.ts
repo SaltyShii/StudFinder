@@ -3,7 +3,7 @@ import { skillDetail } from './skillDetail';
 import { DEFAULT_ASSUMPTIONS } from './assumptions';
 import { skillChance } from './shared';
 import { sideLoopPicks, sideLoopPriority } from './sideLoop';
-import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
+import { recommend, recommendAsync, simulateSkill, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 30, seed: 7 };
@@ -260,4 +260,21 @@ test('Side loop chart rows leave the ranking untouched: spark % of the Must-have
 	// the lineage picks match the plain Side loop ranking over the same candidates
 	const plain = sideLoopPicks(versions[0].candidates, (id) => skillDetail(id, { courseId: preset.courseId, horse, samples: preset.samples, seed: preset.seed }), 2, [], ['10081']);
 	expect(slots.find((s) => s.cardId === 1)!.parents.map((p) => p.candidateId)).toEqual(plain.map((p) => p.candidateId));
+});
+
+test('recommendAsync, with the refine step simulated apart and out of order, gives the very recommendation and progress of recommend', async () => {
+	const lineage = { candidates: [cand('v', horseOf(['10071', '10081']), horseOf(['10091']))] };
+	const serial: unknown[] = [];
+	const apart: unknown[] = [];
+	const expected = recommend(lineage, preset, undefined, [], [], (p) => serial.push(p));
+	let batches = 0;
+	const got = await recommendAsync(async (batch) => {
+		batches++;
+		const out = [];
+		for (const r of [...batch.requests].reverse()) { out.unshift(simulateSkill(r, batch.scenario)); batch.progress(out.length); }
+		return out;
+	}, lineage, preset, undefined, [], [], (p) => apart.push(p));
+	expect(batches).toBeGreaterThan(0);
+	expect(got).toEqual(expected);
+	expect(apart).toEqual(serial);
 });
