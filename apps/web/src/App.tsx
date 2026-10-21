@@ -6,7 +6,7 @@ import type { ImportResult } from '../../../packages/lineage/src/types';
 import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
-import { AceHero } from './AceHero';
+import { AceHero, nameOf } from './AceHero';
 import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { SimRunner } from './SimRunner';
@@ -55,6 +55,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
 	const [skillTab, setSkillTab] = useState<SkillCategory>('speed');
+	const [sideTab, setSideTab] = useState<SkillCategory>('speed');
+	const [sideCard, setSideCard] = useState<number | null>(null);
 	const [tierEdits, setTierEdits] = useState<TierEdits>(() => loadTierEdits(localStorage));
 
 	const [assumptions, setAssumptions] = useState(() => loadAssumptions(localStorage));
@@ -111,6 +113,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	}
 
 	const chips = useMemo(() => (result?.aceSlot && data ? skillChips(result.aceSlot.skills, result.track, data) : []), [result, data]);
+	// The Side loop chart follows the selected pick; the best pick until one is chosen.
+	const sidePick = result?.sideSlots.find((s) => s.cardId === sideCard) ?? result?.sideSlots[0];
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
 
 	return (
@@ -174,13 +178,20 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 					</>}
 					<div class="picks">
 						{ownedVersions.length ? <>
-							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} />
+							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} selected={sidePick?.cardId} onSelect={setSideCard} />
 							<LoopSlots title="Core loop" testId="core" picks={result?.coreSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} />
 						</> : <>
 							<PickList title="Side loop" testId="side-card" picks={result?.side} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
 							<PickList title="Core loop" testId="core-card" picks={result?.core} candidates={byId} cardIds={cardIds} stale={stale} data={data} />
 						</>}
 					</div>
+					{sidePick && <div data-testid="side-chart">
+						<h4 class="chart-title">Side loop skills: {nameOf(data, sidePick.cardId)}</h4>
+						{sidePick.skills.length ? <>
+							<SkillChart rows={sidePick.skills} track={result!.track} data={data} tab={sideTab} onTab={setSideTab} stale={stale} />
+							<SkillFootnote rows={sidePick.skills} />
+						</> : <p class="panel empty muted" data-testid="side-chart-empty">This lineage carries no skill that gains lengths on this track.</p>}
+					</div>}
 					<details>
 						<summary>Ace veteran list</summary>
 						<PickList title="Ace" testId="ace-card" picks={result?.ace} candidates={byId} cardIds={cardIds} stale={stale} data={data} />

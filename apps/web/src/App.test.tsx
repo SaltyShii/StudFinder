@@ -590,11 +590,11 @@ it('lists the Ace skills as a table with Speed, Acceleration, Recovery and Other
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	const tabs = () => [...root.querySelectorAll('[data-testid=skill-tabs] [role=tab]')];
+	const tabs = () => [...root.querySelectorAll('[data-testid=skill-tabs]')[0].querySelectorAll('[role=tab]')];
 	expect(tabs().map((t) => t.textContent)).toEqual(['Speed', 'Acceleration', 'Recovery', 'Other']);
 	expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false']);
-	expect([...root.querySelectorAll('.skill-table .skill-head > *')].map((h) => h.textContent)).toEqual(['', 'Skill', 'Lengths gained', 'Proc', 'where it can firewhitegoldinherited unique']);
-	const names = () => [...root.querySelectorAll('[data-testid=ace-skill-row] .skill-name')].map((n) => n.textContent);
+	expect([...root.querySelectorAll('.skill-table .skill-head')[0].children].map((h) => h.textContent)).toEqual(['', 'Skill', 'Lengths gained', 'Proc', 'where it can firewhitegoldinherited unique']);
+	const names = () => [...root.querySelectorAll('.skill-table')[0].querySelectorAll('[data-testid=ace-skill-row] .skill-name')].map((n) => n.textContent);
 	expect(names().some((n) => n!.includes('Synthetic Skill'))).toBe(true); // target speed
 	await act(async () => { (tabs()[1] as HTMLElement).click(); });
 	expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
@@ -620,4 +620,30 @@ it('shows the app title, the selected CM with its course and the Ace running sty
 	expect(header().querySelector('[data-testid=style-badge]')!.textContent).toBe('Front Runner');
 	await pick('style', 'oikomi');
 	expect(header().querySelector('[data-testid=style-badge]')!.textContent).toBe('End Closer');
+});
+
+it('charts the selected Side loop pick with the same tabs, table and footnote as the Ace, and follows the selection', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const chart = () => root.querySelector('[data-testid=side-chart]')!;
+	expect(chart()).not.toBeNull();
+	expect(chart().querySelector('.chart-title')!.textContent).toMatch(/^Side loop skills: /);
+	expect([...chart().querySelectorAll('[data-testid=skill-tabs] [role=tab]')].map((t) => t.textContent)).toEqual(['Speed', 'Acceleration', 'Recovery', 'Other']);
+	expect(chart().querySelectorAll('.skill-table [data-testid=ace-skill-row]').length).toBeGreaterThan(0);
+	expect(chart().querySelector('[data-testid=skill-footnote]')).not.toBeNull();
+	// Side loop tabs are their own: switching them leaves the Ace chart alone.
+	const aceTabs = [...root.querySelectorAll('[data-testid=skill-tabs]')][0];
+	await click(chart().querySelectorAll('[role=tab]')[1]);
+	expect(chart().querySelectorAll('[role=tab]')[1].getAttribute('aria-selected')).toBe('true');
+	expect(aceTabs.querySelectorAll('[role=tab]')[0].getAttribute('aria-selected')).toBe('true');
+	// Selecting another pick moves the chart to it.
+	const buttons = [...root.querySelectorAll('[data-testid=side-select]')];
+	expect(buttons.length).toBeGreaterThan(1);
+	expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+	const first = chart().querySelector('.chart-title')!.textContent;
+	await click(buttons[1]);
+	expect(root.querySelectorAll('[data-testid=side-select]')[1].getAttribute('aria-pressed')).toBe('true');
+	expect(chart().querySelector('.chart-title')!.textContent).not.toBe(first);
+	expect(chart().querySelector('[data-testid=side-chart-empty]')).not.toBeNull(); // this lineage carries no simulated skill
 });

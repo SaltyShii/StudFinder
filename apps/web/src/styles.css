@@ -241,3 +241,8 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .rarity-dot[data-rarity='unique'] { background: #a66cf0; }
 .skill-footnote { grid-column: 1 / -1; padding: 0 4px; }
 @media (max-width: 800px) { :root { --label-w: 200px; } .fx-legend { display: none; } }
+.loop-pick + .loop-pick { margin-top: 10px; }
+.loop-pick[data-selected] .card:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.select-pick { margin-top: 4px; font-size: 0.8rem; }
+.select-pick[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.chart-title { margin: 8px 0 4px; }
