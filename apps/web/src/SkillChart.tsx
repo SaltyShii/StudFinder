@@ -108,16 +108,16 @@ function SpotShape({ row: r, speedEffect, axis, track }: { row: AceSkillRow; spe
 	const { min, max, median: mid } = r.spotSpread;
 	const { reach, stretches: whole } = rowEffect(track.curve, r.spots, min, distance, mid);
 	const lastEnd = Math.max(...r.spots.map((s) => s.end), reach);
-	const all = speedEffect ? whole : [];
-	const stretches = all.filter((s) => s.kind !== 'ended');
+	const toFinish = speedEffect ? whole : [];
+	const stretches = toFinish.filter((s) => s.kind !== 'ended');
 	const title = `Procs ${Math.round(min)}-${Math.round(max)} m, median ${Math.round(mid)} m; effect lasts about ${r.duration.toFixed(1)} s`;
 	const left = (m: number) => pct(axis.x(m));
 	const box = (a: number, b: number) => ({ left: left(a), width: pct(Math.max(axis.span(a, b), 3)) });
 	if (isFixedSpot(r.spotSpread)) {
-		const first = speedEffect ? rowEffect(track.curve, r.spots, mid, distance).stretches[0]?.kind : undefined;
+		const firstKind = speedEffect ? rowEffect(track.curve, r.spots, mid, distance).stretches[0]?.kind : undefined;
 		return <div data-testid="spot-pin" title={title}>
 			<span class="tail" style={box(mid, lastEnd)} />
-			<span class="pin" style={{ left: left(mid), background: FX_VAR[first ?? 'neutral'] }} />
+			<span class="pin" style={{ left: left(mid), background: FX_VAR[firstKind ?? 'neutral'] }} />
 		</div>;
 	}
 	if (max - min <= distance * BLOCK_SPREAD) {
@@ -132,20 +132,20 @@ function SpotShape({ row: r, speedEffect, axis, track }: { row: AceSkillRow; spe
 	const peak = Math.max(...bins, 1e-9);
 	const top = (v: number) => ROW_H - 3 - (v / peak) * (ROW_H - 8);
 	const pts = bins.map((v, i) => `${axis.x(i * binWidth + binWidth / 2).toFixed(1)} ${top(v).toFixed(1)}`);
-	const d = `M${axis.x(0).toFixed(1)} ${ROW_H - 3}L${pts.join('L')}L${axis.x(distance).toFixed(1)} ${ROW_H - 3}Z`;
+	const areaPath = `M${axis.x(0).toFixed(1)} ${ROW_H - 3}L${pts.join('L')}L${axis.x(distance).toFixed(1)} ${ROW_H - 3}Z`;
 	const gid = `fx-${r.skillId}`;
 	return <div data-testid="spot-density" title={title}>
 		<span class="tail" style={box(min, lastEnd)} />
 		<svg viewBox={`0 0 ${AXIS.viewWidth} ${ROW_H}`} preserveAspectRatio="none" aria-hidden="true">
 			{speedEffect && <defs>
 				<linearGradient id={gid} gradientUnits="userSpaceOnUse" x1={axis.x(0)} x2={axis.x(distance)} y1={0} y2={0}>
-					{all.flatMap((s) => [
+					{toFinish.flatMap((s) => [
 						<stop offset={s.start / distance} stop-color={FX_VAR[s.kind]} />,
 						<stop offset={s.end / distance} stop-color={FX_VAR[s.kind]} />,
 					])}
 				</linearGradient>
 			</defs>}
-			<path d={d} fill={speedEffect && stretches.length ? `url(#${gid})` : FX_VAR.neutral} opacity={0.95} />
+			<path d={areaPath} fill={speedEffect && stretches.length ? `url(#${gid})` : FX_VAR.neutral} opacity={0.95} />
 		</svg>
 	</div>;
 }

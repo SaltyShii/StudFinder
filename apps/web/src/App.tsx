@@ -3,7 +3,7 @@ import type { SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import { AssumptionsPanel } from './AssumptionsPanel';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { STYLE_LABEL, STYLES, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
 import { AceHero, nameOf } from './AceHero';
@@ -13,7 +13,7 @@ import { SimRunner } from './SimRunner';
 import { TierEditor } from './TierEditor';
 import { SkillChart, SkillFootnote, skillChips } from './SkillChart';
 import { SKILL_CATEGORIES, type SkillCategory } from '../../../packages/scoring/src/skillCategory';
-import { courseTitle } from './trackAxis';
+import { courseTitle, isLeftHanded } from './trackAxis';
 import { TrackOverview } from './TrackOverview';
 import { LoopSlots } from './LoopSlots';
 import { PickList } from './PickList';
@@ -121,7 +121,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		<main class="layout">
 			<header class="app-header" data-testid="app-header">
 				<h1>{result?.aceSlot ? `${SKILL_CATEGORIES.find((c) => c.key === skillTab)!.label} skills` : 'Stud Finder'}</h1>
-				<p class="course" data-testid="header-cm">{cm.name}{course && ` - ${course.distance}m ${course.ground === 2 ? 'dirt' : 'turf'}`}</p>
+				<p class="course" data-testid="header-cm">{cm.name}{course && ` - ${course.distance}m ${surfaceOf(course.ground)}`}</p>
 				<span class="badge" data-testid="style-badge">{STYLE_LABEL[style]}</span>
 			</header>
 			<div class="sidebar">
@@ -171,7 +171,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 				<div class="results">
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
 					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
-					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={course?.turn === 2} chips={chips} stale={stale} />}
+					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={!!course && isLeftHanded(course)} chips={chips} stale={stale} />}
 					{result?.aceSlot && <>
 						<SkillChart rows={result.aceSlot.skills} track={result.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />
 						<SkillFootnote rows={result.aceSlot.skills} />

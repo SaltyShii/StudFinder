@@ -52,7 +52,7 @@ export interface EffectStretch {
 import { median } from './pairedRace';
 
 // Speed gain in m/s between two curve points (10 m apart) that still counts as accelerating.
-const ACCELERATING = 0.01;
+const ACCELERATING_SPEED_DELTA = 0.01;
 
 /**
  * What a speed effect can do for the Baseline runner along [from, reach]: 'accelerating' where the runner is still gaining speed (acceleration and target speed both help),
@@ -70,7 +70,7 @@ export function effectStretches(curve: { pos: number; speed: number }[], from: n
 	for (let i = 0; i + 1 < curve.length; i++) {
 		const a = curve[i];
 		const b = curve[i + 1];
-		push(Math.max(a.pos, from), Math.min(b.pos, live), b.speed - a.speed > ACCELERATING ? 'accelerating' : 'cruise');
+		push(Math.max(a.pos, from), Math.min(b.pos, live), b.speed - a.speed > ACCELERATING_SPEED_DELTA ? 'accelerating' : 'cruise');
 	}
 	if (reach < distance) push(Math.max(live, from), distance, 'ended');
 	return out;

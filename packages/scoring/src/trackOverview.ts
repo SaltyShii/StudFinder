@@ -77,12 +77,12 @@ export function trackOverview({ horse, courseId, seed = 1, season, ground, weath
 
 function heightProfile(slopes: (Span & { slope: number })[], distance: number): { pos: number; height: number }[] {
 	const points = [{ pos: 0, height: 0 }];
-	let h = 0;
+	let height = 0;
 	let at = 0;
-	const push = (pos: number) => points.push({ pos, height: h });
+	const push = (pos: number) => points.push({ pos, height });
 	for (const s of [...slopes].sort((a, b) => a.start - b.start)) {
 		if (s.start > at) push(s.start);
-		h += ((s.end - s.start) * s.slope) / 100;
+		height += ((s.end - s.start) * s.slope) / 100;
 		at = s.end;
 		push(s.end);
 	}
