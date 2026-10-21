@@ -43,7 +43,7 @@ interface Props {
 	stale?: boolean;
 }
 
-/** Every skill the Ace can end up with, as its own panel under the Track overview: rarity dot, name, lengths gained, Proc %, and a bar area on the overview's distance axis (where the skill can fire, how far the effect lasts). Tabs split the skills by what they do; rows resting on the default position assumption are greyed and marked `*`. */
+/** The skills of one slot (every skill the Ace can end up with, or a Side loop lineage's Must-haves and best simulated skills), as its own panel under the Track overview: rarity dot, name, lengths gained, Proc %, and a bar area on the overview's distance axis (where the skill can fire, how far the effect lasts). Tabs split the skills by what they do; rows resting on the default position assumption are greyed and marked `*`. */
 export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 	if (!rows.length) return null;
 	const axis = distanceAxis(track.distance);

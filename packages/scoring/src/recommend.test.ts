@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { skillDetail } from './skillDetail';
 import { DEFAULT_ASSUMPTIONS } from './assumptions';
 import { skillChance } from './shared';
+import { sideLoopPicks, sideLoopPriority } from './sideLoop';
 import { recommend, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
@@ -230,4 +231,33 @@ test('only the Ace slot version has its learnable skills simulated', () => {
 	const extra = (versions: number) => sims(versions, ['200162']) - sims(versions, []);
 	expect(extra(1)).toBeGreaterThan(0);
 	expect(extra(3)).toBe(extra(1));
+});
+
+// Side loop chart rows: the picked lineage's Must-have skills plus its best simulated skills; the ranking itself never reads them.
+const sideVersion = { cardId: 1, aptitudes: apt, candidates: [unit('a', ['10081'], { affinity: 100 }), unit('b', ['10071'], { affinity: 100 }), unit('c', ['10071', '10081'], { affinity: 10 }), unit('d', [])] };
+
+test('a Side loop lineage carries chart rows: its Must-have skills flagged, plus the best simulated skills, with the lineage inherit chance', () => {
+	const slot = recommend(candidateList, preset, undefined, [sideVersion], ['10081']).sideSlots[0];
+	const carried = new Set(slot.parents.flatMap((p) => sideVersion.candidates.find((c) => c.id === p.candidateId)!.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
+	expect(slot.skills.length).toBeGreaterThan(0);
+	for (const r of slot.skills) expect(carried.has(r.skillId)).toBe(true);
+	const must = slot.skills.find((r) => r.skillId === '10081')!;
+	expect(must.mustHave).toBe(true);
+	const horses = slot.parents.flatMap((p) => sideVersion.candidates.find((c) => c.id === p.candidateId)!.horses);
+	expect(must.inherit).toBeCloseTo(skillChance(horses, '10081'), 9);
+	expect(slot.skills.filter((r) => r.skillId !== '10081').every((r) => !r.mustHave)).toBe(true);
+	expect(slot.skills.map((r) => r.lengths.avg)).toEqual([...slot.skills.map((r) => r.lengths.avg)].sort((x, y) => y - x));
+	expect(slot.skills.every((r) => !r.screened)).toBe(true);
+});
+
+test('Side loop chart rows leave the ranking untouched: spark % of the Must-haves first, simulated value only breaks ties', () => {
+	const versions = [{ cardId: 1, aptitudes: apt, candidates: sideVersion.candidates }, { cardId: 2, aptitudes: apt, candidates: [unit('v', ['10071']), unit('w', ['10071'], { affinity: 100 })] }, { cardId: 3, aptitudes: apt, candidates: [unit('x', ['10081'], { affinity: 100 }), unit('y', ['10081'], { affinity: 100 })] }];
+	const slots = recommend(candidateList, preset, undefined, versions, ['10081']).sideSlots;
+	// Reference order: the same lineages ranked by sideLoopPriority, then score, built without the chart rows.
+	const priority = (s: typeof slots[number]) => sideLoopPriority(s.parents.flatMap((p) => versions.find((v) => v.cardId === s.cardId)!.candidates.find((c) => c.id === p.candidateId)!.horses), ['10081']);
+	expect(slots.map((s) => s.cardId)).toEqual([3, 1, 2]);
+	for (let i = 1; i < slots.length; i++) expect(priority(slots[i - 1])).toBeGreaterThanOrEqual(priority(slots[i]));
+	// the lineage picks match the plain Side loop ranking over the same candidates
+	const plain = sideLoopPicks(versions[0].candidates, (id) => skillDetail(id, { courseId: preset.courseId, horse, samples: preset.samples, seed: preset.seed }), 2, [], ['10081']);
+	expect(slots.find((s) => s.cardId === 1)!.parents.map((p) => p.candidateId)).toEqual(plain.map((p) => p.candidateId));
 });
