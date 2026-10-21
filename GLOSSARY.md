@@ -91,6 +91,19 @@ The same runner and seed raced twice, once without and once with the skills, wit
 The median lengths gained by a veteran's whole equipped skill set together, over all runs whether or not each skill procced. The Ace veteran headline and ranking use it.
 _Avoid_: lengths gained (when meaning the whole set; that term is per skill, over runs where it procced)
 
+**Activation spot**:
+Where on the track a skill procced in a simulated run. Over many runs the spots form a spread along the distance, which the Track overview draws for each skill.
+_Avoid_: fire point, trigger point
+
+**Track overview**:
+The chart of the selected CM's course (speed of a neutral baseline runner, slope, straights and corners, phases, sections) with each Ace skill's activation spots and effect length drawn on it. Only the Ace slot has one; the side loop judges skills by spark % and value alone.
+
+**Baseline runner**:
+A neutral runner with no skills, used only to draw the speed curve of the Track overview (start dash, end of pace-down, last spurt kick). Not any veteran.
+
+**Sim assumptions**:
+The race conditions the simulator assumes for every score (sync RNG, wit check, rushing, spot struggle, dueling with a rate per running style, lane movement, in-game only), each switchable by the user. Defaults match umalator's; they apply to all slots.
+
 **CM preset**:
 The course, season and conditions of a specific Champions Meeting, used to pick the course and rank styles.
 
