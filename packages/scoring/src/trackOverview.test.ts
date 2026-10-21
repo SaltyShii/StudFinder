@@ -31,6 +31,27 @@ test('the baseline curve is a speed curve without skills, from the start dash to
 	expect(trackOverview({ courseId: COURSE, horse: { ...horse, skills: [] } }).curve).toEqual(t.curve);
 });
 
+test('draws the height profile from the slopes and the event bands from the course and the Baseline runner', () => {
+	const t = trackOverview({ courseId: COURSE, horse });
+	expect(t.heights[0]).toEqual({ pos: 0, height: 0 });
+	expect(t.heights[t.heights.length - 1].pos).toBe(t.distance);
+	// Height rises over an uphill and falls over a downhill.
+	for (const s of t.slopes) {
+		const at = (m: number) => t.heights.reduce((best, p) => (Math.abs(p.pos - m) < Math.abs(best.pos - m) ? p : best)).height;
+		expect(Math.sign(at(s.end) - at(s.start))).toBe(Math.sign(s.slope));
+	}
+	const [start, pace, spurt] = t.events;
+	expect([start.name, pace.name, spurt.name]).toEqual(['Start', 'Pace change', 'Last-spurt kick']);
+	expect(start.start).toBe(0);
+	expect(start.end).toBeGreaterThan(0);
+	expect(pace.start).toBe(start.end);
+	expect(pace.end).toBeGreaterThan(pace.start);
+	// The kick starts in the last phase and does not pass the finish.
+	expect(spurt.start).toBeGreaterThanOrEqual(t.phases[2].start);
+	expect(spurt.end).toBeGreaterThan(spurt.start);
+	expect(spurt.end).toBeLessThanOrEqual(t.distance);
+});
+
 test('an unknown course is reported', () => {
 	expect(() => trackOverview({ courseId: -1, horse })).toThrow(/Unknown course/);
 });

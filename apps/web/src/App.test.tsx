@@ -544,6 +544,19 @@ it('draws the Track overview of the selected CM on the Ace slot only, and redraw
 	expect(overview.querySelectorAll('[data-testid=section]').length).toBe(24);
 	expect(overview.querySelectorAll('[data-testid=phase]').length).toBe(4);
 	expect(overview.querySelector('[data-testid=speed-curve]')!.getAttribute('d')).toMatch(/^M/);
+	// Labelled rows, text inside the strips, a speed axis and a height row.
+	const labels = [...overview.querySelectorAll('.row-label > span')].map((l) => l.textContent);
+	expect(labels).toEqual(['Speed', 'Height', 'Slope', 'Track', 'Phase', 'Section', 'Metres']);
+	expect(overview.querySelector('.speed-axis')!.textContent).toMatch(/\d+\.\d m\/s.*\d+\.\d m\/s/);
+	expect(overview.querySelector('[data-testid=height-profile]')!.getAttribute('d')).toMatch(/^M/);
+	expect([...overview.querySelectorAll('[data-testid=phase]')].map((p) => p.textContent)).toEqual(['Early-race', 'Mid-race', 'Late-race', 'Last spurt']);
+	for (const s of overview.querySelectorAll('[data-testid=slope]')) expect(s.textContent).toMatch(/^(Uphill|Downhill) \d/);
+	expect([...overview.querySelectorAll('[data-testid=straight]')].every((s) => s.textContent === 'Straight')).toBe(true);
+	expect([...overview.querySelectorAll('[data-testid=corner]')].map((c) => c.textContent)).toEqual([...overview.querySelectorAll('[data-testid=corner]')].map((_, i) => `Corner ${i + 1}`));
+	// Event bands sit in the panel body behind the rows and the skill chart.
+	const bands = [...overview.querySelectorAll('.bands [data-testid=event-band]')];
+	expect(bands.map((b) => b.textContent)).toEqual(['Start', 'Pace change', 'Last-spurt kick']);
+	expect(overview.querySelector('.track-body > .bands')!.nextElementSibling!.classList.contains('track-row')).toBe(true);
 	await chooseCm(2); // course 10811, 3200 m
 	await run();
 	expect(root.querySelector('[data-testid=track-overview] svg')!.getAttribute('aria-label')).toContain('3200 m');
