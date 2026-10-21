@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import type { TrackOverview as Track } from '../../../packages/scoring/src/trackOverview';
 import { AXIS, distanceAxis } from './trackAxis';
 
@@ -7,7 +8,7 @@ const STRIP = 16;
 const TOP = CURVE_H + 6;
 
 /** The selected CM's course on a distance axis: the Baseline runner's speed curve above strips for sections, phases, straights and corners, and slopes. */
-export function TrackOverview({ track, stale }: { track: Track; stale?: boolean }) {
+export function TrackOverview({ track, stale, children }: { track: Track; stale?: boolean; children?: ComponentChildren }) {
 	const { distance } = track;
 	const axis = distanceAxis(distance);
 	const speeds = track.curve.map((p) => p.speed);
@@ -30,6 +31,7 @@ export function TrackOverview({ track, stale }: { track: Track; stale?: boolean 
 				{track.slopes.map((s) => <rect data-testid="slope" x={axis.x(s.start)} y={row(3)} width={axis.span(s.start, s.end)} height={STRIP} fill={s.slope > 0 ? '#d1495b' : '#3d8bd1'} opacity={0.7}><title>{`${s.slope > 0 ? 'Uphill' : 'Downhill'} ${Math.abs(s.slope)}%`}</title></rect>)}
 			</svg>
 			<p class="muted">Speed of a neutral Baseline runner without skills. Strips: sections, phases, straights (green) and corners (orange), slopes (red uphill, blue downhill).</p>
+			{children}
 		</section>
 	);
 }

@@ -510,6 +510,10 @@ it('shows the Ace as one combined skill list with a pick list of parents, and le
 	expect(row.textContent).toMatch(/%.*proc/s);
 	expect(row.textContent).toContain('*'); // position-conditioned: greyed and marked
 	expect(row.classList.contains('muted')).toBe(true);
+	expect(row.closest('[data-testid=track-overview]')).not.toBeNull(); // the chart sits under the overview
+	expect(row.textContent).toMatch(/\d+% inherited/);
+	expect(row.querySelector('svg')).not.toBeNull();
+	expect(row.querySelectorAll('[data-testid=spot-spread], [data-testid=spot-duration]').length).toBeGreaterThan(0);
 	const ace = root.querySelector('[data-testid=ace-parent]')!;
 	expect(ace.querySelector('strong')!.textContent).toBeTruthy();
 	expect(ace.querySelector('details, .headline')).toBeNull(); // no skill text, no per-parent score
