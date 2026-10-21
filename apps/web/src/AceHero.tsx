@@ -25,6 +25,13 @@ export function ParentCards({ parents, byId, cardIds, data, testId }: { parents:
 	</UmaCard>)}</>;
 }
 
+/** Parent cards as a pick list for the game: portrait, name and the Ace's grandparents only. */
+export function ParentPickList({ parents, byId, cardIds, data }: { parents: CandidatePick[]; byId: Map<string, Candidate>; cardIds: Map<string, number>; data: GameData }) {
+	return <>{parents.map((p) => <UmaCard testId="ace-parent" cardId={cardIds.get(p.candidateId)} name={byId.get(p.candidateId)?.name ?? p.candidateId} headline={null}>
+		<div class="cards">{byId.get(p.candidateId)?.horses.slice(1).map((g) => <img class="portrait" data-testid="ace-grandparent" alt={g.cardId == null ? "" : nameOf(data, g.cardId)} src={`${import.meta.env.BASE_URL}img/cards/${g.cardId}.png`} />)}</div>
+	</UmaCard>)}</>;
+}
+
 /** The best Ace: version, running style, 2 parents. Grandparents are the parents' own two parents. */
 export function AceHero({ pick, data, ownedVersions, cardIds, stale }: Props) {
 	const version = pick && ownedVersions.find((v) => v.cardId === pick.cardId);
@@ -35,7 +42,7 @@ export function AceHero({ pick, data, ownedVersions, cardIds, stale }: Props) {
 			{pick && (
 				<ol class="cards" style={stale ? { opacity: 0.5 } : undefined}>
 					<UmaCard testId="ace-pick" cardId={pick.cardId} name={nameOf(data, pick.cardId)} headline={pick.score.toFixed(2)} chips={[STYLE_LABEL[pick.style], ...Object.entries(data.cards.get(pick.cardId)?.aptitudes ?? {}).map(([k, v]) => `${k} ${gradeLabel(v)}`)]} />
-					<ParentCards parents={pick.parents} byId={byId} cardIds={cardIds} data={data} testId="ace" />
+					<ParentPickList parents={pick.parents} byId={byId} cardIds={cardIds} data={data} />
 				</ol>
 			)}
 		</section>

@@ -27,6 +27,18 @@ export interface PairedRun {
 	lengths: number;
 	/** At least one of the skills was used in this run. */
 	activated: boolean;
+	/** First activation among the skills in this run; unset when none activated. */
+	spot?: ActivationSpot;
+}
+
+/** One skill activation on the track. */
+export interface ActivationSpot {
+	/** Metres from the start where the skill fired. */
+	pos: number;
+	/** Seconds its longest effect lasts. */
+	duration: number;
+	/** Metres where the effect has run out, or the finish when the race ended first. */
+	end: number;
 }
 
 export function median(xs: number[]) {
@@ -57,11 +69,21 @@ export function pairedRace(skillIds: string[], { horse, courseId, samples = 100,
 		// The two runners are each other's field: two front runners in the same group is what triggers a spot struggle for both, umalator's "on" for front runners.
 		a.initUmas([t]);
 		t.initUmas([a]);
+		let spot: ActivationSpot | undefined;
+		let expiry = 0;
 		while (a.pos < distance && t.pos < distance) {
 			a.step(1 / 15);
 			t.step(1 / 15);
+			if (!spot) {
+				const act = t.activations.find((x) => skillIds.includes(x.skillId));
+				if (act) {
+					spot = { pos: act.pos, duration: act.duration, end: distance };
+					expiry = act.time + act.duration;
+				}
+			}
+			if (spot && spot.end === distance && t.accumulatetime.t >= expiry) spot.end = Math.min(t.pos, distance);
 		}
-		runs.push({ lengths: (t.pos - a.pos) / BASHIN, activated: skillIds.some((id) => t.usedSkills.has(id)) });
+		runs.push({ lengths: (t.pos - a.pos) / BASHIN, activated: skillIds.some((id) => t.usedSkills.has(id)), spot });
 	}
 	return runs;
 }

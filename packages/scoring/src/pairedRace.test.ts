@@ -19,6 +19,18 @@ test('same inputs give the same result', () => {
 	expect(pairedRace(['10071'], s)).toEqual(pairedRace(['10071'], s));
 });
 
+test('an activated run reports where the skill fired and how long its effect lasted', () => {
+	const runs = pairedRace(['210051'], s); // phase_random==0: a random spot in the opening phase
+	const hit = runs.filter((r) => r.activated);
+	expect(hit.length).toBeGreaterThan(0);
+	for (const r of hit) {
+		expect(r.spot!.pos).toBeGreaterThan(0);
+		expect(r.spot!.end).toBeGreaterThan(r.spot!.pos);
+		expect(r.spot!.duration).toBeGreaterThan(0);
+	}
+	expect(runs.filter((r) => !r.activated).every((r) => r.spot === undefined)).toBe(true);
+});
+
 test('an unknown course id is named, not a sim TypeError', () => {
 	expect(() => pairedRace([], { ...s, courseId: -1 })).toThrow('Unknown course id -1');
 });

@@ -285,6 +285,8 @@ export class RaceSolver {
 	pendingSkills: PendingSkill[]
 	pendingRemoval: Set<string>
 	usedSkills: Set<string>
+	/** Every skill activation in order: where it fired, the clock at that moment and how long its longest effect lasts (seconds). */
+	activations: {skillId: string, pos: number, time: number, duration: number}[]
 	nHills: number
 	hillIdx: number
 	/** Slope in % x 10000 (so `slopePer / 10000` is the percent grade). */
@@ -424,6 +426,7 @@ export class RaceSolver {
 		this.pendingSkills = params.skills.slice();  // copy since we remove from it
 		this.pendingRemoval = new Set();
 		this.usedSkills = new Set();
+		this.activations = [];
 		this.syncRng = new Rule30CARng(this.rng.int32());
 		this.gorosiRng = new Rule30CARng(this.rng.int32());
 		this.rushedRng = new Rule30CARng(this.rng.int32());
@@ -1466,6 +1469,8 @@ export class RaceSolver {
 	}
 
 	activateSkill(s: PendingSkill) {
+		const activation = {skillId: s.skillId, pos: this.pos, time: this.accumulatetime.t, duration: 0};
+		this.activations.push(activation);
 		// sort so that the ExtendEvolvedDuration effect always activates after other effects, since it shouldn't extend the duration of other
 		// effects on the same skill
 		s.effects.sort((a,b) => +(a.type == 42) - +(b.type == 42)).forEach(ef => {
@@ -1474,6 +1479,7 @@ export class RaceSolver {
 			const scaledDuration = ef.baseDuration * (this.course.distance / 1000) * durationScalingMultiplier *
 				(s.rarity == SkillRarity.Evolution ? this.modifiers.specialSkillDurationScaling : 1);  // TODO should probably be awakened skills
 				                                                                                       // and not just pinks
+			activation.duration = Math.max(activation.duration, scaledDuration);
 			// Apply ability_value_usage scaling
 			let modifier = ef.modifier;
 			if (ef.valueScaling === 8 || ef.valueScaling === 9) {
