@@ -14,7 +14,7 @@ npm workspaces:
 - `packages/sim`: race simulator, ours to change: forked from saltyuma-tools `uma-skill-tools/` (GPL-3.0), no longer synced. Mechanics follow `docs/race-mechanics.md` (sim is not strict-clean, so it is type-checked non-strict via `packages/scoring/tsconfig.json`).
 - `packages/lineage`: inheritance, affinity, rules, vendored from lineageplanner-salty (MIT). `goals.ts`, `optimizer.ts`, `loop.ts` score a fixed trainee and are unused; slot-mode scoring in `packages/scoring` replaces them.
 - `packages/scoring`: `recommend()` ranks veterans per slot mode; skill value = proc % x median lengths gained (median over runs where the skill activated).
-- `apps/web`: Preact UI; Web Worker runs `recommend()`, roster and settings persist in localStorage (versioned).
+- `apps/web`: Preact UI; `recommend.worker.ts` runs the ranking and sends the skill sims to a pool of 4 `jobs.worker.ts` workers, which also score the Veterans job one veteran each; roster and settings persist in localStorage (versioned).
 
 ## Tooling
 
@@ -61,6 +61,9 @@ Read during review.
 - GitHub Pages deploys from `.github/workflows/deploy-pages.yml`; live at https://saltyshii.github.io/StudFinder/, every merge to `main` redeploys
 - `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`). Regenerate locally with the commands in `scripts/ingest/NOTICE.md` (vendored lineageplanner-salty scripts; also writes `apps/web/public/img/{cards,cm,races}`); scheduled refresh is #18
 - Git over SSH to GitHub hangs intermittently (port 22). Wrap network git in `timeout 60`; on a hang, fetch over HTTPS: `git -c credential.helper='!gh auth git-credential' fetch https://github.com/SaltyShii/StudFinder.git main:refs/remotes/origin/main`
+- Stopping a process: `pkill -f "[v]ite --port"` (the bracket keeps the pattern from matching the shell's own command line, which kills the Bash tool with exit 144), or kill by PID
+- Profiling: `node --cpu-prof --cpu-prof-dir=<dir> node_modules/vite-node/vite-node.mjs <script>` with the script outside the repo; `packages/scoring/bench/recommend.ts` is the synthetic-roster loop. Read a real export from its own path, never copy it in. A perf change must give the same `recommend()` result as `main` (compare a hash of the JSON)
+- `playwright-cli`: refs change after a reload, and `upload` only works right after clicking the file chooser
 
 ## Preferences
 
