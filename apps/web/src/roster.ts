@@ -3,6 +3,7 @@ import { parseExport } from '../../../packages/lineage/src/importer';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
 import { STYLES } from '../../../packages/scoring/src/ace';
+import { DEFAULT_ASSUMPTIONS, DEFAULT_DUELING_RATES, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { TierEdits } from './jobs';
 
 const KEY = 'stud-finder:roster';
@@ -11,6 +12,7 @@ const BORROW_KEY = 'stud-finder:use-borrowed';
 const OWNED_KEY = 'stud-finder:owned-versions';
 const MUST_HAVES_KEY = 'stud-finder:must-haves';
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
+const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
 // Bump when a stored shape changes; older saves are then rejected.
 const VERSION = 1;
 
@@ -100,6 +102,24 @@ export function loadTierEdits(storage: Storage): TierEdits {
 			&& Array.isArray(e.disabled) && e.disabled.every((n) => typeof n === 'string'));
 		return ok ? (edits as TierEdits) : null;
 	}) ?? {};
+}
+
+export function saveAssumptions(storage: Storage, a: SimAssumptions): void {
+	saveVersioned(storage, ASSUMPTIONS_KEY, 'assumptions', a);
+}
+
+const RATE_STYLES = Object.keys(DEFAULT_DUELING_RATES) as (keyof DuelingRates)[];
+const FLAGS = ['witCheck', 'rushed', 'spotStruggle', 'dueling', 'laneMovement'] as const;
+
+/** The stored Sim assumptions; umalator's defaults when absent, stale-versioned or malformed. Not wiped by Clear data: they are settings, not Roster data. */
+export function loadAssumptions(storage: Storage): SimAssumptions {
+	return loadVersioned(storage, ASSUMPTIONS_KEY, 'assumptions', (v) => {
+		const a = v as Partial<SimAssumptions> | null;
+		if (!a || typeof a !== 'object' || !FLAGS.every((k) => typeof a[k] === 'boolean')) return null;
+		const rates = a.duelingRates as Partial<DuelingRates> | undefined;
+		if (!rates || !RATE_STYLES.every((k) => typeof rates[k] === 'number' && rates[k]! >= 0 && rates[k]! <= 100)) return null;
+		return { ...Object.fromEntries(FLAGS.map((k) => [k, a[k]])), duelingRates: Object.fromEntries(RATE_STYLES.map((k) => [k, rates[k]])) } as unknown as SimAssumptions;
+	}) ?? DEFAULT_ASSUMPTIONS;
 }
 
 export function clearRoster(storage: Storage): void {

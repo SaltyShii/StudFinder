@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { SimAssumptions } from '../../../packages/scoring/src/assumptions';
+import { AssumptionsPanel } from './AssumptionsPanel';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { STYLE_LABEL, STYLES, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
@@ -15,7 +17,7 @@ import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planOwned, pl
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadCm, loadOwnedVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadCm, loadOwnedVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -50,6 +52,9 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
 	const [tierEdits, setTierEdits] = useState<TierEdits>(() => loadTierEdits(localStorage));
 
+	const [assumptions, setAssumptions] = useState(() => loadAssumptions(localStorage));
+	const changeAssumptions = (next: SimAssumptions) => { saveAssumptions(localStorage, next); setAssumptions(next); };
+
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
 	const card = data && simRunnerId != null ? data.cards.get(simRunnerId) : undefined;
@@ -57,7 +62,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: ownedVersions, tierEdits, mustHaves }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: ownedVersions, tierEdits, mustHaves, assumptions }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves, assumptions]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
@@ -65,9 +70,17 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		setTierEdits(next);
 	};
 	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
-	const veteranJob = useMemo(() => planVeterans(data, roster, cm), [data, roster, cm]);
+	const veteranJob = useMemo(() => planVeterans(data, roster, cm, assumptions), [data, roster, cm, assumptions]);
 	// Nothing computes until Run: the jobs run the snapshot taken then, and any later change to `job` marks the results outdated.
 	const [ran, setRan] = useState<{ job: RecommendJob; veteranJob: VeteranJob | null; run: RecommendJob; vRun: VeteranJob | null } | null>(null);
+	const snapshot = () => job && setRan({ job, veteranJob, run: { ...job }, vRun: veteranJob && { ...veteranJob } });
+	// A new assumption changes every score, so results already on screen are recomputed rather than left outdated.
+	const lastAssumptions = useRef(assumptions);
+	useEffect(() => {
+		if (lastAssumptions.current === assumptions) return;
+		lastAssumptions.current = assumptions;
+		if (ran) snapshot();
+	}, [assumptions]);
 	const { result, progress, busy, stale: running, error: jobError, cancel } = useJob(run, ran?.run ?? null);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, ran?.vRun ?? null, { clearOnRestart: true });
@@ -131,10 +144,11 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						))}</fieldset>}
 					</section>
 				)}
+				{roster && data && <AssumptionsPanel value={assumptions} onChange={changeAssumptions} />}
 				{roster && data && <MustHaves data={data} tiers={applyTierEdit(baseTierList, tierEdits[coreStyle])} mustHaves={mustHaves} suggestions={suggestions} onChange={(ids) => { saveMustHaves(localStorage, ids); setMustHaves(ids); }} />}
 				{roster && data && <TierEditor base={baseTierList} edit={tierEdits[coreStyle]} onChange={editTiers} />}
 				<section class="panel">
-					<button class="primary" name="run" disabled={!job} onClick={() => setRan({ job: job!, veteranJob, run: { ...job! }, vRun: veteranJob && { ...veteranJob } })}>Run</button>
+					<button class="primary" name="run" disabled={!job} onClick={snapshot}>Run</button>
 					{!job && <p class="muted">Import a Roster with Owned versions to run.</p>}
 				</section>
 			</div>

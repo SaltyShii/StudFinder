@@ -363,6 +363,55 @@ it('Core loop style follows the Sim runner style until overridden', async () => 
 	expect(core.value).toBe('oikomi');
 });
 
+it('shows the Sim assumptions with umalator defaults, re-runs every slot on a change, resets and persists them', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };
+	const mount = () => render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root);
+	mount();
+	await importFile();
+	const box = (name: string) => root.querySelector<HTMLInputElement>(`.sim-assumptions input[name=${name}]`)!;
+	const flip = (name: string) => click(box(name));
+	expect(box('witCheck').checked).toBe(false);
+	for (const name of ['rushed', 'spotStruggle', 'laneMovement']) expect(box(name).checked).toBe(true);
+	expect(box('dueling').checked).toBe(false);
+	expect(root.querySelector('.sim-assumptions input[name=rate-frontRunner]')).toBeNull(); // rates show only while dueling is on
+	await run();
+	expect(jobs).toHaveLength(1);
+	expect(jobs[0].preset.assumptions).toMatchObject({ witCheck: false, rushed: true, dueling: false });
+	await flip('witCheck'); // results exist, so the change runs by itself
+	expect(jobs).toHaveLength(2);
+	expect(jobs[1].preset.assumptions!.witCheck).toBe(true);
+	await flip('dueling');
+	const rate = root.querySelector<HTMLInputElement>('.sim-assumptions input[name=rate-frontRunner]')!;
+	rate.value = '40';
+	await act(() => { rate.dispatchEvent(new Event('change')); });
+	expect(jobs.at(-1)!.preset.assumptions).toMatchObject({ dueling: true, duelingRates: { frontRunner: 40 } });
+	render(null, root);
+	mount();
+	await flush();
+	await flush();
+	expect(box('witCheck').checked).toBe(true);
+	expect(box('rate-frontRunner').value).toBe('40');
+	await click(root.querySelector('.sim-assumptions button[name=reset-assumptions]'));
+	expect(box('witCheck').checked).toBe(false);
+	expect(box('dueling').checked).toBe(false);
+	expect(root.querySelector('.sim-assumptions input[name=rate-frontRunner]')).toBeNull();
+});
+
+it('shows it is recomputing after an assumption change, and runs nothing before the first Run', async () => {
+	const jobs: RecommendJob[] = [];
+	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };
+	render(<App loadData={async () => data} run={manual} runVeterans={noV} />, root);
+	await importFile();
+	await click(root.querySelector('.sim-assumptions input[name=rushed]'));
+	expect(jobs).toHaveLength(0);
+	await run();
+	expect(jobs[0].preset.assumptions!.rushed).toBe(false);
+	await click(root.querySelector('.sim-assumptions input[name=laneMovement]'));
+	expect(jobs).toHaveLength(2);
+	expect(root.textContent).toContain('Computing');
+});
+
 it('adds Must-have skills in a popup by search or suggestion chip, passes them to the job and persists them', async () => {
 	const jobs: RecommendJob[] = [];
 	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };

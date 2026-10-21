@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
-import { clearRoster, importRoster, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
+import { DEFAULT_ASSUMPTIONS } from '../../../packages/scoring/src/assumptions';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -64,6 +65,20 @@ it('persists Tier edits and drops stale-versioned or malformed ones', () => {
 	expect(loadTierEdits(s)).toEqual({});
 	s.setItem('stud-finder:tier-edits', JSON.stringify({ version: 1, edits: [edits.sashi] }));
 	expect(loadTierEdits(s)).toEqual({});
+});
+
+it('persists Sim assumptions and falls back to the defaults for stale-versioned or malformed ones', () => {
+	const s = fakeStorage();
+	expect(loadAssumptions(s)).toEqual(DEFAULT_ASSUMPTIONS);
+	const changed = { ...DEFAULT_ASSUMPTIONS, witCheck: true, dueling: true, duelingRates: { ...DEFAULT_ASSUMPTIONS.duelingRates, frontRunner: 40 } };
+	saveAssumptions(s, changed);
+	expect(loadAssumptions(s)).toEqual(changed);
+	s.setItem('stud-finder:sim-assumptions', JSON.stringify({ version: 99, assumptions: changed }));
+	expect(loadAssumptions(s)).toEqual(DEFAULT_ASSUMPTIONS);
+	s.setItem('stud-finder:sim-assumptions', JSON.stringify({ version: 1, assumptions: { ...changed, rushed: 'yes' } }));
+	expect(loadAssumptions(s)).toEqual(DEFAULT_ASSUMPTIONS);
+	s.setItem('stud-finder:sim-assumptions', JSON.stringify({ version: 1, assumptions: { ...changed, duelingRates: { ...changed.duelingRates, endCloser: 150 } } }));
+	expect(loadAssumptions(s)).toEqual(DEFAULT_ASSUMPTIONS);
 });
 
 it('clearing data also drops Must-haves and Tier edits', () => {

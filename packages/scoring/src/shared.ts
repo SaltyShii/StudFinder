@@ -2,6 +2,7 @@ import { FactorType } from '@stud-finder/lineage/src/types';
 import { GRADE_A, aptitudeChance, chanceAny, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Tier } from '@stud-finder/lineage/src/tiers';
+import type { SimAssumptions } from './assumptions';
 import type { RaceConditions } from './pairedRace';
 import type { SkillValue } from './skillValue';
 
@@ -44,6 +45,8 @@ export interface CmPreset extends RaceConditions {
 	runner: HorseDesc;
 	samples?: number;
 	seed?: number;
+	/** Race conditions every paired race assumes; umalator's defaults when unset. */
+	assumptions?: SimAssumptions;
 }
 export interface SkillDetail extends SkillValue {
 	skillId: string;
