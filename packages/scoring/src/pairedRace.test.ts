@@ -85,3 +85,9 @@ test('front runners share the skill-less run once spot struggle is off, with the
 	const front = { ...s, horse: { ...horse, strategy: 'Nige' }, assumptions: { ...DEFAULT_ASSUMPTIONS, spotStruggle: false } };
 	expect(pairedRaces(sets, front, assumesPosition)).toEqual(sets.map((ids) => pairedRace(ids, front)));
 });
+
+test('front runners with spot struggle off and dueling on still match pairedRace', () => {
+	const rates = { runaway: 100, frontRunner: 100, paceChaser: 100, lateSurger: 100, endCloser: 100 };
+	const front = { ...s, horse: { ...horse, strategy: 'Nige' }, assumptions: { ...DEFAULT_ASSUMPTIONS, spotStruggle: false, dueling: true, duelingRates: rates } };
+	expect(pairedRaces(sets, front, assumesPosition)).toEqual(sets.map((ids) => pairedRace(ids, front)));
+});
