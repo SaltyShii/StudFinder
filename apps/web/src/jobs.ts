@@ -29,6 +29,11 @@ export interface VeteranJob {
 	/** [card id, unique skill id] pairs (structured-cloneable for the worker). */
 	uniqueSkills: [number, number][];
 }
+/** One veteran of a VeteranJob, scored apart by a pool worker. */
+export interface VeteranTask extends Omit<VeteranJob, 'veterans' | 'uniqueSkills'> {
+	veteran: Veteran;
+	unique?: number;
+}
 export type VeteranProgress = [done: number, total: number];
 export type { RecommendProgress };
 /** What the worker reports while a job runs. */
@@ -37,7 +42,7 @@ export type RecommendRunner = JobRunner<RecommendJob, Recommendation, RecommendP
 export type VeteranRunner = JobRunner<VeteranJob, AceVeteranScore[], VeteranProgress>;
 
 /** What crosses to the worker: one entry file serves every job, told apart by `kind`. */
-export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'veterans'; job: VeteranJob };
+export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'veteran'; task: VeteranTask };
 
 // A Core loop is usable for any CM, so skills tied to a surface, distance, track, season, weather or track condition do not count.
 const CM_BOUND = /(ground_type|distance_type|is_basis_distance|track_id|season|weather|ground_condition|rotation)[=!<>]/;
@@ -135,4 +140,10 @@ export function planVeterans(data: GameData | null, roster: ImportResult | null,
 	const uniqueSkills: [number, number][] = [];
 	data.cards.forEach((c) => { if (c.uniqueSkillId != null) uniqueSkills.push([c.id, c.uniqueSkillId]); });
 	return { veterans: roster.veterans, courseId: cm.courseId, assumptions, season: cm.season, ground: cm.ground, weather: cm.weather, time: cm.time, uniqueSkills };
+}
+
+/** One task per veteran, so a pool can score them in parallel; the unique skill is looked up here to keep the messages small. */
+export function veteranTasks({ veterans, uniqueSkills, ...conditions }: VeteranJob): VeteranTask[] {
+	const unique = new Map(uniqueSkills);
+	return veterans.map((veteran) => ({ ...conditions, veteran, unique: unique.get(veteran.cardId) }));
 }
