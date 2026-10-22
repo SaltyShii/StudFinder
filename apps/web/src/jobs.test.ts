@@ -119,6 +119,11 @@ it('plans an Owned version with only the buyable skills on its own card list', (
 	expect(stud.learnableSkillIds).toEqual(['20001']);
 });
 
+it('plans the rest of the buyable pool as Other skills, the card list included for the chart to dedupe', () => {
+	const [stud] = planOwned(data, roster, [100201], course, false);
+	expect(stud.otherSkillIds).toEqual(['20001', '200162']);
+});
+
 it('veterans scored apart as pool tasks and ranked together equal the serial score', () => {
 	const apt = { turf: 8, dirt: 3, short: 4, mile: 7, middle: 7, long: 5, nige: 2, senko: 7, sashi: 6, oikomi: 1 };
 	const base = { ...roster.veterans[0], aptitudes: apt, skillIds: [10071] };

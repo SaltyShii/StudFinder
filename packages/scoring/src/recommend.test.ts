@@ -260,6 +260,14 @@ test('a learnable skill is an own row (certain, Must-have flagged); one a parent
 	expect(rows.map((r) => r.lengths.avg)).toEqual([...rows.map((r) => r.lengths.avg)].sort((x, y) => y - x));
 });
 
+test('buyable skills off the card list and off every parent are Other rows, apart from the rest', () => {
+	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, learnableSkillIds: ['10071'], otherSkillIds: ['10071', '10081'], candidates: [unit('a', []), unit('b', [])] }]);
+	const rows = rec.aceSlots[0].skills;
+	expect(rows.find((r) => r.skillId === '10081')).toMatchObject({ other: true, own: false });
+	expect(rows.filter((r) => r.skillId === '10071')).toHaveLength(1);
+	expect(rows.find((r) => r.skillId === '10071')!.other).toBeUndefined();
+});
+
 test('an Owned version with no learnable skills keeps the inherited rows', () => {
 	const row = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', [])], []).find((r) => r.skillId === '10071')!;
 	expect(row.inherit).toBeLessThan(1);

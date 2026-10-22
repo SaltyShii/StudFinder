@@ -20,6 +20,8 @@ export interface OwnedVersion {
 	uniqueSkillId?: string;
 	/** The skills on the Ace card's own list it can buy with skill points (see buyableSkillIds); those whose conditions it cannot meet are dropped, the rest are its own skills unless a parent can pass them on. */
 	learnableSkillIds?: string[];
+	/** The rest of the buyable pool (white and gold skills off the card list): the chart lists them apart, below the rest. */
+	otherSkillIds?: string[];
 	candidates: Candidate[];
 }
 /** An Ace hero: a version in the style it runs in, with 2 parents (their own parents are its 4 grandparents). */
@@ -49,6 +51,8 @@ export interface AceSkillRow extends SkillDetail {
 	/** The Ace's own skill (its unique or a Buyable skill): certain, so no inherit chance applies. */
 	own: boolean;
 	mustHave: boolean;
+	/** An Other buyable skill: on neither the Ace's card list nor a parent, so the chart lists it apart. */
+	other?: boolean;
 }
 
 /** A Side loop or Core loop lineage: the version to train with the 2 parents (and their grandparents) to run it with. */
@@ -322,7 +326,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-		out.push({ v, reachable, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score: win.score, expectedLengths: win.score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface })) });
+		out.push({ v, reachable, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score: win.score, expectedLengths: win.score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface }), skillsAceCanMeet(v.otherSkillIds ?? [], { style, category, surface: course.surface })) });
 	}
 	return out;
 }
@@ -353,7 +357,7 @@ export function bestPair(pairs: Candidate[][], rank: (cs: Candidate[]) => Candid
 }
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
-function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[]): AceSkillRow[] {
+function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = []): AceSkillRow[] {
 	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
 	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
 	// A buyable skill is certain, so it is an own row, unless a parent lineage can pass it on: that one shows its inherit chance (the skill points it may save), not a claim that it is bought. The unique skill is not shown twice.
@@ -364,6 +368,8 @@ function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses:
 		const inherit = 1 - parents.reduce((q, p) => q * (1 - skillChance(p.horses, id)), 1);
 		rows.push(rowOf(detailOf(id), inherit, mustHaves));
 	}
+	const listed = new Set([...rows.map((r) => r.skillId), ...own]);
+	for (const id of new Set(otherSkillIds)) if (!listed.has(id) && id in skillData) rows.push({ ...rowOf(detailOf(id), 0, mustHaves), other: true });
 	return chartRows(rows);
 }
 

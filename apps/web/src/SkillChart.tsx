@@ -46,7 +46,24 @@ interface Props {
 export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 	if (!rows.length) return null;
 	const axis = distanceAxis(track.distance);
-	const shown = rows.map((r) => ({ r, category: skillCategory(r.skillId) })).filter((x) => x.category === tab).sort((a, b) => b.r.lengths.avg - a.r.lengths.avg);
+	const inTab = rows.map((r) => ({ r, category: skillCategory(r.skillId) })).filter((x) => x.category === tab).sort((a, b) => b.r.lengths.avg - a.r.lengths.avg);
+	const shown = inTab.filter((x) => !x.r.other);
+	const others = inTab.filter((x) => x.r.other);
+	const skillRow = ({ r, category }: (typeof inTab)[number]) => {
+		const skill = data.skills.get(Number(r.skillId));
+		const name = skill?.name ?? r.skillId;
+		return (
+			<li data-testid="ace-skill-row" class={r.assumesPosition ? 'muted' : undefined} data-must-have={r.mustHave || undefined}>
+				<i class="rarity-dot" data-rarity={rarityOf(skill?.rarity)} title={r.other ? 'Other buyable skill: the Ace can buy it with skill points, but no parent carries it' : r.own ? 'Own skill: the Ace has it or can buy it with skill points' : `${(r.inherit * 100).toFixed(0)}% inherited`} />
+				<span class="skill-name" title={name}>{name}{r.assumesPosition && ' *'}</span>
+				<span class="skill-lengths num">{`${r.lengths.avg < 0 ? '-' : '+'}${Math.abs(r.lengths.avg).toFixed(2)} L`}</span>
+				<span class="skill-proc num">{r.proc.toFixed(0)}%</span>
+				<div class="bar-area" role="img" aria-label={`Activation spots of ${name}`}>
+					{r.spots.length > 0 && <SpotShape row={r} speedEffect={isSpeedEffect(category)} axis={axis} track={track} />}
+				</div>
+			</li>
+		);
+	};
 	return (
 		<div class="chart-scroll" data-testid="chart-scroll">
 		<section class="panel skill-panel skill-table" style={stale ? { opacity: 0.5 } : undefined}>
@@ -71,22 +88,10 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 			<div class="skill-body">
 				<EventBands track={track} axis={axis} />
 				<ul class="skill-chart" data-testid="skill-chart">
-					{shown.map(({ r, category }) => {
-						const skill = data.skills.get(Number(r.skillId));
-						const name = skill?.name ?? r.skillId;
-						return (
-							<li data-testid="ace-skill-row" class={r.assumesPosition ? 'muted' : undefined} data-must-have={r.mustHave || undefined}>
-								<i class="rarity-dot" data-rarity={rarityOf(skill?.rarity)} title={r.own ? 'Own skill: the Ace has it or can buy it with skill points' : `${(r.inherit * 100).toFixed(0)}% inherited`} />
-								<span class="skill-name" title={name}>{name}{r.assumesPosition && ' *'}</span>
-								<span class="skill-lengths num">{`${r.lengths.avg < 0 ? '-' : '+'}${Math.abs(r.lengths.avg).toFixed(2)} L`}</span>
-								<span class="skill-proc num">{r.proc.toFixed(0)}%</span>
-								<div class="bar-area" role="img" aria-label={`Activation spots of ${name}`}>
-									{r.spots.length > 0 && <SpotShape row={r} speedEffect={isSpeedEffect(category)} axis={axis} track={track} />}
-								</div>
-							</li>
-						);
-					})}
-					{!shown.length && <li class="empty muted">No {SKILL_CATEGORIES.find((c) => c.key === tab)!.label.toLowerCase()} skills.</li>}
+					{shown.map(skillRow)}
+					{others.length > 0 && <li class="skill-section" data-testid="other-skills-head">Other buyable skills</li>}
+					{others.map(skillRow)}
+					{!inTab.length && <li class="empty muted">No {SKILL_CATEGORIES.find((c) => c.key === tab)!.label.toLowerCase()} skills.</li>}
 				</ul>
 			</div>
 		</section>

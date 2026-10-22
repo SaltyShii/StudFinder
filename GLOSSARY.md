@@ -48,8 +48,12 @@ An Owned version to train next, with its 2 parents and 4 grandparents and the Tr
 _Avoid_: equipped skills (that is the Ace veteran's term), ace (for the finished run)
 
 **Buyable skill**:
-A general skill (white or gold) on the Ace card's own skill list that the Ace can buy with skill points after its run, when it meets the skill's running style, distance and surface conditions. The chart lists them as the Ace's own skills (certain), except one a parent can pass on, which shows its inherit chance instead. Skills off the card list appear only through a parent.
+A general skill (white or gold) on the Ace card's own skill list that the Ace can buy with skill points after its run, when it meets the skill's running style, distance and surface conditions. The chart lists them as the Ace's own skills (certain), except one a parent can pass on, which shows its inherit chance instead. Skills off the card list appear only through a parent, or under **Other buyable skill** below.
 _Avoid_: learnable skill, equipped skill
+
+**Other buyable skill**:
+A white or gold skill (the strongest of its group) the Ace meets the conditions of but that is on neither its card list nor a parent lineage. The chart lists these in their own section below the Ace's own and inheritable skills; they never feed the Track overview chips or the Ace ranking.
+_Avoid_: extra skill
 
 **Sim runner**:
 The uma every simulation runs against, chosen by the user, with its running style and Target stats. It is a measuring stick, not a recommendation: the Ace is picked separately.

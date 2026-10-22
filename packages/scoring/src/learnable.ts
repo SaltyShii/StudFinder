@@ -15,6 +15,17 @@ export function buyableSkillIds(cardSkillIds: Iterable<number>, skills: Readonly
 	}).map(String);
 }
 
+/** The white and gold skills any Ace could buy, the strongest of each skill group (the circle tiers and the gold version share one), never a penalty skill. The card list is a part of it; the rest are the Other buyable skills. */
+export function poolSkillIds(skills: Iterable<{ id: number; rarity: number; groupId: number; gradeValue: number }>): string[] {
+	const best = new Map<number, { id: number; gradeValue: number }>();
+	for (const s of skills) {
+		if (s.rarity !== WHITE && s.rarity !== GOLD) continue;
+		const cur = best.get(s.groupId);
+		if (!cur || s.gradeValue > cur.gradeValue) best.set(s.groupId, s);
+	}
+	return [...best.values()].filter((s) => s.gradeValue > 0).map((s) => String(s.id));
+}
+
 type SimSkill = { alternatives: { precondition: string; condition: string }[] };
 
 /** The skills (those the sim knows) the Ace can meet the running style, distance and surface conditions of; everything else, such as another style's skills, is dropped. */
