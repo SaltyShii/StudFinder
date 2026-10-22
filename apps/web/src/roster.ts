@@ -10,6 +10,7 @@ const KEY = 'stud-finder:roster';
 const CM_KEY = 'stud-finder:cm';
 const BORROW_KEY = 'stud-finder:use-borrowed';
 const OWNED_KEY = 'stud-finder:owned-versions';
+const LOOP_KEY = 'stud-finder:loop-versions';
 const MUST_HAVES_KEY = 'stud-finder:must-haves';
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
 const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
@@ -17,7 +18,7 @@ const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
 const VERSION = 1;
 
 /** Every key clearRoster wipes; add new keys here only. The last is an earlier version's manual owned toggles, which no longer exist. */
-const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
+const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
 
 function saveVersioned(storage: Storage, key: string, field: string, value: unknown): void {
 	storage.setItem(key, JSON.stringify({ version: VERSION, [field]: value }));
@@ -77,6 +78,15 @@ export function saveOwnedVersions(storage: Storage, ids: number[]): void {
 /** Card ids the player ticked, or null (use the Roster prefill) when absent, stale-versioned or malformed. */
 export function loadOwnedVersions(storage: Storage): number[] | null {
 	return loadVersioned(storage, OWNED_KEY, 'ids', (v) => (Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null));
+}
+
+export function saveLoopVersions(storage: Storage, ids: number[]): void {
+	saveVersioned(storage, LOOP_KEY, 'ids', ids);
+}
+
+/** Card ids the player narrowed the Loop versions to, or null (every Owned version) when absent, stale-versioned or malformed. */
+export function loadLoopVersions(storage: Storage): number[] | null {
+	return loadVersioned(storage, LOOP_KEY, 'ids', (v) => (Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null));
 }
 
 export function saveMustHaves(storage: Storage, ids: string[]): void {

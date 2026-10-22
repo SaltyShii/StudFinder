@@ -9,6 +9,7 @@ import { formatAge } from './age';
 import { AceHero, nameOf } from './AceHero';
 import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
+import { LoopVersions } from './LoopVersions';
 import { SimRunner } from './SimRunner';
 import { TierEditor } from './TierEditor';
 import { skillChips } from './SkillChart';
@@ -22,7 +23,7 @@ import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planOwned, pl
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadCm, loadOwnedVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -49,7 +50,10 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [ownedChoice, setOwnedChoice] = useState<number[] | null>(() => loadOwnedVersions(localStorage));
 	// Until the player edits, Owned versions are the versions the Roster has a veteran of.
 	const owned = useMemo(() => new Set(ownedChoice ?? roster?.veterans.map((v) => v.cardId) ?? []), [ownedChoice, roster]);
-	const [mustHaves, setMustHaves] = useState<string[]>(() => loadMustHaves(localStorage));
+	const [loopChoice, setLoopChoice] = useState<number[] | null>(() => loadLoopVersions(localStorage));
+	// Until the player narrows it, the Loop versions are every Owned version.
+	const loopPicked = useMemo(() => new Set(loopChoice ? [...owned].filter((id) => loopChoice.includes(id)) : owned), [loopChoice, owned]);
+	const [mustHaves, setMustHaves] =useState<string[]>(() => loadMustHaves(localStorage));
 	// Null is the Generic runner (all A, no unique skill).
 	const [simRunnerId, setSimRunnerId] = useState<number | null>(null);
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
@@ -70,7 +74,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: ownedVersions, tierEdits, mustHaves, assumptions }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, tierEdits, mustHaves, assumptions]);
+	const loopVersions = useMemo(() => ownedVersions.filter((v) => loopPicked.has(v.cardId)), [ownedVersions, loopPicked]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: ownedVersions, loopVersions, tierEdits, mustHaves, assumptions }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, loopVersions, tierEdits, mustHaves, assumptions]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
@@ -137,10 +142,11 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						<h2>Roster</h2>
 						<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
 						<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
-						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
+						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setLoopChoice(null); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
 					</section>
 				)}
 				{roster && data && <OwnedVersions data={data} owned={owned} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />}
+				{roster && data && <LoopVersions data={data} owned={owned} picked={loopPicked} onChange={(ids) => { saveLoopVersions(localStorage, ids); setLoopChoice(ids); }} />}
 				{roster && data && (
 					<section class="panel">
 						<CmBanner cmId={cm.id} />

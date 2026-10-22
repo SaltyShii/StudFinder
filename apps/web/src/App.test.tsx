@@ -509,6 +509,35 @@ it('picks Owned versions in a popup grid, shows a summary, and persists the edit
 	expect(root.textContent).toContain('2 owned');
 });
 
+it('picks Loop versions in a popup of the owned versions only, defaults to all, persists, and sends them to the run', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, fail) => { jobs.push(job); return inline(job, p, done, fail); };
+	const mount = async () => { render(null, root); await act(() => { render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root); }); await flush(); };
+	await mount();
+	await importFile();
+	expect(root.textContent).toContain('2 of 2 loop versions');
+	await run();
+	expect(jobs.at(-1)!.loopVersions!.map((v) => v.cardId).sort()).toEqual([100201, 100301]);
+	await click(root.querySelector('button[name=edit-loop]'));
+	const boxes = () => [...root.querySelectorAll<HTMLButtonElement>('.modal button[name=card]')];
+	expect(boxes().map((b) => [b.value, b.getAttribute('aria-pressed')])).toEqual([['100201', 'true'], ['100301', 'true']]);
+	await click(boxes()[0]);
+	expect(boxes().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+	expect(localStorage.getItem('stud-finder:loop-versions')).toContain('100301');
+	await closeModal();
+	expect(root.textContent).toContain('1 of 2 loop versions');
+	await run();
+	expect(jobs.at(-1)!.loopVersions!.map((v) => v.cardId)).toEqual([100301]);
+	expect(jobs.at(-1)!.owned!.map((v) => v.cardId).sort()).toEqual([100201, 100301]);
+	await mount();
+	await run();
+	expect(root.textContent).toContain('1 of 2 loop versions');
+	expect(jobs.at(-1)!.loopVersions!.map((v) => v.cardId)).toEqual([100301]);
+	localStorage.setItem('stud-finder:loop-versions', JSON.stringify({ version: 99, ids: [100301] }));
+	await mount();
+	expect(root.textContent).toContain('2 of 2 loop versions');
+});
+
 it('edits the Tier list in a popup per Core loop style, resets it, and persists the edit', async () => {
 	const jobs: RecommendJob[] = [];
 	const spy: RecommendRunner = (job, p, done, fail) => { jobs.push(job); return inline(job, p, done, fail); };
