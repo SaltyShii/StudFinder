@@ -355,11 +355,11 @@ export function bestPair(pairs: Candidate[][], rank: (cs: Candidate[]) => Candid
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
 function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[]): AceSkillRow[] {
 	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
-	// The version's learnable skills are certain, so they are own rows and never inherited ones; the unique skill is not shown twice.
-	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && id in skillData) rows.push(rowOf(detailOf(id), 1, mustHaves, true));
 	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
+	// A buyable skill is certain, so it is an own row, unless a parent lineage can pass it on: that one shows its inherit chance (the skill points it may save), not a claim that it is bought. The unique skill is not shown twice.
+	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && !ids.has(id) && id in skillData) rows.push(rowOf(detailOf(id), 1, mustHaves, true));
 	for (const id of ids) {
-		if (own.includes(id) || id === unique?.skillId || learnableSkillIds.includes(id)) continue;
+		if (own.includes(id) || id === unique?.skillId) continue;
 		// Which lineage supplies it does not matter: a parent and its 2 grandparents are one unit.
 		const inherit = 1 - parents.reduce((q, p) => q * (1 - skillChance(p.horses, id)), 1);
 		rows.push(rowOf(detailOf(id), inherit, mustHaves));

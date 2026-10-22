@@ -76,7 +76,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 						const name = skill?.name ?? r.skillId;
 						return (
 							<li data-testid="ace-skill-row" class={r.assumesPosition ? 'muted' : undefined} data-must-have={r.mustHave || undefined}>
-								<i class="rarity-dot" data-rarity={rarityOf(skill?.rarity)} title={r.own ? 'Own skill: the Ace can buy it after its run' : `${(r.inherit * 100).toFixed(0)}% inherited`} />
+								<i class="rarity-dot" data-rarity={rarityOf(skill?.rarity)} title={r.own ? 'Own skill: the Ace has it or can buy it with skill points' : `${(r.inherit * 100).toFixed(0)}% inherited`} />
 								<span class="skill-name" title={name}>{name}{r.assumesPosition && ' *'}</span>
 								<span class="skill-lengths num">{`${r.lengths.avg < 0 ? '-' : '+'}${Math.abs(r.lengths.avg).toFixed(2)} L`}</span>
 								<span class="skill-proc num">{r.proc.toFixed(0)}%</span>
