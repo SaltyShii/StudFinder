@@ -1,7 +1,7 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { Card, Course, ImportResult, Veteran } from '../../../packages/lineage/src/types';
 import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers';
-import { aceForCourse, categoryOf, defaultTargetStats, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { aceForCourse, categoryOf, defaultTargetStats, gradeLabel, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
 import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
@@ -156,4 +156,29 @@ export function planVeterans(data: GameData | null, roster: ImportResult | null,
 export function veteranTasks({ veterans, uniqueSkills, ...conditions }: VeteranJob): VeteranTask[] {
 	const unique = new Map(uniqueSkills);
 	return veterans.map((veteran) => ({ ...conditions, veteran, unique: unique.get(veteran.cardId) }));
+}
+
+/** The grade below which an Owned version is unfit for the CM course; D by default. */
+export const DEFAULT_FIT_CUTOFF = 4;
+/** Grade G (1): nothing is below it, so the filter is off. */
+export const FIT_OFF = 1;
+
+/** An Owned version the Ace slot does not simulate for this CM, with why (for example "Dirt F"). */
+export interface UnfitVersion {
+	version: OwnedVersion;
+	reason: string;
+}
+
+const label = (word: string) => word[0].toUpperCase() + word.slice(1);
+
+/** Splits the Owned versions by surface and distance Aptitude grade against the cutoff; running style is ignored. The order is kept. */
+export function planFit(versions: OwnedVersion[], course: Course | undefined, cutoff: number): { fit: OwnedVersion[]; unfit: UnfitVersion[] } {
+	const fit: OwnedVersion[] = [];
+	const unfit: UnfitVersion[] = [];
+	for (const version of versions) {
+		const low = course ? [surfaceOf(course.ground), categoryOf(course.distance)].filter((k) => version.aptitudes[k] < cutoff) : [];
+		if (low.length) unfit.push({ version, reason: low.map((k) => `${label(k)} ${gradeLabel(version.aptitudes[k])}`).join(', ') });
+		else fit.push(version);
+	}
+	return { fit, unfit };
 }
