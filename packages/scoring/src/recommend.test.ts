@@ -338,6 +338,25 @@ test('bestPair picks the very pair ranking every pair would, ties to the earlies
 	}
 });
 
+test('bestPair with a pair-dependent extra picks the very pair exhaustive ranking would', () => {
+	let seed = 777;
+	const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648);
+	for (let round = 0; round < 40; round++) {
+		const units = Array.from({ length: 10 }, (_, i) => cand(`u${i}`, horseOf()));
+		const solo = new Map(units.map((u) => [u, (next() % 7) - 2]));
+		// Own lengths of a pair (like pink sparks lifting an aptitude) depend on both parents.
+		const extra = new Map<string, number>();
+		const extraOf = (p: Candidate[]) => { const k = p.map((c) => c.id).join(); if (!extra.has(k)) extra.set(k, (next() % 5) / 2); return extra.get(k)!; };
+		const rank = (cs: Candidate[]) => [...cs].sort((x, y) => solo.get(y)! - solo.get(x)! || x.id.localeCompare(y.id)).map((c, i) => ({ candidateId: c.id, score: solo.get(c)! * (i ? 0.5 : 1), reason: '', detail: [] }));
+		const pairs: Candidate[][] = [];
+		for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) pairs.push([units[i], units[j]]);
+		const all = pairs.map((p) => { const parents = rank(p); return { parents, score: extraOf(p) + parents.reduce((s, x) => s + x.score, 0) }; });
+		const expected = all.reduce((a, b) => (b.score > a.score ? b : a));
+		const { parents, score } = bestPair(pairs, rank, (c) => Math.max(0, solo.get(c)!), extraOf, () => false);
+		expect({ parents, score }).toEqual(expected);
+	}
+});
+
 test('the Ace slots list up to 10 versions in the Ace order; the first is the single best Ace with its chart rows', () => {
 	const versions = Array.from({ length: 12 }, (_, i) => ({ cardId: i + 1, aptitudes: apt, uniqueSkillId: i === 7 ? '10071' : undefined, candidates: [] }));
 	const rec = recommend(candidateList, preset, undefined, versions);
