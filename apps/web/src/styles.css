@@ -260,3 +260,13 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .hero-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .hero-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px; padding: 6px 10px; border-radius: 6px; background: var(--surface); }
 .hero-row[data-selected] { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* Lineage tree: Ace on top, parents below, each with its two grandparents. */
+.lineage-tree { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 12px; }
+.tree-parents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; }
+.tree-branch { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.tree-grandparents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.tree-node { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 6px; border-radius: 6px; background: var(--surface-2); }
+.tree-node .chips { justify-content: center; }
+.chip-pink { background: #5a2a44; color: #ffb3d1; }
+.chip-blue { background: #1f3550; color: #a9cdf5; }

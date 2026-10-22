@@ -1,5 +1,6 @@
 import { versionName, type GameData } from '../../../packages/lineage/src/gameData';
 import { STYLE_LABEL } from '../../../packages/scoring/src/ace';
+import type { LineageHorse } from '../../../packages/scoring/src/shared';
 import type { AcePick, Candidate, CandidatePick, OwnedVersion } from '../../../packages/scoring/src/recommend';
 import { SkillDetails, UmaCard } from './UmaCard';
 
@@ -31,11 +32,35 @@ export function parentsById(ownedVersions: OwnedVersion[], cardId: number): Map<
 	return new Map(ownedVersions.find((v) => v.cardId === cardId)?.candidates.map((c) => [c.id, c]));
 }
 
-/** Parent cards as a pick list for the game: portrait, name and the Ace's grandparents only. `heroId` keeps the test ids of one hero's cards apart from the others'. */
-export function ParentPickList({ parents, byId, cardIds, data, heroId }: { parents: CandidatePick[]; byId: Map<string, Candidate>; cardIds: Map<string, number>; data: GameData; heroId: number }) {
-	return <>{parents.map((p) => <UmaCard testId={`ace-parent-${heroId}`} cardId={cardIds.get(p.candidateId)} name={byId.get(p.candidateId)?.name ?? p.candidateId} headline={null}>
-		<div class="cards">{byId.get(p.candidateId)?.horses.slice(1).map((g) => <img class="portrait" data-testid={`ace-grandparent-${heroId}`} alt={g.cardId == null ? "" : nameOf(data, g.cardId)} src={`${import.meta.env.BASE_URL}img/cards/${g.cardId}.png`} />)}</div>
-	</UmaCard>)}</>;
+function SparkChips({ horse }: { horse: LineageHorse }) {
+	const blue = [['Turf', horse.turfStars ?? 0], ['Dirt', horse.dirtStars]] as const;
+	return <div class="chips">
+		{horse.pinkStars > 0 && <span class="chip chip-pink">Distance {horse.pinkStars}</span>}
+		{blue.filter(([, n]) => n > 0).map(([label, n]) => <span class="chip chip-blue">{label} {n}</span>)}
+	</div>;
+}
+
+function TreeNode({ horse, testId, data }: { horse: LineageHorse; testId: string; data: GameData }) {
+	const name = horse.cardId == null ? '' : nameOf(data, horse.cardId);
+	return <div class="tree-node" data-testid={testId}>
+		<img class="portrait" alt={name} src={`${import.meta.env.BASE_URL}img/cards/${horse.cardId}.png`} />
+		<span class="tree-name">{name}</span>
+		<SparkChips horse={horse} />
+	</div>;
+}
+
+/** The Ace on top, its 2 parents and below each parent its own 2 grandparents; pink (distance) and blue (surface) spark chips sit on every horse, so a lineage lacking the right pink sparks stands out. */
+export function LineageTree({ pick, data }: { pick: AcePick; data: GameData }) {
+	return <div class="lineage-tree" data-testid="lineage-tree">
+		<div class="tree-node tree-ace" data-testid="tree-ace">
+			<img class="portrait" alt="" src={`${import.meta.env.BASE_URL}img/cards/${pick.cardId}.png`} />
+			<span class="tree-name">{nameOf(data, pick.cardId)}</span>
+		</div>
+		<div class="tree-parents">{pick.horses.map(([parent, ...grandparents]) => <div class="tree-branch">
+			<TreeNode horse={parent} testId="tree-parent" data={data} />
+			<div class="tree-grandparents">{grandparents.map((g) => <TreeNode horse={g} testId="tree-grandparent" data={data} />)}</div>
+		</div>)}</div>
+	</div>;
 }
 
 /** The one place that says which Ace pick field is shown as "expected lengths". Switch to the expected-lengths field of the new Ace ranking (#115) here. */
@@ -45,6 +70,7 @@ export function heroLengths(pick: AcePick): number {
 
 /** The best Ace heroes as a compact list: name, running style, expected lengths. */
 export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
+	const selectedPick = picks?.find((p) => p.cardId === selected);
 	return (
 		<section class="panel" aria-busy={stale}>
 			<h3>Ace{stale && ' (outdated, recomputing)'}</h3>
@@ -58,6 +84,7 @@ export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
 					</li>
 				))}
 			</ol>
+			{selectedPick && <LineageTree pick={selectedPick} data={data} />}
 		</section>
 	);
 }

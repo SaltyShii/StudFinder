@@ -935,3 +935,27 @@ it('keeps the Track overview and skill panel for the selected hero', async () =>
 	expect(root.textContent).toContain('2000m turf');
 	expect(root.querySelector('.skill-table')).not.toBeNull();
 });
+
+// The Ace picks with sparks on their horses; the roster fixture itself carries no pink sparks.
+const withSparks: RecommendRunner = (job, _p, done) => {
+	const rec = computeRecommend(job);
+	const spark = (pinkStars: number, dirtStars: number, cardId: number) => ({ cardId, affinity: 0, pinkStars, dirtStars, turfStars: 0, skills: [] });
+	rec.aceSlots[0].horses = [[spark(3, 2, 100201), spark(0, 0, 100301), spark(1, 0, 100201)], [spark(0, 0, 100301), spark(0, 0, 100301), spark(0, 0, 100201)]];
+	done(rec);
+	return () => {};
+};
+
+it('draws the selected Ace hero as a lineage tree with spark chips and redraws on another pick', async () => {
+	render(<App loadData={async () => data} run={withSparks} runVeterans={noV} runRows={() => () => {}} />, root);
+	await importFile();
+	await pickAce();
+	const tree = () => root.querySelector('[data-testid=lineage-tree]')!;
+	expect(tree().querySelectorAll('[data-testid=tree-parent]').length).toBe(2);
+	expect(tree().querySelectorAll('[data-testid=tree-grandparent]').length).toBe(4);
+	const parents = [...tree().querySelectorAll('[data-testid=tree-parent]')];
+	expect([...parents[0].querySelectorAll('.chip-pink')].map((c) => c.textContent)).toEqual(['Distance 3']);
+	expect([...parents[0].querySelectorAll('.chip-blue')].map((c) => c.textContent)).toEqual(['Dirt 2']);
+	expect(parents[1].querySelector('.chip')).toBeNull(); // a pair without sparks shows none
+	await click(root.querySelector('[data-testid=ace-select-100201]'));
+	expect(tree().querySelector('.chip-pink')).toBeNull(); // the other hero keeps its own horses
+});
