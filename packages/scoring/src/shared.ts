@@ -1,5 +1,5 @@
 import { FactorType } from '@stud-finder/lineage/src/types';
-import { GRADE_A, INSPIRATIONS, aptitudeChance, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
+import { GRADE_A, GRADE_S, INSPIRATIONS, aptitudeChance, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import type { Tier } from '@stud-finder/lineage/src/tiers';
 import type { SimAssumptions } from './assumptions';
@@ -25,6 +25,8 @@ export interface LineageHorse {
 	pinkStars: number;
 	/** Total stars of its dirt pink sparks. */
 	dirtStars: number;
+	/** Total stars of its turf pink sparks (0 when unset). */
+	turfStars?: number;
 	skills: SkillSpark[];
 }
 /** A veteran considered as a parent: itself first, then its own two parents (the Ace's grandparents). */
@@ -151,4 +153,26 @@ export function dirtAChance(horses: LineageHorse[], base: number): number {
 	const dirty = horses.filter((h) => h.dirtStars > 0);
 	const start = startingGrade(base, dirty.reduce((s, h) => s + h.dirtStars, 0));
 	return aptitudeChance(start, GRADE_A, dirty.map((h) => procChance(FactorType.Aptitude, h.dirtStars, h.affinity))).min;
+}
+
+/** Surface pink stars of a horse for the CM's surface. */
+export function surfaceStarsOf(h: LineageHorse, surface: 'turf' | 'dirt'): number {
+	return surface === 'dirt' ? h.dirtStars : (h.turfStars ?? 0);
+}
+
+/**
+ * Where an aptitude of `base` ends up through these horses' pink sparks (`starsOf` picks the aptitude's stars), with the chance of each grade, lowest first.
+ * Uses the lower bound of aptitudeChance throughout, as the dirt and distance A chances do. A grade at or above A can rise to S mid-run.
+ */
+export function aptitudeOutcomes(base: number, horses: LineageHorse[], starsOf: (h: LineageHorse) => number): { grade: number; chance: number }[] {
+	const pink = horses.filter((h) => starsOf(h) > 0);
+	const start = startingGrade(base, pink.reduce((s, h) => s + starsOf(h), 0));
+	const chances = pink.map((h) => procChance(FactorType.Aptitude, starsOf(h), h.affinity));
+	const atLeast = (g: number) => (g <= start ? 1 : aptitudeChance(start, g, chances).min);
+	const out: { grade: number; chance: number }[] = [];
+	for (let g = start; g <= GRADE_S; g++) {
+		const chance = atLeast(g) - (g < GRADE_S ? atLeast(g + 1) : 0);
+		if (chance > 1e-12) out.push({ grade: g, chance });
+	}
+	return out;
 }

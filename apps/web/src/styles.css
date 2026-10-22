@@ -249,3 +249,23 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .select-pick { margin-top: 4px; font-size: 0.8rem; }
 .select-pick[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
 .chart-title { margin: 8px 0 4px; }
+
+/* Single column: a top bar, a collapsed Settings section, then the results. */
+.layout { grid-template-columns: minmax(0, 1fr); max-width: 1100px; }
+.top-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.top-bar h1 { font-size: 1.6rem; }
+.top-bar .primary { margin-left: auto; }
+.settings > summary { cursor: pointer; font-weight: 700; }
+.settings-body { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+.hero-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.hero-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px; padding: 6px 10px; border-radius: 6px; background: var(--surface); }
+.hero-row[data-selected] { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* Lineage tree: Ace on top, parents below, each with its two grandparents. */
+.lineage-tree { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 12px; }
+.tree-parents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; }
+.tree-branch { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.tree-grandparents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.tree-node { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 6px; border-radius: 6px; background: var(--surface-2); }
+.tree-node .chips { justify-content: center; }
+.chip-pink { background: #5a2a44; color: #ffb3d1; }

@@ -36,7 +36,7 @@ The long-lived foundation line of great-grandparents, kept strong across CMs by 
 Grandparents and parents built specifically for one upcoming CM, ranked by spark % of the Must-have skills plus the CM's relevant pink spark, so they can later become parents of the Ace. The track's best simulated skills only break ties.
 
 **Ace**:
-The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by the inheritance chance of the Must-have skills, ties broken by the simulated value of the track's best skills.
+The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by expected lengths gained: the Ace's own skills, the skills its parents can pass on (each weighted by its inherit chance) and the aptitude its pink sparks can raise (each outcome weighted by its chance). Must-have skills do not decide the order.
 _Avoid_: trainee (when meaning the final CM runner)
 
 **Ace veteran**:
@@ -66,7 +66,7 @@ _Avoid_: excluded version, skipped version
 An Owned version the user picks to be ranked in the Side loop and Core loop (one shared pick). Loop lineages are often built for a version's unique skills and aptitudes rather than for the CM's course, so no aptitude filter applies; until the user narrows the pick, it is every Owned version.
 
 **Must-have skill**:
-A skill the user decides manually the lineage should pass on. One shared list: the Ace slot ranks lineages by the best inheritance chance of these, and the side loop by their spark %. The core loop ignores it.
+A skill the user decides manually the lineage should pass on. One shared list: the side loop ranks by their spark %; the Ace slot only marks them in its chart. The core loop ignores it. Hidden in the UI together with the loops.
 
 **Target stats**:
 The stat line the user aims for on the Sim runner, entered on top of a recommended default. Skill value is measured on a runner with these.
