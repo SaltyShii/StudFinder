@@ -23,7 +23,7 @@ import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planFit, plan
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadFitCutoff, saveFitCutoff, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadFitCutoff, saveFitCutoff, loadForcedVersions, saveForcedVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -54,6 +54,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	// Until the player narrows it, the Loop versions are every Owned version.
 	const loopPicked = useMemo(() => new Set(loopChoice ? [...owned].filter((id) => loopChoice.includes(id)) : owned), [loopChoice, owned]);
 	const [cutoff, setCutoff] = useState<number>(() => loadFitCutoff(localStorage) ?? DEFAULT_FIT_CUTOFF);
+	const [forced, setForced] = useState<number[]>(() => loadForcedVersions(localStorage));
 	const [mustHaves, setMustHaves] = useState<string[]>(() => loadMustHaves(localStorage));
 	// Null is the Generic runner (all A, no unique skill).
 	const [simRunnerId, setSimRunnerId] = useState<number | null>(null);
@@ -76,7 +77,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const candidates = useMemo(() => (data && roster ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
 	// The Ace slot simulates the fit versions only; the loops rank the Loop versions whatever their Aptitude.
-	const { fit: aceVersions, unfit } = useMemo(() => planFit(ownedVersions, course, cutoff), [ownedVersions, course, cutoff]);
+	const { fit: aceVersions, unfit } = useMemo(() => planFit(ownedVersions, course, cutoff, new Set(forced)), [ownedVersions, course, cutoff, forced]);
 	const loopVersions = useMemo(() => ownedVersions.filter((v) => loopPicked.has(v.cardId)), [ownedVersions, loopPicked]);
 	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves, assumptions }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, mustHaves, assumptions]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
@@ -146,10 +147,10 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						<h2>Roster</h2>
 						<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
 						<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
-						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setLoopChoice(null); setCutoff(DEFAULT_FIT_CUTOFF); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
+						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setLoopChoice(null); setCutoff(DEFAULT_FIT_CUTOFF); setForced([]); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
 					</section>
 				)}
-				{roster && data && <OwnedVersions data={data} owned={owned} unfit={unfit} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />}
+				{roster && data && <OwnedVersions data={data} owned={owned} unfit={unfit} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />}
 				{roster && data && <LoopVersions data={data} owned={owned} picked={loopPicked} onChange={(ids) => { saveLoopVersions(localStorage, ids); setLoopChoice(ids); }} />}
 				{roster && data && (
 					<section class="panel">

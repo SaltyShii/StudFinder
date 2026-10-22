@@ -573,6 +573,49 @@ it('skips Unfit versions in the Ace slot only, lists them apart with the reason,
 	} finally { dud.aptitudes = before; }
 });
 
+it('force-enables an Unfit version for the Ace, keeps it across cutoff changes and reloads, and re-enables Run', async () => {
+	const dud = data.cards.get(100301)!;
+	const before = dud.aptitudes;
+	dud.aptitudes = { ...apt, turf: 2 };
+	try {
+		const jobs: RecommendJob[] = [];
+		const spy: RecommendRunner = (job, p, done, fail) => { jobs.push(job); return inline(job, p, done, fail); };
+		const mount = async () => { render(null, root); await act(() => { render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root); }); await flush(); };
+		const ids = (vs: { cardId: number }[] | undefined) => vs!.map((v) => v.cardId).sort();
+		const cutoff = () => root.querySelector<HTMLSelectElement>('select[name=fit-cutoff]')!;
+		const setCutoff = (letter: string) => { cutoff().value = String('GFEDCBAS'.indexOf(letter) + 1); return act(() => { cutoff().dispatchEvent(new Event('change')); }); };
+		const force = () => root.querySelector<HTMLInputElement>('.modal [data-testid=unfit-versions] input[name=force-unfit]')!;
+		await mount();
+		await importFile();
+		await click(root.querySelector('button[name=edit-owned]'));
+		expect(force().checked).toBe(false);
+		await click(force());
+		expect(force().checked).toBe(true);
+		expect(localStorage.getItem('stud-finder:forced-versions')).toContain('100301');
+		await closeModal();
+		await run();
+		expect(ids(jobs.at(-1)!.owned)).toEqual([100201, 100301]);
+		await setCutoff('A'); // the forced version stays forced when the cutoff changes
+		await run();
+		expect(ids(jobs.at(-1)!.owned)).toEqual([100201, 100301]);
+		await mount(); // and across reloads
+		await run();
+		expect(ids(jobs.at(-1)!.owned)).toEqual([100201, 100301]);
+		await setCutoff('S'); // both are unfit; only the forced one is simulated, so Run stays enabled
+		expect(root.querySelector<HTMLButtonElement>('button[name=run]')!.disabled).toBe(false);
+		await run();
+		expect(ids(jobs.at(-1)!.owned)).toEqual([100301]);
+		await click(root.querySelector('button[name=edit-owned]'));
+		await click(force());
+		await closeModal();
+		expect(root.querySelector<HTMLButtonElement>('button[name=run]')!.disabled).toBe(true);
+		localStorage.setItem('stud-finder:forced-versions', JSON.stringify({ version: 99, ids: [100301] }));
+		await mount();
+		await setCutoff('S');
+		expect(root.querySelector<HTMLButtonElement>('button[name=run]')!.disabled).toBe(true);
+	} finally { dud.aptitudes = before; }
+});
+
 it('edits the Tier list in a popup per Core loop style, resets it, and persists the edit', async () => {
 	const jobs: RecommendJob[] = [];
 	const spy: RecommendRunner = (job, p, done, fail) => { jobs.push(job); return inline(job, p, done, fail); };

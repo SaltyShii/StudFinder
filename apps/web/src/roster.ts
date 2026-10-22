@@ -12,6 +12,7 @@ const BORROW_KEY = 'stud-finder:use-borrowed';
 const OWNED_KEY = 'stud-finder:owned-versions';
 const LOOP_KEY = 'stud-finder:loop-versions';
 const FIT_CUTOFF_KEY = 'stud-finder:fit-cutoff';
+const FORCED_KEY = 'stud-finder:forced-versions';
 const MUST_HAVES_KEY = 'stud-finder:must-haves';
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
 const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
@@ -19,7 +20,7 @@ const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
 const VERSION = 1;
 
 /** Every key clearRoster wipes; add new keys here only. The last is an earlier version's manual owned toggles, which no longer exist. */
-const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, FIT_CUTOFF_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
+const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, FIT_CUTOFF_KEY, FORCED_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
 
 function saveVersioned(storage: Storage, key: string, field: string, value: unknown): void {
 	storage.setItem(key, JSON.stringify({ version: VERSION, [field]: value }));
@@ -97,6 +98,15 @@ export function saveFitCutoff(storage: Storage, grade: number): void {
 /** The Unfit version cutoff grade (1-8), or null (the default) when absent, stale-versioned or malformed. */
 export function loadFitCutoff(storage: Storage): number | null {
 	return loadVersioned(storage, FIT_CUTOFF_KEY, 'grade', (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 8 ? v : null));
+}
+
+export function saveForcedVersions(storage: Storage, ids: number[]): void {
+	saveVersioned(storage, FORCED_KEY, 'ids', ids);
+}
+
+/** Card ids of Unfit versions the player force-enabled for the Ace; empty when absent, stale-versioned or malformed. */
+export function loadForcedVersions(storage: Storage): number[] {
+	return loadVersioned(storage, FORCED_KEY, 'ids', (v) => (Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null)) ?? [];
 }
 
 export function saveMustHaves(storage: Storage, ids: string[]): void {
