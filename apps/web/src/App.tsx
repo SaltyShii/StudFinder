@@ -5,6 +5,7 @@ import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { STYLE_LABEL, STYLES, gradeLabel, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
+import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import { formatAge } from './age';
 import { AceHero, nameOf } from './AceHero';
 import { MustHaves } from './MustHaves';
@@ -19,9 +20,10 @@ import { courseTitle, isLeftHanded } from './trackAxis';
 import { TrackOverview } from './TrackOverview';
 import { LoopSlots } from './LoopSlots';
 import { PickList } from './PickList';
-import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planFit, planOwned, DEFAULT_FIT_CUTOFF, planRecommend, planVeterans, type RecommendJob, type RecommendRunner, type VeteranJob, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
-import { recommendRunner, veteranRunner } from './runners';
+import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planFit, planOwned, DEFAULT_FIT_CUTOFF, planRecommend, planVeterans, type AceRowsRunner, type RecommendJob, type RecommendRunner, type VeteranJob, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
+import { aceRowsRunner, recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
+import { useAceRows } from './useAceRows';
 import { VeteranList } from './VeteranList';
 import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadFitCutoff, saveFitCutoff, loadForcedVersions, saveForcedVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
@@ -39,9 +41,11 @@ interface Props {
 	loadData?: () => Promise<GameData>;
 	run?: RecommendRunner;
 	runVeterans?: VeteranRunner;
+	/** Builds the chart rows of an Ace hero other than the first, when it is opened. */
+	runRows?: AceRowsRunner;
 }
 
-export function App({ loadData = loadGameData, run = recommendRunner, runVeterans = veteranRunner }: Props) {
+export function App({ loadData = loadGameData, run = recommendRunner, runVeterans = veteranRunner, runRows = aceRowsRunner }: Props) {
 	const [roster, setRoster] = useState<ImportResult | null>(() => loadRoster(localStorage));
 	const [data, setData] = useState<GameData | null>(null);
 	const [error, setError] = useState('');
@@ -63,6 +67,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
 	const [skillTab, setSkillTab] = useState<SkillCategory>('speed');
 	const [sideTab, setSideTab] = useState<SkillCategory>('speed');
+	// The pick belongs to the result it was made on: a new result opens the first Ace hero again.
+	const [acePicked, setAcePicked] = useState<{ result: Recommendation | null; cardId: number } | null>(null);
 	const [sideCard, setSideCard] = useState<number | null>(null);
 	const [tierEdits, setTierEdits] = useState<TierEdits>(() => loadTierEdits(localStorage));
 
@@ -124,7 +130,10 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		}
 	}
 
-	const chips = useMemo(() => (result?.aceSlot && data ? skillChips(result.aceSlot.skills, result.track, data) : []), [result, data]);
+	const aceCard = acePicked?.result === result ? acePicked.cardId : undefined;
+	const acePick = result?.aceSlots.find((s) => s.cardId === aceCard) ?? result?.aceSlots[0];
+	const aceChart = useAceRows(runRows, result, ran?.run ?? null, acePick?.cardId, !busy);
+	const chips = useMemo(() => (acePick && data ? skillChips(aceChart.rows, result!.track, data) : []), [acePick, aceChart.rows, result, data]);
 	// The Side loop chart follows the selected pick; the best pick until one is chosen.
 	const sidePick = result?.sideSlots.find((s) => s.cardId === sideCard) ?? result?.sideSlots[0];
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
@@ -132,7 +141,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	return (
 		<main class="layout">
 			<header class="app-header" data-testid="app-header">
-				<h1>{result?.aceSlot ? `${SKILL_CATEGORIES.find((c) => c.key === skillTab)!.label} skills` : 'Stud Finder'}</h1>
+				<h1>{result?.aceSlots.length ? `${SKILL_CATEGORIES.find((c) => c.key === skillTab)!.label} skills` : 'Stud Finder'}</h1>
 				<p class="course" data-testid="header-cm">{cm.name}{course && ` - ${course.distance}m ${surfaceOf(course.ground)}`}</p>
 				<span class="badge" data-testid="style-badge">{STYLE_LABEL[style]}</span>
 			</header>
@@ -184,9 +193,11 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 			{roster && data && ran && (
 				<div class="results">
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
-					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
+					<AceHero picks={result?.aceSlots} selected={acePick?.cardId} onSelect={(cardId) => setAcePicked({ result, cardId })} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
 					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={!!course && isLeftHanded(course)} chips={chips} stale={stale} />}
-					{result?.aceSlot && <SkillPanel rows={result.aceSlot.skills} track={result.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />}
+					{aceChart.loading && <p class="panel muted" data-testid="ace-chart-loading">Simulating the skills of {nameOf(data, acePick!.cardId)}...</p>}
+					{aceChart.error && <p class="panel" role="alert">Could not build the skills of {nameOf(data, acePick!.cardId)}: {aceChart.error}</p>}
+					{acePick && !aceChart.loading && <SkillPanel rows={aceChart.rows} track={result!.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />}
 					<div class="picks">
 						{ownedVersions.length ? <>
 							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} selected={sidePick?.cardId} onSelect={setSideCard} />

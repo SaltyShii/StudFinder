@@ -1,4 +1,4 @@
-import type { JobProgress, JobRequest, RecommendRunner, VeteranRunner } from './jobs';
+import type { AceRowsRunner, JobProgress, JobRequest, RecommendRunner, VeteranRunner } from './jobs';
 import { veteranTasks } from './jobs';
 import { POOL_WORKERS, poolRunner, workerRunner } from './jobRunner';
 import type { SimBatch } from '../../../packages/scoring/src/recommend';
@@ -23,5 +23,7 @@ const run = workerRunner<JobRequest, unknown, JobProgress>(
 	(batch, onProgress, done, onError) => skillPool(batch as Batch, ([n]) => onProgress(n), done, onError),
 );
 
-// The worker answers with whatever the request's kind produces; the cast restates that for recommend.
-export const recommendRunner = ((job, onProgress, done, onError) => run({ kind: 'recommend', job }, onProgress as (p: JobProgress) => void, done as (r: unknown) => void, onError)) as RecommendRunner;
+// The worker answers with whatever the request's kind produces; the cast restates that for the runner's result type.
+const runnerOf = <R extends RecommendRunner | AceRowsRunner>(kind: 'recommend' | 'aceRows') => ((job, onProgress, done, onError) => run({ kind, job }, onProgress as (p: JobProgress) => void, done as (r: unknown) => void, onError)) as R;
+export const recommendRunner = runnerOf<RecommendRunner>('recommend');
+export const aceRowsRunner = runnerOf<AceRowsRunner>('aceRows');

@@ -22,17 +22,19 @@ export interface OwnedVersion {
 	learnableSkillIds?: string[];
 	candidates: Candidate[];
 }
-/** The best Ace: a version in its best style, with 2 parents (their own parents are its 4 grandparents). */
+/** An Ace hero: a version in the style it runs in, with 2 parents (their own parents are its 4 grandparents). */
 export interface AcePick {
 	cardId: number;
 	style: Style;
+	/** The style differs from the selected one: the version has no A in it, so it runs in its best-ranked style instead. */
+	fallback: boolean;
 	score: number;
 	/** Best chance, over the Must-have skills, that the 2 parents and 4 grandparents pass one on (0 without Must-haves). */
 	mustHaveChance: number;
 	/** Chance the 2 parents and 4 grandparents lift the distance aptitude to A through pink sparks (1 when it starts at A). */
 	distanceAChance: number;
 	parents: CandidatePick[];
-	/** The combined chart: the Ace's own skills plus everything either parent lineage can pass on, best avg lengths first. */
+	/** The combined chart: the Ace's own skills plus everything either parent lineage can pass on, best avg lengths first. Built for the first Ace slot only; empty for the others. */
 	skills: AceSkillRow[];
 }
 
@@ -58,7 +60,8 @@ export interface SideLoopPick extends LoopPick {
 }
 
 export interface Recommendation {
-	aceSlot: AcePick | null;
+	/** Up to ACE_SLOTS Ace heroes, best first (the Ace order); empty without fit Owned versions. */
+	aceSlots: AcePick[];
 	ace: CandidatePick[];
 	core: CandidatePick[];
 	side: CandidatePick[];
@@ -72,6 +75,7 @@ export interface Recommendation {
 }
 
 const TOP = 5;
+export const ACE_SLOTS = 10;
 // Besides its Must-haves, a Side loop chart shows this many of the lineage's best simulated skills.
 const SIDE_CHART_BEST = 8;
 const PARENTS = 2;
@@ -181,9 +185,9 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const seen = new Map<string, SkillDetail>();
 		const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
 		const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), (h) => { const d = detailerOf(h); return { rank: (cs) => rankAce(cs, PARENTS, h, d), bound: (c) => aceBound(c, h, d) }; }, detailerOf, mustHaves, () => missing.size > 0);
-		const best = bestAceSlot(versions, categoryOf(courseFacts(cm.courseId).distance));
-			// The chart simulates the whole buyable pool, so only the shown Ace's rows are built.
-			const aceSlot = best && { ...best.pick, skills: best.rows() };
+		const ranked = rankAceSlots(versions, categoryOf(courseFacts(cm.courseId).distance)).slice(0, ACE_SLOTS);
+		// The chart simulates the whole buyable pool, so only the first Ace's rows are built.
+		const aceSlots = ranked.map((x, i) => ({ ...x.pick, skills: i === 0 ? x.rows() : [] }));
 		const coreV = coreVersion(loopVersions);
 		// The Core loop's dirt A chance uses the core version's affinities, not the Sim runner's.
 		// shortcut: a candidate the core version has no entry for (its own veterans are excluded) keeps the Sim runner's affinity; upgrade if that ever matters.
@@ -196,7 +200,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 			.sort((a, b) => b.key - a.key || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick);
 		const coreSlots = tierList ? loopVersions.map((v) => { const parents = coreLoopPicks(v.candidates, tierList, PARENTS, horse.skills, v.aptitudes.dirt); return { pick: { cardId: v.cardId, score: sum(parents), parents }, tier: coreTier(v) }; })
 			.sort((a, b) => a.tier - b.tier || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick) : [];
-		return { aceSlot, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value), track };
+		return { aceSlots, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value), track };
 	};
 	// Runs the ranking until it asks for nothing new, simulating what each run asked for as one batch.
 	function* settle(): Generator<SimBatch, Recommendation, SkillDetail[]> {
@@ -226,8 +230,8 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 
 /** Every skill detail a pick of the recommendation shows. */
 function shownDetails(r: Recommendation): SkillDetail[] {
-	const picks = [...(r.aceSlot?.parents ?? []), ...r.ace, ...r.side, ...r.core, ...r.sideSlots.flatMap((l) => l.parents), ...r.coreSlots.flatMap((l) => l.parents)];
-	return [...picks.flatMap((p) => p.detail), ...(r.aceSlot?.skills ?? []), ...r.sideSlots.flatMap((l) => l.skills)];
+	const picks = [...r.aceSlots.flatMap((a) => a.parents), ...r.ace, ...r.side, ...r.core, ...r.sideSlots.flatMap((l) => l.parents), ...r.coreSlots.flatMap((l) => l.parents)];
+	return [...picks.flatMap((p) => p.detail), ...(r.aceSlots[0]?.skills ?? []), ...r.sideSlots.flatMap((l) => l.skills)];
 }
 
 /** A version's best Ace pick; its chart rows are built on demand (the learnable pool is simulated skill by skill). */
@@ -265,7 +269,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const { rank, bound } = rankerFor(h);
 		// Simulated value only for the pairs still tied, as it needs a ranker run each.
 		const win = bestPair(pairs.filter((_, i) => keys[i] === topKey), rank, bound, uniqueValue, partial);
-		out.push({ v, pick: { cardId: v.cardId, style, score: win.score, mustHaveChance: topKey / 1e9, distanceAChance: base >= GRADE_A ? 1 : topPink / 1e9, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueDetail, win.parents.map((p) => ({ id: p.candidateId, horses: units.find((c) => c.id === p.candidateId)?.horses ?? [] })), detailerOf(h), h.skills, mustHaves, skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface })) });
+		out.push({ v, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score: win.score, mustHaveChance: topKey / 1e9, distanceAChance: base >= GRADE_A ? 1 : topPink / 1e9, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueDetail, win.parents.map((p) => ({ id: p.candidateId, horses: units.find((c) => c.id === p.candidateId)?.horses ?? [] })), detailerOf(h), h.skills, mustHaves, skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface })) });
 	}
 	return out;
 }
@@ -327,19 +331,13 @@ function sideRows(horses: LineageHorse[], detailOf: (id: string) => SkillDetail,
 	return rows.filter((r) => r.mustHave || best.includes(r));
 }
 
-// Distance A first (or reachable through pink sparks, likelier first), then Must-have chance, then simulated value; an F-sprint uma with no way up never wins.
-function bestAceSlot(versions: AceCandidate[], category: Category): AceCandidate | null {
+// Up to the 10 best, from the best tier present only: distance A, else reachable through pink sparks, else neither (an F-sprint uma with no way up never ranks while a better tier exists).
+// Within the tier: likelier distance A first, then Must-have chance, then simulated value.
+function rankAceSlots(versions: AceCandidate[], category: Category): AceCandidate[] {
 	const tierOf = ({ v, pick }: AceCandidate) => v.aptitudes[category] >= GRADE_A ? 0 : pick.distanceAChance > 0 ? 1 : 2;
 	const gate = Math.min(...versions.map(tierOf));
-	let best: AceCandidate | null = null;
-	for (const x of versions) {
-		if (tierOf(x) !== gate) continue;
-		const { pick } = x;
-		const better = !best || chanceKey(pick.distanceAChance) !== chanceKey(best.pick.distanceAChance) ? !best || chanceKey(pick.distanceAChance) > chanceKey(best.pick.distanceAChance)
-			: chanceKey(pick.mustHaveChance) !== chanceKey(best.pick.mustHaveChance) ? chanceKey(pick.mustHaveChance) > chanceKey(best.pick.mustHaveChance) : pick.score > best.pick.score;
-		if (better) best = x;
-	}
-	return best;
+	// Array.prototype.sort is stable, so equal ones keep the Owned order.
+	return versions.filter((x) => tierOf(x) === gate).sort((a, b) => chanceKey(b.pick.distanceAChance) - chanceKey(a.pick.distanceAChance) || chanceKey(b.pick.mustHaveChance) - chanceKey(a.pick.mustHaveChance) || b.pick.score - a.pick.score);
 }
 
 function coreTier(v: OwnedVersion): number {
