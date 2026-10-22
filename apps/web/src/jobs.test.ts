@@ -183,15 +183,32 @@ it('simulates a forced Unfit version in the Ace slot, keeps it listed, and keeps
 });
 
 it('builds the chart rows of one Ace hero on request, the same as the ranking builds them when it is the top hero', () => {
-	const owned = planOwned(data, roster, [100101, 100201], course, false);
+	// Both versions carry a unique skill the sim knows, so their rows are not empty lists that compare equal by accident.
+	const owned = planOwned(data, roster, [100101, 100201], course, false).map((v) => ({ ...v, uniqueSkillId: '10071' }));
 	const job = planRecommend(data, planCandidates(data, roster, ace, course, false), cm, { course, owned }).job!;
 	job.preset.samples = 5;
 	const rec = runJob({ kind: 'recommend', job }, () => {}) as Recommendation;
 	const [top, other] = rec.aceSlots;
+	expect(top.skills.length).toBeGreaterThan(0);
 	expect(other.skills).toEqual([]); // the ranking builds no rows for heroes nobody opened
 	const rows = (cardId: number) => runJob({ kind: 'aceRows', job: aceRowsJob(job, cardId)! }, () => {}) as AceSkillRow[];
 	expect(rows(top.cardId)).toEqual(top.skills);
 	const alone = runJob({ kind: 'recommend', job: { ...job, owned: owned.filter((v) => v.cardId === other.cardId) } }, () => {}) as Recommendation;
+	expect(alone.aceSlots[0].skills.length).toBeGreaterThan(0);
 	expect(rows(other.cardId)).toEqual(alone.aceSlots[0].skills);
 	expect(aceRowsJob(job, 1)).toBeNull();
+});
+
+it('an Unfit version stays out of the Ace slots unless forced, then competes with the fit ones', () => {
+	const versions = planOwned(data, roster, [100101, 100201], course, false).map((v) => ({ ...v, uniqueSkillId: '10071' }));
+	const dirtCourse = { ...course!, ground: 2, distance: 1600 };
+	versions[0] = { ...versions[0], aptitudes: { ...apt, dirt: 7, mile: 7 } };
+	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 2, mile: 7 } };
+	const slots = (forced: Set<number>) => {
+		const job = planRecommend(data, planCandidates(data, roster, ace, dirtCourse, false), cm, { course: dirtCourse, owned: planFit(versions, dirtCourse, 4, forced).fit }).job!;
+		job.preset.samples = 5;
+		return (runJob({ kind: 'recommend', job }, () => {}) as Recommendation).aceSlots.map((s) => s.cardId);
+	};
+	expect(slots(new Set())).toEqual([100101]);
+	expect(slots(new Set([100201])).sort()).toEqual([100101, 100201]);
 });

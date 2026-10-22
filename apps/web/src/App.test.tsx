@@ -270,7 +270,7 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	expect(root.querySelector('[data-testid=ace-pick]')).not.toBeNull();
+	expect(root.querySelector('[data-testid^=ace-pick]')).not.toBeNull();
 	expect(root.querySelector('[data-testid=ace-parent]')).not.toBeNull();
 	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
 	expect(heads.slice(0, 5)).toEqual(['Ace', '2000m turf (right-handed)', 'Side loop', 'Core loop', 'Ace veteran list']);
@@ -281,7 +281,7 @@ it('lists every fit Ace hero as a card, marking the ones that run in a fall-back
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	const cards = () => [...root.querySelectorAll('[data-testid=ace-pick]')];
+	const cards = () => [...root.querySelectorAll('[data-testid^=ace-pick]')];
 	expect(cards().map((c) => c.textContent)).toEqual([expect.stringContaining('Dud'), expect.stringContaining('Stud')]);
 	expect(cards().every((c) => c.querySelector('.headline') && !c.textContent!.includes('Fall-back'))).toBe(true);
 	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
@@ -292,11 +292,31 @@ it('lists every fit Ace hero as a card, marking the ones that run in a fall-back
 	expect(cards().every((c) => c.textContent!.includes('Fall-back style'))).toBe(true);
 });
 
+it('marks every Ace hero card outdated when an input changes, and current again after Run', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const section = () => root.querySelector('[data-testid^=ace-pick]')!.closest('section')!;
+	const cardLists = () => [...section().querySelectorAll('ol.cards')] as HTMLElement[];
+	expect(section().getAttribute('aria-busy')).toBe('false');
+	expect(cardLists().every((l) => l.style.opacity === '')).toBe(true);
+	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
+	style.value = 'nige';
+	await act(() => { style.dispatchEvent(new Event('change')); });
+	expect(section().getAttribute('aria-busy')).toBe('true');
+	expect(section().querySelector('h3')!.textContent).toContain('outdated');
+	expect(cardLists()).toHaveLength(2);
+	expect(cardLists().every((l) => l.style.opacity === '0.5')).toBe(true);
+	await run();
+	expect(section().getAttribute('aria-busy')).toBe('false');
+	expect(cardLists().every((l) => l.style.opacity === '')).toBe(true);
+});
+
 it('labels the Ace hero aptitude chips in English, never with internal ids', async () => {
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	const chips = [...root.querySelector('[data-testid=ace-pick]')!.querySelectorAll('.chip')].map((c) => c.textContent);
+	const chips = [...root.querySelector('[data-testid^=ace-pick]')!.querySelectorAll('.chip')].map((c) => c.textContent);
 	expect(chips).toEqual(expect.arrayContaining(['Turf A', 'Dirt G', 'Short C', 'Mile B', 'Medium A', 'Long B', 'Front Runner E', 'Pace Chaser A', 'Late Surger B', 'End Closer D']));
 	expect(chips.join(' ')).not.toMatch(/nige|senko|sashi|oikomi/i);
 });
