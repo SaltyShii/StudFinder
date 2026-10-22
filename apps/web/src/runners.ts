@@ -1,4 +1,4 @@
-import type { JobProgress, JobRequest, RecommendRunner, VeteranRunner } from './jobs';
+import type { AceRowsRunner, JobProgress, JobRequest, RecommendRunner, VeteranRunner } from './jobs';
 import { veteranTasks } from './jobs';
 import { POOL_WORKERS, poolRunner, workerRunner } from './jobRunner';
 import type { SimBatch } from '../../../packages/scoring/src/recommend';
@@ -25,3 +25,5 @@ const run = workerRunner<JobRequest, unknown, JobProgress>(
 
 // The worker answers with whatever the request's kind produces; the cast restates that for recommend.
 export const recommendRunner = ((job, onProgress, done, onError) => run({ kind: 'recommend', job }, onProgress as (p: JobProgress) => void, done as (r: unknown) => void, onError)) as RecommendRunner;
+
+export const aceRowsRunner = ((job, onProgress, done, onError) => run({ kind: 'aceRows', job }, onProgress as (p: JobProgress) => void, done as (r: unknown) => void, onError)) as AceRowsRunner;

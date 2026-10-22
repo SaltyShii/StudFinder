@@ -4,7 +4,7 @@ import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers'
 import { DEFAULT_FIT_CUTOFF, FIT_OFF, aceForCourse, categoryOf, defaultTargetStats, gradeLabel, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
-import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
+import type { AceSkillRow, CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
 import { buyableSkillIds } from '../../../packages/scoring/src/learnable';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
@@ -42,14 +42,25 @@ export type { RecommendProgress };
 export type JobProgress = VeteranProgress | RecommendProgress;
 export type RecommendRunner = JobRunner<RecommendJob, Recommendation, RecommendProgress>;
 export type VeteranRunner = JobRunner<VeteranJob, AceVeteranScore[], VeteranProgress>;
+/** Builds one Ace hero's chart rows; see aceRowsJob. */
+export type AceRowsRunner = JobRunner<RecommendJob, AceSkillRow[], RecommendProgress>;
 
 /** What crosses to the worker: one entry file serves every job, told apart by `kind`. */
-export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'veteran'; task: VeteranTask } | { kind: 'skill'; task: SkillTask };
+export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'aceRows'; job: RecommendJob } | { kind: 'veteran'; task: VeteranTask } | { kind: 'skill'; task: SkillTask };
 
 /** One skill of a Recommend run's refine step, simulated by a pool worker. */
 export interface SkillTask {
 	request: SimRequest;
 	scenario: SimBatch['scenario'];
+}
+
+/**
+ * The job that builds the chart rows of one Ace hero of a Recommend run: the same run restricted to that version, so the rows are the ones the ranking would build for it
+ * (a version's best pair does not depend on the other versions). No roster candidates and no loops, as only the version's own parents are charted. Null when the run has no such version.
+ */
+export function aceRowsJob(job: RecommendJob, cardId: number): RecommendJob | null {
+	const version = job.owned?.find((v) => v.cardId === cardId);
+	return version ? { ...job, candidateList: { candidates: [] }, owned: [version], loopVersions: [], tierList: undefined } : null;
 }
 
 // A Core loop is usable for any CM, so skills tied to a surface, distance, track, season, weather or track condition do not count.

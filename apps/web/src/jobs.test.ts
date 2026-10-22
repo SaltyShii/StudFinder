@@ -3,10 +3,10 @@ import { GameData } from '../../../packages/lineage/src/gameData';
 import type { Course, RawGameData } from '../../../packages/lineage/src/types';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import type { Style } from '../../../packages/scoring/src/ace';
-import type { Recommendation } from '../../../packages/scoring/src/recommend';
+import type { AceSkillRow, Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { cardIdsOf, planCandidates, planFit, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
+import { aceRowsJob, cardIdsOf, planCandidates, planFit, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
 import { rankVeterans } from '../../../packages/scoring/src/rankVeterans';
 import { scoreVeterans, type AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import { runJob } from './runJob';
@@ -180,4 +180,18 @@ it('simulates a forced Unfit version in the Ace slot, keeps it listed, and keeps
 	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 2 } };
 	expect(planFit(versions, dirtCourse, 4).fit).toEqual([]);
 	expect(planFit(versions, dirtCourse, 4, new Set([100201])).fit.map((v) => v.cardId)).toEqual([100201]);
+});
+
+it('builds the chart rows of one Ace hero on request, the same as the ranking builds them when it is the top hero', () => {
+	const owned = planOwned(data, roster, [100101, 100201], course, false);
+	const job = planRecommend(data, planCandidates(data, roster, ace, course, false), cm, { course, owned }).job!;
+	job.preset.samples = 5;
+	const rec = runJob({ kind: 'recommend', job }, () => {}) as Recommendation;
+	const [top, other] = rec.aceSlots;
+	expect(other.skills).toEqual([]); // the ranking builds no rows for heroes nobody opened
+	const rows = (cardId: number) => runJob({ kind: 'aceRows', job: aceRowsJob(job, cardId)! }, () => {}) as AceSkillRow[];
+	expect(rows(top.cardId)).toEqual(top.skills);
+	const alone = runJob({ kind: 'recommend', job: { ...job, owned: owned.filter((v) => v.cardId === other.cardId) } }, () => {}) as Recommendation;
+	expect(rows(other.cardId)).toEqual(alone.aceSlots[0].skills);
+	expect(aceRowsJob(job, 1)).toBeNull();
 });
