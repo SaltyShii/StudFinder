@@ -6,7 +6,7 @@ import type { Style } from '../../../packages/scoring/src/ace';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { cardIdsOf, planCandidates, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
+import { cardIdsOf, planCandidates, planFit, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
 import { rankVeterans } from '../../../packages/scoring/src/rankVeterans';
 import { scoreVeterans, type AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import { runJob } from './runJob';
@@ -125,4 +125,59 @@ it('veterans scored apart as pool tasks and ranked together equal the serial sco
 	const apart = veteranTasks(vj).map((task) => runJob({ kind: 'veteran', task }, () => {}) as AceVeteranScore);
 	const { veterans, uniqueSkills, ...conditions } = vj;
 	expect(rankVeterans(apart)).toEqual(scoreVeterans(veterans, { ...conditions, uniqueSkills: new Map(uniqueSkills) }));
+});
+
+it('plans the Ace list and the Loop versions apart; the Loop versions default to the Owned versions', () => {
+	const owned = planOwned(data, roster, [100101, 100201], course, false);
+	const cardIds = (vs: { cardId: number }[] | undefined) => vs?.map((v) => v.cardId);
+	const loopOnly = planRecommend(data, [], cm, { course, owned, loopVersions: [owned[1]] }).job!;
+	expect(cardIds(loopOnly.owned)).toEqual([100101, 100201]);
+	expect(cardIds(loopOnly.loopVersions)).toEqual([100201]);
+	expect(cardIds(planRecommend(data, [], cm, { course, owned }).job!.loopVersions)).toEqual([100101, 100201]);
+	expect(cardIds(planRecommend(data, [], cm, { course, owned, loopVersions: [] }).job!.loopVersions)).toEqual([]);
+});
+
+it('runs the Side loop and Core loop on the Loop versions of the job', () => {
+	const owned = planOwned(data, roster, [100101, 100201], course, false);
+	const job = planRecommend(data, planCandidates(data, roster, ace, course, false), cm, { course, owned, loopVersions: [owned[1]] }).job!;
+	job.preset.samples = 5;
+	const rec = runJob({ kind: 'recommend', job }, () => {}) as Recommendation;
+	expect(rec.sideSlots.map((s) => s.cardId)).toEqual([100201]);
+	expect(rec.coreSlots.map((s) => s.cardId)).toEqual([100201]);
+});
+
+it('splits the Owned versions into fit and Unfit versions by surface and distance grade, ignoring running style', () => {
+	const poor = { ...apt, dirt: 2, mile: 3, nige: 1, senko: 1, sashi: 1, oikomi: 1 };
+	const versions = planOwned(data, roster, [100101, 100201], course, false);
+	versions[1] = { ...versions[1], aptitudes: poor };
+	const dirtCourse = { ...course!, ground: 2, distance: 1600 };
+	const fit = planFit(versions, dirtCourse, 4);
+	expect(fit.fit.map((v) => v.cardId)).toEqual([]);
+	expect(fit.unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt G'], [100201, 'Dirt F, Mile E']]);
+	// The default course is turf over Middle, which both versions run at A.
+	expect(planFit(versions, course, 4).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
+	// A grade at the cutoff is fit; below is not.
+	expect(planFit(versions, dirtCourse, 2).fit.map((v) => v.cardId)).toEqual([100201]);
+});
+
+it('switches the fit filter off at grade G', () => {
+	const versions = planOwned(data, roster, [100101], course, false);
+	const dirtCourse = { ...course!, ground: 2 };
+	expect(planFit(versions, dirtCourse, 1).fit.map((v) => v.cardId)).toEqual([100101]);
+	expect(planFit(versions, dirtCourse, 1).unfit).toEqual([]);
+});
+
+it('simulates a forced Unfit version in the Ace slot, keeps it listed, and keeps the Owned order', () => {
+	const versions = planOwned(data, roster, [100101, 100201], course, false);
+	const dirtCourse = { ...course!, ground: 2, distance: 1600 };
+	versions[0] = { ...versions[0], aptitudes: { ...apt, dirt: 2 } };
+	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 7 } };
+	const split = planFit(versions, dirtCourse, 4, new Set([100101]));
+	expect(split.fit.map((v) => v.cardId)).toEqual([100101, 100201]);
+	expect(split.unfit.map((u) => u.version.cardId)).toEqual([100101]);
+	// Forcing a version that is not unfit changes nothing; with every version unfit, forcing one leaves the Ace list non-empty.
+	expect(planFit(versions, course, 4, new Set([100201])).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
+	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 2 } };
+	expect(planFit(versions, dirtCourse, 4).fit).toEqual([]);
+	expect(planFit(versions, dirtCourse, 4, new Set([100201])).fit.map((v) => v.cardId)).toEqual([100201]);
 });

@@ -140,6 +140,28 @@ test('the Ace slot ignores dirt aptitude and dirt sparks', () => {
 	expect(pick([ownedWith(1, { ...apt, turf: 5, dirt: 7 }, true), ownedWith(2, { ...apt, dirt: 7 }, false)])).toBe(1);
 });
 
+test('the Side loop and Core loop rank the Loop versions, the Ace slot the Owned versions', () => {
+	const aceVersion = ownedWith(1, apt, true);
+	const loopVersion = ownedWith(2, apt, true);
+	const rec = recommend(candidateList, preset, { S10071: 'T0' }, [aceVersion], ['10081'], undefined, [loopVersion]);
+	expect(rec.aceSlot!.cardId).toBe(1);
+	expect(rec.sideSlots.map((s) => s.cardId)).toEqual([2]);
+	expect(rec.coreSlots.map((s) => s.cardId)).toEqual([2]);
+	expect(recommend(candidateList, preset, { S10071: 'T0' }, [aceVersion], ['10081'], undefined, []).sideSlots).toEqual([]);
+});
+
+test('the Core loop version comes from the Loop versions, and an empty pick means none', () => {
+	// A Dirt A core version gates on the candidate's own dirt sparks; without one, partial-dirt lineages only count when no full-dirt one exists.
+	const strong = ownedWith(1, { ...apt, dirt: 7 }, false);
+	const weak = ownedWith(2, { ...apt, dirt: 1 }, false);
+	const dirtList: CandidateList = { candidates: [cand('full', horseOf([], { dirtStars: 3 }), horseOf([], { dirtStars: 3 }), horseOf([], { dirtStars: 3 })), cand('partial', horseOf([], { dirtStars: 3 }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }))] };
+	const core = (owned: ReturnType<typeof ownedWith>[], loop?: ReturnType<typeof ownedWith>[]) => recommend(dirtList, preset, { S10071: 'T0' }, owned, [], undefined, loop).core.map((p) => p.candidateId).sort();
+	// The Ace list has only the weak version, the Loop versions only the strong one.
+	expect(core([weak], [strong])).toEqual(['full', 'partial']);
+	expect(core([strong], [weak])).toEqual(['full']);
+	expect(core([strong], [])).toEqual(['full']);
+});
+
 test('skills are screened at few samples, but every shown skill is re-simulated at full samples', () => {
 	const phases: string[] = [];
 	const full = { ...preset, samples: 60 };

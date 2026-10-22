@@ -1,7 +1,7 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { Card, Course, ImportResult, Veteran } from '../../../packages/lineage/src/types';
 import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers';
-import { aceForCourse, categoryOf, defaultTargetStats, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { DEFAULT_FIT_CUTOFF, FIT_OFF, aceForCourse, categoryOf, defaultTargetStats, gradeLabel, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
 import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
@@ -16,6 +16,8 @@ export interface RecommendJob {
 	preset: CmPreset;
 	tierList?: TierList;
 	owned?: OwnedVersion[];
+	/** The versions the Side loop and Core loop rank; the Owned versions when absent. */
+	loopVersions?: OwnedVersion[];
 	mustHaves?: string[];
 }
 export interface VeteranJob {
@@ -114,13 +116,15 @@ export interface PlanOptions {
 	target?: Partial<TargetStats>;
 	coreStyleChoice?: Style | null;
 	owned?: OwnedVersion[];
+	/** The versions the Side loop and Core loop rank; the Owned versions when absent. */
+	loopVersions?: OwnedVersion[];
 	tierEdits?: TierEdits;
 	mustHaves?: string[];
 	assumptions?: SimAssumptions;
 }
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
-	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], tierEdits = {}, mustHaves = [], assumptions } = options;
+	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions } = options;
 	// Manual choice wins; otherwise the best-ranked style for this Sim runner on the CM course.
 	const base = card ?? GENERIC_RUNNER;
 	const style: Style = styleChoice ?? (course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
@@ -128,7 +132,7 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, mustHaves } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
 }
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */
@@ -152,4 +156,28 @@ export function planVeterans(data: GameData | null, roster: ImportResult | null,
 export function veteranTasks({ veterans, uniqueSkills, ...conditions }: VeteranJob): VeteranTask[] {
 	const unique = new Map(uniqueSkills);
 	return veterans.map((veteran) => ({ ...conditions, veteran, unique: unique.get(veteran.cardId) }));
+}
+
+export { DEFAULT_FIT_CUTOFF, FIT_OFF };
+
+/** An Owned version the Ace slot does not simulate for this CM, with why (for example "Dirt F"). */
+export interface UnfitVersion {
+	version: OwnedVersion;
+	reason: string;
+}
+
+function capitalize(word: string) {
+	return word[0].toUpperCase() + word.slice(1);
+}
+
+/** Splits the Owned versions by surface and distance Aptitude grade against the cutoff; running style is ignored. The order is kept. A forced Unfit version is still listed as unfit (so it can be unforced) but joins `fit`, the Ace list. */
+export function planFit(versions: OwnedVersion[], course: Course | undefined, cutoff: number, forced: ReadonlySet<number> = new Set()): { fit: OwnedVersion[]; unfit: UnfitVersion[] } {
+	const fit: OwnedVersion[] = [];
+	const unfit: UnfitVersion[] = [];
+	for (const version of versions) {
+		const failing = course ? [surfaceOf(course.ground), categoryOf(course.distance)].filter((k) => version.aptitudes[k] < cutoff) : [];
+		if (failing.length) unfit.push({ version, reason: failing.map((k) => `${capitalize(k)} ${gradeLabel(version.aptitudes[k])}`).join(', ') });
+		if (!failing.length || forced.has(version.cardId)) fit.push(version);
+	}
+	return { fit, unfit };
 }

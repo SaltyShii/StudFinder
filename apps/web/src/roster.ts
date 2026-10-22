@@ -2,7 +2,7 @@ import type { GameData } from '../../../packages/lineage/src/gameData';
 import { parseExport } from '../../../packages/lineage/src/importer';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
-import { STYLES } from '../../../packages/scoring/src/ace';
+import { GRADE_NUMBERS, STYLES } from '../../../packages/scoring/src/ace';
 import { DEFAULT_ASSUMPTIONS, DEFAULT_DUELING_RATES, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { TierEdits } from './jobs';
 
@@ -10,6 +10,9 @@ const KEY = 'stud-finder:roster';
 const CM_KEY = 'stud-finder:cm';
 const BORROW_KEY = 'stud-finder:use-borrowed';
 const OWNED_KEY = 'stud-finder:owned-versions';
+const LOOP_KEY = 'stud-finder:loop-versions';
+const FIT_CUTOFF_KEY = 'stud-finder:fit-cutoff';
+const FORCED_KEY = 'stud-finder:forced-versions';
 const MUST_HAVES_KEY = 'stud-finder:must-haves';
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
 const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
@@ -17,7 +20,7 @@ const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
 const VERSION = 1;
 
 /** Every key clearRoster wipes; add new keys here only. The last is an earlier version's manual owned toggles, which no longer exist. */
-const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
+const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, FIT_CUTOFF_KEY, FORCED_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
 
 function saveVersioned(storage: Storage, key: string, field: string, value: unknown): void {
 	storage.setItem(key, JSON.stringify({ version: VERSION, [field]: value }));
@@ -70,13 +73,44 @@ export function loadUseBorrowed(storage: Storage): boolean {
 	return loadVersioned(storage, BORROW_KEY, 'on', (v) => (v === true ? true : null)) ?? false;
 }
 
+function numberArray(v: unknown): number[] | null {
+	return Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null;
+}
+
 export function saveOwnedVersions(storage: Storage, ids: number[]): void {
 	saveVersioned(storage, OWNED_KEY, 'ids', ids);
 }
 
 /** Card ids the player ticked, or null (use the Roster prefill) when absent, stale-versioned or malformed. */
 export function loadOwnedVersions(storage: Storage): number[] | null {
-	return loadVersioned(storage, OWNED_KEY, 'ids', (v) => (Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null));
+	return loadVersioned(storage, OWNED_KEY, 'ids', numberArray);
+}
+
+export function saveLoopVersions(storage: Storage, ids: number[]): void {
+	saveVersioned(storage, LOOP_KEY, 'ids', ids);
+}
+
+/** Card ids the player narrowed the Loop versions to, or null (every Owned version) when absent, stale-versioned or malformed. */
+export function loadLoopVersions(storage: Storage): number[] | null {
+	return loadVersioned(storage, LOOP_KEY, 'ids', numberArray);
+}
+
+export function saveFitCutoff(storage: Storage, grade: number): void {
+	saveVersioned(storage, FIT_CUTOFF_KEY, 'grade', grade);
+}
+
+/** The Unfit version cutoff grade (1-8), or null (the default) when absent, stale-versioned or malformed. */
+export function loadFitCutoff(storage: Storage): number | null {
+	return loadVersioned(storage, FIT_CUTOFF_KEY, 'grade', (v) => (typeof v === 'number' && Number.isInteger(v) && GRADE_NUMBERS.includes(v) ? v : null));
+}
+
+export function saveForcedVersions(storage: Storage, ids: number[]): void {
+	saveVersioned(storage, FORCED_KEY, 'ids', ids);
+}
+
+/** Card ids of Unfit versions the player force-enabled for the Ace; empty when absent, stale-versioned or malformed. */
+export function loadForcedVersions(storage: Storage): number[] {
+	return loadVersioned(storage, FORCED_KEY, 'ids', numberArray) ?? [];
 }
 
 export function saveMustHaves(storage: Storage, ids: string[]): void {

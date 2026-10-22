@@ -36,6 +36,12 @@ export function defaultTargetStats(category: Category, style: Style): TargetStat
 }
 
 const GRADES = 'GFEDCBAS'; // aptitude grade 1 = G ... 8 = S
+/** Every aptitude grade number, 1 (G) to 8 (S). */
+export const GRADE_NUMBERS = [...GRADES].map((_, i) => i + 1);
+/** Grade G: nothing is below it, so an unfit-version cutoff at it switches the filter off. */
+export const FIT_OFF = 1;
+/** The grade below which an Owned version is unfit for the CM course by default (D). */
+export const DEFAULT_FIT_CUTOFF = GRADES.indexOf('D') + 1;
 /** Aptitude grade letter for a lineage number; throws when out of range. */
 export function gradeLetter(n: number) {
 	const g = GRADES[n - 1];

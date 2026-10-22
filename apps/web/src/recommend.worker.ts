@@ -7,5 +7,5 @@ import { serveJob } from './jobRunner';
 serveJob<JobRequest, Awaited<ReturnType<typeof recommendAsync>>, JobProgress>((req, onProgress, call) => {
 	if (req.kind !== 'recommend') throw new Error(`recommend.worker only runs recommend jobs, not ${req.kind}`);
 	const runBatch = async ({ scenario, requests, progress }: SimBatch) => (await call({ scenario, requests }, progress)) as SkillDetail[];
-	return recommendAsync(runBatch, req.job.candidateList, req.job.preset, req.job.tierList, req.job.owned, req.job.mustHaves, onProgress);
+	return recommendAsync(runBatch, req.job.candidateList, req.job.preset, req.job.tierList, req.job.owned, req.job.mustHaves, onProgress, req.job.loopVersions);
 });
