@@ -277,6 +277,15 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
+it('labels the Ace hero aptitude chips in English, never with internal ids', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const chips = [...root.querySelector('[data-testid=ace-pick]')!.querySelectorAll('.chip')].map((c) => c.textContent);
+	expect(chips).toEqual(expect.arrayContaining(['Turf A', 'Dirt G', 'Short C', 'Mile B', 'Medium A', 'Long B', 'Front Runner E', 'Pace Chaser A', 'Late Surger B', 'End Closer D']));
+	expect(chips.join(' ')).not.toMatch(/nige|senko|sashi|oikomi/i);
+});
+
 it('drops scores on cancel so they do not look current', async () => {
 	const score = { trainedId: 1, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 0, aptitude: { surface: 7, distance: 7 }, setLengthsGained: 1, gap: 0, detail: [], assumesPosition: false };
 	let first = true;
