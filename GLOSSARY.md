@@ -58,6 +58,13 @@ _Avoid_: ace (for this selector)
 **Owned version**:
 A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace chart also lists every skill it can buy with skill points (white and gold, whose running style, distance and surface conditions it can meet) as its own skills: certain, not inherited. The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
 
+**Unfit version**:
+An Owned version whose surface or distance Aptitude grade for the selected CM is below the cutoff grade (default D, set by the user; G switches the filter off): reaching A would take pink sparks on every parent, at the cost of the distance spark. The Ace slot does not simulate it for that CM and lists it apart with its reason; the user can force-enable a single one. The loops are unaffected (see Loop version), and its trained veterans stay parent candidates for the other versions.
+_Avoid_: excluded version, skipped version
+
+**Loop version**:
+An Owned version the user picks to be ranked in the Side loop and Core loop (one shared pick). Loop lineages are often built for a version's unique skills and aptitudes rather than for the CM's course, so no aptitude filter applies; until the user narrows the pick, it is every Owned version.
+
 **Must-have skill**:
 A skill the user decides manually the lineage should pass on. One shared list: the Ace slot ranks lineages by the best inheritance chance of these, and the side loop by their spark %. The core loop ignores it.
 
