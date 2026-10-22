@@ -7,7 +7,7 @@ import type { RawGameData } from '../../../packages/lineage/src/types';
 import { CMS } from '../../../packages/scoring/src/cm';
 import { App } from './App';
 import { runJob } from './runJob';
-import type { RecommendJob, RecommendRunner, VeteranJob, VeteranRunner } from './jobs';
+import type { AceRowsRunner, RecommendJob, RecommendRunner, VeteranJob, VeteranRunner } from './jobs';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 
 const apt = { turf: 7, dirt: 1, short: 5, mile: 6, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
@@ -807,4 +807,36 @@ it('charts the selected Side loop pick with the same tabs, table and footnote as
 	expect(root.querySelectorAll('[data-testid=side-select]')[1].getAttribute('aria-pressed')).toBe('true');
 	expect(chart().querySelector('.chart-title')!.textContent).not.toBe(first);
 	expect(chart().querySelector('[data-testid=side-chart-empty]')).not.toBeNull(); // this lineage carries no simulated skill
+});
+
+it('opens any Ace hero on click, building its chart rows once, until the inputs change', async () => {
+	const asked: number[][] = [];
+	let answer: (() => void) | undefined;
+	const runRows: AceRowsRunner = (job, _p, done) => { asked.push(job.owned!.map((v) => v.cardId)); answer = () => done([]); return () => {}; };
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} runRows={runRows} />, root);
+	await importFile();
+	await pickAce();
+	const buttons = () => [...root.querySelectorAll('[data-testid=ace-select]')];
+	const loading = () => root.querySelector('[data-testid=ace-chart-loading]');
+	expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
+	expect(asked).toEqual([]); // the first hero's rows come with the ranking
+	await click(buttons()[1]);
+	expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+	expect(asked).toEqual([[100201]]);
+	expect(loading()).not.toBeNull();
+	await act(() => answer!());
+	expect(loading()).toBeNull();
+	await click(buttons()[0]);
+	await click(buttons()[1]);
+	expect(asked).toHaveLength(1); // opened once, kept
+	expect(loading()).toBeNull();
+	// New inputs: the next result opens the first hero again and forgets the rows.
+	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
+	style.value = 'nige';
+	await act(() => { style.dispatchEvent(new Event('change')); });
+	await run();
+	expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
+	await click(buttons()[1]);
+	expect(asked).toHaveLength(2);
+	expect(loading()).not.toBeNull();
 });

@@ -4,8 +4,11 @@ import type { AcePick, Candidate, CandidatePick, OwnedVersion } from '../../../p
 import { SkillDetails, UmaCard } from './UmaCard';
 
 interface Props {
-	/** Best first; the first one's chart is the one shown. */
+	/** Best first. */
 	picks: AcePick[] | undefined;
+	/** Card id of the hero whose chart is shown; each hero gets a button to select it. */
+	selected?: number;
+	onSelect?: (cardId: number) => void;
 	data: GameData;
 	ownedVersions: OwnedVersion[];
 	/** Trained id to card id, for the parents' portraits. */
@@ -34,17 +37,20 @@ export function ParentPickList({ parents, byId, cardIds, data }: { parents: Cand
 }
 
 /** The best Ace heroes, each with version, running style, 2 parents. Grandparents are the parents' own two parents. */
-export function AceHero({ picks, data, ownedVersions, cardIds, stale }: Props) {
+export function AceHero({ picks, selected, onSelect, data, ownedVersions, cardIds, stale }: Props) {
 	return (
 		<section class="panel" aria-busy={stale}>
 			<h3>Ace{stale && ' (outdated, recomputing)'}</h3>
 			{picks?.map((pick) => {
 				const byId = new Map(ownedVersions.find((v) => v.cardId === pick.cardId)?.candidates.map((c) => [c.id, c]));
 				return (
+					<div class="loop-pick" data-selected={pick.cardId === selected || undefined}>
 					<ol class="cards" style={stale ? { opacity: 0.5 } : undefined}>
 						<UmaCard testId="ace-pick" cardId={pick.cardId} name={nameOf(data, pick.cardId)} headline={pick.score.toFixed(2)} chips={[STYLE_LABEL[pick.style], ...Object.entries(data.cards.get(pick.cardId)?.aptitudes ?? {}).map(([k, v]) => `${APTITUDE_LABEL[k] ?? k} ${gradeLabel(v)}`)]} caveats={pick.fallback ? ['Fall-back style: not the selected one'] : []} />
 						<ParentPickList parents={pick.parents} byId={byId} cardIds={cardIds} data={data} />
 					</ol>
+					{onSelect && <button class="select-pick" data-testid="ace-select" aria-pressed={pick.cardId === selected} onClick={() => onSelect(pick.cardId)}>{pick.cardId === selected ? 'Skills shown below' : 'Show skills'}</button>}
+					</div>
 				);
 			})}
 		</section>
