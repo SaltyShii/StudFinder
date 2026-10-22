@@ -18,7 +18,7 @@ export interface OwnedVersion {
 	cardId: number;
 	aptitudes: Aptitudes;
 	uniqueSkillId?: string;
-	/** The skills the Ace can buy with skill points (see buyableSkillIds); those whose conditions it cannot meet are dropped, the rest are its own skills. */
+	/** The skills on the Ace card's own list it can buy with skill points (see buyableSkillIds); those whose conditions it cannot meet are dropped, the rest are its own skills unless a parent can pass them on. */
 	learnableSkillIds?: string[];
 	candidates: Candidate[];
 }

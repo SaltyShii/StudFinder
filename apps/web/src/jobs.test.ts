@@ -17,11 +17,11 @@ const data = new GameData({
 	meta: {}, charas: {},
 	cards: {
 		100101: { id: 100101, charaId: 1001, name: 'Ace', title: 'Test', aptitudes: apt, uniqueSkillId: 100101, skillIds: [] },
-		100201: { id: 100201, charaId: 1002, name: 'Stud', title: 'Test', aptitudes: apt, uniqueSkillId: null, skillIds: [10071] },
+		100201: { id: 100201, charaId: 1002, name: 'Stud', title: 'Test', aptitudes: apt, uniqueSkillId: null, skillIds: [10071, 20001, 20002] },
 	},
 	skills: {
 		10071: { id: 10071, name: 'Synthetic Skill' },
-		20001: { id: 20001, name: 'Late Surger Straightaways', rarity: 1, groupId: 2000, conditions: [{ pre: '', cond: 'running_style==3&phase==2' }] },
+		20001: { id: 20001, name: 'Late Surger Straightaways', rarity: 1, groupId: 2000, gradeValue: 100, conditions: [{ pre: '', cond: 'running_style==3&phase==2' }] },
 		20002: { id: 20002, name: 'End Closer Straightaways', rarity: 1, groupId: 2001, conditions: [{ pre: '', cond: 'running_style==4&phase==2' }] },
 		20003: { id: 20003, name: 'Sprint Corners', rarity: 1, groupId: 2002, conditions: [{ pre: '', cond: 'distance_type==1&corner>=1' }] },
 		20004: { id: 20004, name: 'Groundwork', rarity: 1, groupId: 2003, conditions: [{ pre: '', cond: 'track_id==10006' }] },
@@ -113,9 +113,10 @@ it('Tier list edits move or disable a skill for the Core loop style only', () =>
 	expect(list({ oikomi: { moved: {}, disabled: ['Late Surger Straightaways'] } })['Late Surger Straightaways']).toBe('T1.5'); // another style's edit
 });
 
-it('plans an Owned version with the buyable skill pool, not just its card skills', () => {
+it('plans an Owned version with only the buyable skills on its own card list', () => {
 	const [stud] = planOwned(data, roster, [100201], course, false);
-	expect(stud.learnableSkillIds).toEqual(['200162']);
+	// 10071 has no rarity and 20002 no grade value in the fixture; 20003 is white but not on the card list
+	expect(stud.learnableSkillIds).toEqual(['20001']);
 });
 
 it('veterans scored apart as pool tasks and ranked together equal the serial score', () => {
