@@ -331,11 +331,13 @@ function sideRows(horses: LineageHorse[], detailOf: (id: string) => SkillDetail,
 	return rows.filter((r) => r.mustHave || best.includes(r));
 }
 
-// Up to the 10 best: distance A first (or reachable through pink sparks, likelier first), then Must-have chance, then simulated value; an F-sprint uma with no way up never wins.
+// Up to the 10 best, from the best tier present only: distance A, else reachable through pink sparks, else neither (an F-sprint uma with no way up never ranks while a better tier exists).
+// Within the tier: likelier distance A first, then Must-have chance, then simulated value.
 function rankAceSlots(versions: AceCandidate[], category: Category): AceCandidate[] {
 	const tierOf = ({ v, pick }: AceCandidate) => v.aptitudes[category] >= GRADE_A ? 0 : pick.distanceAChance > 0 ? 1 : 2;
+	const gate = Math.min(...versions.map(tierOf));
 	// Array.prototype.sort is stable, so equal ones keep the Owned order.
-	return [...versions].sort((a, b) => tierOf(a) - tierOf(b) || chanceKey(b.pick.distanceAChance) - chanceKey(a.pick.distanceAChance) || chanceKey(b.pick.mustHaveChance) - chanceKey(a.pick.mustHaveChance) || b.pick.score - a.pick.score);
+	return versions.filter((x) => tierOf(x) === gate).sort((a, b) => chanceKey(b.pick.distanceAChance) - chanceKey(a.pick.distanceAChance) || chanceKey(b.pick.mustHaveChance) - chanceKey(a.pick.mustHaveChance) || b.pick.score - a.pick.score);
 }
 
 function coreTier(v: OwnedVersion): number {

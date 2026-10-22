@@ -330,10 +330,10 @@ test('the Ace slots list up to 10 versions in the Ace order; the first is the si
 	expect(rec.aceSlots[0]).toEqual(single);
 });
 
-test('fewer versions give fewer Ace slots, and an unreachable-distance version ranks after the others instead of being dropped', () => {
+test('only the best tier gets Ace slots: a version that cannot reach the distance is dropped while another can', () => {
 	const short = { ...apt, mile: 1, middle: 1, long: 1, short: 1 };
 	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: short, candidates: [] }, { cardId: 2, aptitudes: { ...apt, short: 7, mile: 7, middle: 7, long: 7 }, candidates: [] }]);
-	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([2, 1]);
+	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([2]);
 });
 
 test('an Ace slot marks a fall-back when its style differs from the selected one', () => {
