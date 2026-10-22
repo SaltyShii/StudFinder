@@ -16,6 +16,8 @@ export interface RecommendJob {
 	preset: CmPreset;
 	tierList?: TierList;
 	owned?: OwnedVersion[];
+	/** The versions the Side loop and Core loop rank; the Owned versions when absent. */
+	loopVersions?: OwnedVersion[];
 	mustHaves?: string[];
 }
 export interface VeteranJob {
@@ -114,13 +116,15 @@ export interface PlanOptions {
 	target?: Partial<TargetStats>;
 	coreStyleChoice?: Style | null;
 	owned?: OwnedVersion[];
+	/** The versions the Side loop and Core loop rank; the Owned versions when absent. */
+	loopVersions?: OwnedVersion[];
 	tierEdits?: TierEdits;
 	mustHaves?: string[];
 	assumptions?: SimAssumptions;
 }
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
-	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], tierEdits = {}, mustHaves = [], assumptions } = options;
+	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions } = options;
 	// Manual choice wins; otherwise the best-ranked style for this Sim runner on the CM course.
 	const base = card ?? GENERIC_RUNNER;
 	const style: Style = styleChoice ?? (course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
@@ -128,7 +132,7 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, mustHaves } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
 }
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */

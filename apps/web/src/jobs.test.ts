@@ -126,3 +126,22 @@ it('veterans scored apart as pool tasks and ranked together equal the serial sco
 	const { veterans, uniqueSkills, ...conditions } = vj;
 	expect(rankVeterans(apart)).toEqual(scoreVeterans(veterans, { ...conditions, uniqueSkills: new Map(uniqueSkills) }));
 });
+
+it('plans the Ace list and the Loop versions apart; the Loop versions default to the Owned versions', () => {
+	const owned = planOwned(data, roster, [100101, 100201], course, false);
+	const cardIds = (vs: { cardId: number }[] | undefined) => vs?.map((v) => v.cardId);
+	const loopOnly = planRecommend(data, [], cm, { course, owned, loopVersions: [owned[1]] }).job!;
+	expect(cardIds(loopOnly.owned)).toEqual([100101, 100201]);
+	expect(cardIds(loopOnly.loopVersions)).toEqual([100201]);
+	expect(cardIds(planRecommend(data, [], cm, { course, owned }).job!.loopVersions)).toEqual([100101, 100201]);
+	expect(cardIds(planRecommend(data, [], cm, { course, owned, loopVersions: [] }).job!.loopVersions)).toEqual([]);
+});
+
+it('runs the Side loop and Core loop on the Loop versions of the job', () => {
+	const owned = planOwned(data, roster, [100101, 100201], course, false);
+	const job = planRecommend(data, planCandidates(data, roster, ace, course, false), cm, { course, owned, loopVersions: [owned[1]] }).job!;
+	job.preset.samples = 5;
+	const rec = runJob({ kind: 'recommend', job }, () => {}) as Recommendation;
+	expect(rec.sideSlots.map((s) => s.cardId)).toEqual([100201]);
+	expect(rec.coreSlots.map((s) => s.cardId)).toEqual([100201]);
+});
