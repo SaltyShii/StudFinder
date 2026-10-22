@@ -3,7 +3,7 @@ import type { SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import { AssumptionsPanel } from './AssumptionsPanel';
 import { GameData, loadGameData } from '../../../packages/lineage/src/gameData';
 import type { ImportResult } from '../../../packages/lineage/src/types';
-import { STYLE_LABEL, STYLES, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { STYLE_LABEL, STYLES, gradeLabel, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import { formatAge } from './age';
 import { AceHero, nameOf } from './AceHero';
@@ -19,11 +19,11 @@ import { courseTitle, isLeftHanded } from './trackAxis';
 import { TrackOverview } from './TrackOverview';
 import { LoopSlots } from './LoopSlots';
 import { PickList } from './PickList';
-import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planOwned, planRecommend, planVeterans, type RecommendJob, type RecommendRunner, type VeteranJob, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
+import { applyTierEdit, cardIdsOf, coreTierListOf, planCandidates, planFit, planOwned, DEFAULT_FIT_CUTOFF, planRecommend, planVeterans, type RecommendJob, type RecommendRunner, type VeteranJob, type TierEdit, type TierEdits, type VeteranRunner } from './jobs';
 import { recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadFitCutoff, saveFitCutoff, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -53,7 +53,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const [loopChoice, setLoopChoice] = useState<number[] | null>(() => loadLoopVersions(localStorage));
 	// Until the player narrows it, the Loop versions are every Owned version.
 	const loopPicked = useMemo(() => new Set(loopChoice ? [...owned].filter((id) => loopChoice.includes(id)) : owned), [loopChoice, owned]);
-	const [mustHaves, setMustHaves] =useState<string[]>(() => loadMustHaves(localStorage));
+	const [cutoff, setCutoff] = useState<number>(() => loadFitCutoff(localStorage) ?? DEFAULT_FIT_CUTOFF);
+	const [mustHaves, setMustHaves] = useState<string[]>(() => loadMustHaves(localStorage));
 	// Null is the Generic runner (all A, no unique skill).
 	const [simRunnerId, setSimRunnerId] = useState<number | null>(null);
 	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
@@ -74,14 +75,17 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	const course = data?.courses.get(cm.courseId);
 	const candidates = useMemo(() => (data && roster ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
+	// The Ace slot simulates the fit versions only; the loops rank the Loop versions whatever their Aptitude.
+	const { fit: aceVersions, unfit } = useMemo(() => planFit(ownedVersions, course, cutoff), [ownedVersions, course, cutoff]);
 	const loopVersions = useMemo(() => ownedVersions.filter((v) => loopPicked.has(v.cardId)), [ownedVersions, loopPicked]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: ownedVersions, loopVersions, tierEdits, mustHaves, assumptions }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, ownedVersions, loopVersions, tierEdits, mustHaves, assumptions]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves, assumptions }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, mustHaves, assumptions]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
 		saveTierEdits(localStorage, next);
 		setTierEdits(next);
 	};
+	const noFit = ownedVersions.length > 0 && !aceVersions.length;
 	const cardIds = useMemo(() => (roster ? cardIdsOf(roster) : new Map<string, number>()), [roster]);
 	const veteranJob = useMemo(() => planVeterans(data, roster, cm, assumptions), [data, roster, cm, assumptions]);
 	// Nothing computes until Run: the jobs run the snapshot taken then, and any later change to `job` marks the results outdated.
@@ -142,10 +146,10 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 						<h2>Roster</h2>
 						<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
 						<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
-						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setLoopChoice(null); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
+						<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setLoopChoice(null); setCutoff(DEFAULT_FIT_CUTOFF); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
 					</section>
 				)}
-				{roster && data && <OwnedVersions data={data} owned={owned} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />}
+				{roster && data && <OwnedVersions data={data} owned={owned} unfit={unfit} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />}
 				{roster && data && <LoopVersions data={data} owned={owned} picked={loopPicked} onChange={(ids) => { saveLoopVersions(localStorage, ids); setLoopChoice(ids); }} />}
 				{roster && data && (
 					<section class="panel">
@@ -170,7 +174,8 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 				{roster && data && <MustHaves data={data} tiers={applyTierEdit(baseTierList, tierEdits[coreStyle])} mustHaves={mustHaves} suggestions={suggestions} onChange={(ids) => { saveMustHaves(localStorage, ids); setMustHaves(ids); }} />}
 				{roster && data && <TierEditor base={baseTierList} edit={tierEdits[coreStyle]} onChange={editTiers} />}
 				<section class="panel">
-					<button class="primary" name="run" disabled={!job} onClick={snapshot}>Run</button>
+					<button class="primary" name="run" disabled={!job || noFit} onClick={snapshot}>Run</button>
+					{noFit && <p class="muted">All owned versions are below {gradeLabel(cutoff)} on this CM; force-enable one</p>}
 					{!job && <p class="muted">Import a Roster with Owned versions to run.</p>}
 				</section>
 			</div>

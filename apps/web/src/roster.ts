@@ -11,6 +11,7 @@ const CM_KEY = 'stud-finder:cm';
 const BORROW_KEY = 'stud-finder:use-borrowed';
 const OWNED_KEY = 'stud-finder:owned-versions';
 const LOOP_KEY = 'stud-finder:loop-versions';
+const FIT_CUTOFF_KEY = 'stud-finder:fit-cutoff';
 const MUST_HAVES_KEY = 'stud-finder:must-haves';
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
 const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
@@ -18,7 +19,7 @@ const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
 const VERSION = 1;
 
 /** Every key clearRoster wipes; add new keys here only. The last is an earlier version's manual owned toggles, which no longer exist. */
-const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
+const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, FIT_CUTOFF_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
 
 function saveVersioned(storage: Storage, key: string, field: string, value: unknown): void {
 	storage.setItem(key, JSON.stringify({ version: VERSION, [field]: value }));
@@ -87,6 +88,15 @@ export function saveLoopVersions(storage: Storage, ids: number[]): void {
 /** Card ids the player narrowed the Loop versions to, or null (every Owned version) when absent, stale-versioned or malformed. */
 export function loadLoopVersions(storage: Storage): number[] | null {
 	return loadVersioned(storage, LOOP_KEY, 'ids', (v) => (Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null));
+}
+
+export function saveFitCutoff(storage: Storage, grade: number): void {
+	saveVersioned(storage, FIT_CUTOFF_KEY, 'grade', grade);
+}
+
+/** The Unfit version cutoff grade (1-8), or null (the default) when absent, stale-versioned or malformed. */
+export function loadFitCutoff(storage: Storage): number | null {
+	return loadVersioned(storage, FIT_CUTOFF_KEY, 'grade', (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 8 ? v : null));
 }
 
 export function saveMustHaves(storage: Storage, ids: string[]): void {
