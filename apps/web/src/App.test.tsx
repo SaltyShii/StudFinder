@@ -271,7 +271,7 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	await importFile();
 	await pickAce();
 	expect(root.querySelector('[data-testid^=ace-pick]')).not.toBeNull();
-	expect(root.querySelector('[data-testid=ace-parent]')).not.toBeNull();
+	expect(root.querySelector('[data-testid^=ace-parent-]')).not.toBeNull();
 	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
 	expect(heads.slice(0, 5)).toEqual(['Ace', '2000m turf (right-handed)', 'Side loop', 'Core loop', 'Ace veteran list']);
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
@@ -284,6 +284,7 @@ it('lists every fit Ace hero as a card, marking the ones that run in a fall-back
 	const cards = () => [...root.querySelectorAll('[data-testid^=ace-pick]')];
 	expect(cards().map((c) => c.textContent)).toEqual([expect.stringContaining('Dud'), expect.stringContaining('Stud')]);
 	expect(cards().every((c) => c.querySelector('.headline') && !c.textContent!.includes('Fall-back'))).toBe(true);
+	expect(cards().map((c) => c.getAttribute('data-testid'))).toEqual(['ace-pick-100301', 'ace-pick-100201']); // one id per hero
 	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
 	style.value = 'nige'; // D for every version: each falls back to Pace Chaser
 	await act(() => { style.dispatchEvent(new Event('change')); });
@@ -760,7 +761,7 @@ it('shows the Ace as one combined skill list with a pick list of parents, and le
 	expect(row.closest('.skill-panel')).not.toBeNull(); // its own panel under the overview
 	expect(row.closest('[data-testid=track-overview]')).toBeNull();
 	expect(row.querySelectorAll('[data-testid=spot-density], [data-testid=spot-pin], [data-testid=spot-block]').length).toBeGreaterThan(0);
-	const ace = root.querySelector('[data-testid=ace-parent]')!;
+	const ace = root.querySelector('[data-testid^=ace-parent-]')!;
 	expect(ace.querySelector('strong')!.textContent).toBeTruthy();
 	expect(ace.querySelector('details, .headline')).toBeNull(); // no skill text, no per-parent score
 	expect(root.querySelectorAll('[data-testid=side-pick] [data-testid=ace-skill-row], [data-testid=core-pick] [data-testid=ace-skill-row]').length).toBe(0);
@@ -836,7 +837,7 @@ it('opens any Ace hero on click, building its chart rows once, until the inputs 
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} runRows={runRows} />, root);
 	await importFile();
 	await pickAce();
-	const buttons = () => [...root.querySelectorAll('[data-testid=ace-select]')];
+	const buttons = () => [...root.querySelectorAll('[data-testid^=ace-select-]')];
 	const loading = () => root.querySelector('[data-testid=ace-chart-loading]');
 	expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
 	expect(asked).toEqual([]); // the first hero's rows come with the ranking

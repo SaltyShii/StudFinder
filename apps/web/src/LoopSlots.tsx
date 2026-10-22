@@ -1,6 +1,6 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { LoopPick, OwnedVersion } from '../../../packages/scoring/src/recommend';
-import { nameOf, ParentCards } from './AceHero';
+import { nameOf, ParentCards, parentsById } from './AceHero';
 import { UmaCard } from './UmaCard';
 
 interface Props {
@@ -24,7 +24,7 @@ export function LoopSlots({ title, testId, picks, ownedVersions, cardIds, stale,
 			<h3>{title}{stale && ' (outdated, recomputing)'}</h3>
 			<div style={stale ? { opacity: 0.5 } : undefined}>
 				{picks?.map((pick) => {
-					const byId = new Map(ownedVersions.find((v) => v.cardId === pick.cardId)?.candidates.map((c) => [c.id, c]));
+					const byId = parentsById(ownedVersions, pick.cardId);
 					return (
 						<div class="loop-pick" data-selected={pick.cardId === selected || undefined}>
 						<ol class="cards">
