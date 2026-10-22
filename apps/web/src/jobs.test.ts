@@ -166,3 +166,18 @@ it('switches the fit filter off at grade G', () => {
 	expect(planFit(versions, dirtCourse, 1).fit.map((v) => v.cardId)).toEqual([100101]);
 	expect(planFit(versions, dirtCourse, 1).unfit).toEqual([]);
 });
+
+it('simulates a forced Unfit version in the Ace slot, keeps it listed, and keeps the Owned order', () => {
+	const versions = planOwned(data, roster, [100101, 100201], course, false);
+	const dirtCourse = { ...course!, ground: 2, distance: 1600 };
+	versions[0] = { ...versions[0], aptitudes: { ...apt, dirt: 2 } };
+	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 7 } };
+	const split = planFit(versions, dirtCourse, 4, new Set([100101]));
+	expect(split.fit.map((v) => v.cardId)).toEqual([100101, 100201]);
+	expect(split.unfit.map((u) => u.version.cardId)).toEqual([100101]);
+	// Forcing a version that is not unfit changes nothing; with every version unfit, forcing one leaves the Ace list non-empty.
+	expect(planFit(versions, course, 4, new Set([100201])).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
+	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 2 } };
+	expect(planFit(versions, dirtCourse, 4).fit).toEqual([]);
+	expect(planFit(versions, dirtCourse, 4, new Set([100201])).fit.map((v) => v.cardId)).toEqual([100201]);
+});
