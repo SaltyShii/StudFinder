@@ -88,7 +88,9 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	// The Ace slot simulates the fit versions only; the loops rank the Loop versions whatever their Aptitude.
 	const { fit: aceVersions, unfit } = useMemo(() => planFit(ownedVersions, course, cutoff, new Set(forced)), [ownedVersions, course, cutoff, forced]);
 	const loopVersions = useMemo(() => ownedVersions.filter((v) => loopPicked.has(v.cardId)), [ownedVersions, loopPicked]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves: showLoops ? mustHaves : [], assumptions }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, mustHaves, showLoops, assumptions]);
+	// The hidden loops must not steer the ranking; the stored Must-haves stay untouched.
+	const activeMustHaves = useMemo(() => (showLoops ? mustHaves : []), [showLoops, mustHaves]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves: activeMustHaves, assumptions }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, activeMustHaves, assumptions]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
