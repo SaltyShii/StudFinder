@@ -63,6 +63,16 @@ export function aceRowsJob(job: RecommendJob, cardId: number): RecommendJob | nu
 	return version ? { ...job, candidateList: { candidates: [] }, owned: [version], loopVersions: [], tierList: undefined } : null;
 }
 
+type RecommendArgs = Parameters<typeof import('../../../packages/scoring/src/recommend').recommend>;
+/** The arguments `recommend` and `recommendAsync` take for a job, in one place for both entry points. */
+export function recommendArgs(job: RecommendJob, onProgress: NonNullable<RecommendArgs[5]>): RecommendArgs {
+	return [job.candidateList, job.preset, job.tierList, job.owned, job.mustHaves, onProgress, job.loopVersions];
+}
+/** The chart rows an aceRows job answers with: those of the only hero its run ranks. */
+export function aceRowsOf(rec: Recommendation): AceSkillRow[] {
+	return rec.aceSlots[0]?.skills ?? [];
+}
+
 // A Core loop is usable for any CM, so skills tied to a surface, distance, track, season, weather or track condition do not count.
 const CM_BOUND = /(ground_type|distance_type|is_basis_distance|track_id|season|weather|ground_condition|rotation)[=!<>]/;
 
