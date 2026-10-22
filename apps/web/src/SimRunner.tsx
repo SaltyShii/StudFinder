@@ -17,6 +17,7 @@ export function SimRunner({ data, cardId, onPick }: Props) {
 	const pick = (id: number | null) => { onPick(id); setOpen(false); };
 	return (
 		<div class="sim-runner">
+			<span class="muted">Sim runner</span>
 			{card && <img class="portrait small" alt="" src={`${import.meta.env.BASE_URL}img/cards/${card.id}.png`} />}
 			<strong>{card ? versionName(card) : 'Generic (all A)'}</strong>
 			<button type="button" name="choose-sim-runner" onClick={() => setOpen(true)}>Change</button>

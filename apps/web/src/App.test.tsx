@@ -5,7 +5,8 @@ import { beforeEach, expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { CMS } from '../../../packages/scoring/src/cm';
-import { App } from './App';
+import type { ComponentProps } from 'preact';
+import { App as PlainApp } from './App';
 import { runJob } from './runJob';
 import type { AceRowsRunner, RecommendJob, RecommendRunner, VeteranJob, VeteranRunner } from './jobs';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
@@ -35,6 +36,8 @@ const exportText = JSON.stringify([
 	{ trained_chara_id: 1, card_id: 100301, factor_id_array: [1201], succession_chara_array: [{ position_id: 10, card_id: 100201, owner_viewer_id: 777, factor_id_array: [1201] }] },
 	{ trained_chara_id: 2, card_id: 100201, factor_id_array: [1201, 1202], succession_chara_array: [] },
 ]);
+// Most tests below exercise the loop UI, which the default page hides behind a flag.
+const App = (p: ComponentProps<typeof PlainApp>) => <PlainApp showLoops {...p} />;
 const flush = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
 
 let root: HTMLElement;
@@ -271,7 +274,6 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	await importFile();
 	await pickAce();
 	expect(root.querySelector('[data-testid^=ace-pick]')).not.toBeNull();
-	expect(root.querySelector('[data-testid^=ace-parent-]')).not.toBeNull();
 	const heads = [...root.querySelectorAll('.results h3, .results > details > summary')].map((h) => h.textContent);
 	expect(heads.slice(0, 5)).toEqual(['Ace', '2000m turf (right-handed)', 'Side loop', 'Core loop', 'Ace veteran list']);
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
@@ -283,14 +285,14 @@ it('lists every fit Ace hero as a card, marking the ones that run in a fall-back
 	await pickAce();
 	const cards = () => [...root.querySelectorAll('[data-testid^=ace-pick]')];
 	expect(cards().map((c) => c.textContent)).toEqual([expect.stringContaining('Dud'), expect.stringContaining('Stud')]);
-	expect(cards().every((c) => c.querySelector('.headline') && !c.textContent!.includes('Fall-back'))).toBe(true);
+	expect(cards().every((c) => c.querySelector('.headline') && !c.textContent!.includes('fall-back'))).toBe(true);
 	expect(cards().map((c) => c.getAttribute('data-testid'))).toEqual(['ace-pick-100301', 'ace-pick-100201']); // one id per hero
 	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
 	style.value = 'nige'; // D for every version: each falls back to Pace Chaser
 	await act(() => { style.dispatchEvent(new Event('change')); });
 	await run();
 	expect(cards()).toHaveLength(2);
-	expect(cards().every((c) => c.textContent!.includes('Fall-back style'))).toBe(true);
+	expect(cards().every((c) => c.textContent!.includes('fall-back style'))).toBe(true);
 });
 
 it('marks every Ace hero card outdated when an input changes, and current again after Run', async () => {
@@ -298,7 +300,7 @@ it('marks every Ace hero card outdated when an input changes, and current again 
 	await importFile();
 	await pickAce();
 	const section = () => root.querySelector('[data-testid^=ace-pick]')!.closest('section')!;
-	const cardLists = () => [...section().querySelectorAll('ol.cards')] as HTMLElement[];
+	const cardLists = () => [...section().querySelectorAll('ol.hero-list')] as HTMLElement[];
 	expect(section().getAttribute('aria-busy')).toBe('false');
 	expect(cardLists().every((l) => l.style.opacity === '')).toBe(true);
 	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
@@ -306,20 +308,11 @@ it('marks every Ace hero card outdated when an input changes, and current again 
 	await act(() => { style.dispatchEvent(new Event('change')); });
 	expect(section().getAttribute('aria-busy')).toBe('true');
 	expect(section().querySelector('h3')!.textContent).toContain('outdated');
-	expect(cardLists()).toHaveLength(2);
+	expect(cardLists()).toHaveLength(1);
 	expect(cardLists().every((l) => l.style.opacity === '0.5')).toBe(true);
 	await run();
 	expect(section().getAttribute('aria-busy')).toBe('false');
 	expect(cardLists().every((l) => l.style.opacity === '')).toBe(true);
-});
-
-it('labels the Ace hero aptitude chips in English, never with internal ids', async () => {
-	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
-	await importFile();
-	await pickAce();
-	const chips = [...root.querySelector('[data-testid^=ace-pick]')!.querySelectorAll('.chip')].map((c) => c.textContent);
-	expect(chips).toEqual(expect.arrayContaining(['Turf A', 'Dirt G', 'Short C', 'Mile B', 'Medium A', 'Long B', 'Front Runner E', 'Pace Chaser A', 'Late Surger B', 'End Closer D']));
-	expect(chips.join(' ')).not.toMatch(/nige|senko|sashi|oikomi/i);
 });
 
 it('drops scores on cancel so they do not look current', async () => {
@@ -388,7 +381,7 @@ it('returns the Style to the best-ranked one when the Ace or CM changes', async 
 it('labels the Sim runner, not Ace, and shows the chosen one', async () => {
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
-	expect([...root.querySelectorAll('h2')].map((h) => h.textContent)).toContain('Sim runner');
+	expect(root.querySelector('[data-testid=top-bar] .sim-runner')!.textContent).toContain('Sim runner');
 	await chooseRunner();
 	expect(root.querySelector('.sim-runner')!.textContent).toContain('Test Ace');
 	expect(root.querySelector('.modal')).toBeNull(); // a pick closes the popup
@@ -761,9 +754,6 @@ it('shows the Ace as one combined skill list with a pick list of parents, and le
 	expect(row.closest('.skill-panel')).not.toBeNull(); // its own panel under the overview
 	expect(row.closest('[data-testid=track-overview]')).toBeNull();
 	expect(row.querySelectorAll('[data-testid=spot-density], [data-testid=spot-pin], [data-testid=spot-block]').length).toBeGreaterThan(0);
-	const ace = root.querySelector('[data-testid^=ace-parent-]')!;
-	expect(ace.querySelector('strong')!.textContent).toBeTruthy();
-	expect(ace.querySelector('details, .headline')).toBeNull(); // no skill text, no per-parent score
 	expect(root.querySelectorAll('[data-testid=side-pick] [data-testid=ace-skill-row], [data-testid=core-pick] [data-testid=ace-skill-row]').length).toBe(0);
 	expect(root.querySelector('[data-testid=side-parent] details')).not.toBeNull(); // loops unchanged
 });
@@ -861,4 +851,87 @@ it('opens any Ace hero on click, building its chart rows once, until the inputs 
 	await click(buttons()[1]);
 	expect(asked).toHaveLength(2);
 	expect(loading()).not.toBeNull();
+});
+
+// The default page: loop UI hidden, Ace slot only.
+const HIDDEN_HEADINGS = ['Side loop', 'Core loop', 'Ace veteran list'];
+
+it('hides the loop sections and their controls by default, and runs no veteran job', async () => {
+	const jobs: VeteranJob[] = [];
+	const spy: VeteranRunner = (job) => { jobs.push(job); return () => {}; };
+	render(<PlainApp loadData={async () => data} run={inline} runVeterans={spy} />, root);
+	await importFile();
+	await pickAce();
+	const headings = [...root.querySelectorAll('h2, h3, summary, legend, label')].map((h) => h.textContent!);
+	for (const h of [...HIDDEN_HEADINGS, 'Loop versions', 'Core loop style', 'Tier list', 'Must-have skills']) expect(headings.some((t) => t.includes(h))).toBe(false);
+	expect(root.querySelector('select[name=core-style]')).toBeNull();
+	expect(root.querySelector('[data-testid=side-chart]')).toBeNull();
+	expect(root.querySelector('[data-testid=side-pick]')).toBeNull();
+	expect(jobs).toHaveLength(0);
+	expect(root.querySelector('[data-testid^=ace-pick]')).not.toBeNull();
+});
+
+it('shows the loop sections again with the flag on', async () => {
+	render(<PlainApp showLoops loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const headings = [...root.querySelectorAll('h2, h3, summary, label')].map((h) => h.textContent!);
+	for (const h of ['Side loop', 'Core loop', 'Ace veteran list', 'Loop versions', 'Core loop style', 'Tier list', 'Must-have skills']) expect(headings.some((t) => t.includes(h))).toBe(true);
+});
+
+it('leaves saved loop settings and Must-haves in storage while hidden', async () => {
+	const saved = { 'stud-finder:must-haves': JSON.stringify(['10071']), 'stud-finder:loop-versions': JSON.stringify([100201]) };
+	for (const [k, v] of Object.entries(saved)) localStorage.setItem(k, v);
+	render(<PlainApp loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	for (const [k, v] of Object.entries(saved)) expect(localStorage.getItem(k)).toBe(v);
+});
+
+it('puts the main actions in a top bar and the other options in a collapsed Settings section', async () => {
+	render(<PlainApp loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	const bar = root.querySelector('[data-testid=top-bar]')!;
+	expect(bar.querySelector('h1')!.textContent).toBe('Stud Finder');
+	for (const sel of ['input[type=file]', 'select[name=cm]', 'button[name=choose-sim-runner]', 'select[name=style]', 'button[name=run]']) expect(bar.querySelector(sel)).not.toBeNull();
+	const settings = root.querySelector('details[data-testid=settings]')!;
+	expect(settings.hasAttribute('open')).toBe(false);
+	expect(settings.querySelector('summary')!.textContent).toBe('Settings');
+	for (const sel of ['input[name=speed]', 'input[name=use-borrowed]']) expect(settings.querySelector(sel)).not.toBeNull();
+	expect(settings.textContent).toContain('Owned versions');
+	expect(settings.textContent).toContain('Sim assumptions');
+	await run();
+	expect(bar.querySelector('button[name=run]')).not.toBeNull();
+});
+
+it('shows Cancel in the top bar while computing', async () => {
+	const manual: RecommendRunner = () => () => {};
+	render(<PlainApp loadData={async () => data} run={manual} runVeterans={noV} />, root);
+	await importFile();
+	await run();
+	expect(root.querySelector('[data-testid=top-bar] button[name=cancel]')).not.toBeNull();
+});
+
+it('lists the Ace heroes compactly with name, running style and expected lengths, and selects one', async () => {
+	render(<PlainApp loadData={async () => data} run={inline} runVeterans={noV} runRows={() => () => {}} />, root);
+	await importFile();
+	await pickAce();
+	const rows = [...root.querySelectorAll('[data-testid^=ace-pick]')];
+	expect(rows.map((r) => r.getAttribute('data-testid'))).toEqual(['ace-pick-100301', 'ace-pick-100201']);
+	expect(rows[0].textContent).toContain('Dud');
+	expect(rows[0].textContent).toContain('Pace Chaser');
+	expect(rows[0].querySelector('[data-testid=hero-lengths]')!.textContent).toMatch(/^\d+\.\d{2} lengths$/);
+	expect(rows[0].querySelector('.chip')).toBeNull(); // compact: no aptitude chips
+	expect(root.querySelector('[data-testid=ace-select-100301]')!.getAttribute('aria-pressed')).toBe('true');
+	await click(root.querySelector('[data-testid=ace-select-100201]'));
+	expect(root.querySelector('[data-testid=ace-select-100201]')!.getAttribute('aria-pressed')).toBe('true');
+	expect(root.querySelector('[data-testid=ace-select-100301]')!.getAttribute('aria-pressed')).toBe('false');
+});
+
+it('keeps the Track overview and skill panel for the selected hero', async () => {
+	render(<PlainApp loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	expect(root.textContent).toContain('2000m turf');
+	expect(root.querySelector('.skill-table')).not.toBeNull();
 });

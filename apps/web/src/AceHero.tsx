@@ -1,5 +1,5 @@
 import { versionName, type GameData } from '../../../packages/lineage/src/gameData';
-import { APTITUDE_LABEL, gradeLabel, STYLE_LABEL } from '../../../packages/scoring/src/ace';
+import { STYLE_LABEL } from '../../../packages/scoring/src/ace';
 import type { AcePick, Candidate, CandidatePick, OwnedVersion } from '../../../packages/scoring/src/recommend';
 import { SkillDetails, UmaCard } from './UmaCard';
 
@@ -10,9 +10,6 @@ interface Props {
 	selected?: number;
 	onSelect?: (cardId: number) => void;
 	data: GameData;
-	ownedVersions: OwnedVersion[];
-	/** Trained id to card id, for the parents' portraits. */
-	cardIds: Map<string, number>;
 	stale: boolean;
 }
 
@@ -34,11 +31,6 @@ export function parentsById(ownedVersions: OwnedVersion[], cardId: number): Map<
 	return new Map(ownedVersions.find((v) => v.cardId === cardId)?.candidates.map((c) => [c.id, c]));
 }
 
-/** Style first, then every aptitude with its grade. */
-function aptitudeChips(data: GameData, pick: AcePick): string[] {
-	return [STYLE_LABEL[pick.style], ...Object.entries(data.cards.get(pick.cardId)?.aptitudes ?? {}).map(([k, v]) => `${APTITUDE_LABEL[k] ?? k} ${gradeLabel(v)}`)];
-}
-
 /** Parent cards as a pick list for the game: portrait, name and the Ace's grandparents only. `heroId` keeps the test ids of one hero's cards apart from the others'. */
 export function ParentPickList({ parents, byId, cardIds, data, heroId }: { parents: CandidatePick[]; byId: Map<string, Candidate>; cardIds: Map<string, number>; data: GameData; heroId: number }) {
 	return <>{parents.map((p) => <UmaCard testId={`ace-parent-${heroId}`} cardId={cardIds.get(p.candidateId)} name={byId.get(p.candidateId)?.name ?? p.candidateId} headline={null}>
@@ -46,20 +38,26 @@ export function ParentPickList({ parents, byId, cardIds, data, heroId }: { paren
 	</UmaCard>)}</>;
 }
 
-/** The best Ace heroes, each with version, running style, 2 parents. Grandparents are the parents' own two parents. */
-export function AceHero({ picks, selected, onSelect, data, ownedVersions, cardIds, stale }: Props) {
+/** The one place that says which Ace pick field is shown as "expected lengths". Switch to the expected-lengths field of the new Ace ranking (#115) here. */
+export function heroLengths(pick: AcePick): number {
+	return pick.score;
+}
+
+/** The best Ace heroes as a compact list: name, running style, expected lengths. */
+export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
 	return (
 		<section class="panel" aria-busy={stale}>
 			<h3>Ace{stale && ' (outdated, recomputing)'}</h3>
-			{picks?.map((pick) => (
-				<div class="hero-pick" data-selected={pick.cardId === selected || undefined}>
-					<ol class="cards" style={stale ? { opacity: 0.5 } : undefined}>
-						<UmaCard testId={`ace-pick-${pick.cardId}`} cardId={pick.cardId} name={nameOf(data, pick.cardId)} headline={pick.score.toFixed(2)} chips={aptitudeChips(data, pick)} caveats={pick.fallback ? ['Fall-back style: not the selected one'] : []} />
-						<ParentPickList parents={pick.parents} byId={parentsById(ownedVersions, pick.cardId)} cardIds={cardIds} data={data} heroId={pick.cardId} />
-					</ol>
-					{onSelect && <button class="select-pick" data-testid={`ace-select-${pick.cardId}`} aria-pressed={pick.cardId === selected} onClick={() => onSelect(pick.cardId)}>{pick.cardId === selected ? 'Skills shown below' : 'Show skills'}</button>}
-				</div>
-			))}
+			<ol class="hero-list" style={stale ? { opacity: 0.5 } : undefined}>
+				{picks?.map((pick) => (
+					<li class="hero-row" data-testid={`ace-pick-${pick.cardId}`} data-selected={pick.cardId === selected || undefined}>
+						<strong>{nameOf(data, pick.cardId)}</strong>
+						<span class="muted">{STYLE_LABEL[pick.style]}{pick.fallback && ' (fall-back style: not the selected one)'}</span>
+						<span class="headline" data-testid="hero-lengths">{heroLengths(pick).toFixed(2)} lengths</span>
+						{onSelect && <button class="select-pick" data-testid={`ace-select-${pick.cardId}`} aria-pressed={pick.cardId === selected} onClick={() => onSelect(pick.cardId)}>{pick.cardId === selected ? 'Skills shown below' : 'Show skills'}</button>}
+					</li>
+				))}
+			</ol>
 		</section>
 	);
 }
