@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks';
 import { versionName, type GameData } from '../../../packages/lineage/src/gameData';
 import { CardPicker } from './CardPicker';
-import { gradeLabel } from '../../../packages/scoring/src/ace';
-import { FIT_OFF, type UnfitVersion } from './jobs';
+import { FIT_OFF, GRADE_NUMBERS, gradeLabel } from '../../../packages/scoring/src/ace';
+import type { UnfitVersion } from './jobs';
 import { Modal } from './Modal';
 
 interface Props {
@@ -20,7 +20,6 @@ interface Props {
 }
 
 const PREVIEW = 6;
-const GRADES = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /** Sidebar summary of the Owned versions; the button opens the picker popup. */
 export function OwnedVersions({ data, owned, unfit, forced, onForce, cutoff, onCutoff, onChange }: Props) {
@@ -32,7 +31,7 @@ export function OwnedVersions({ data, owned, unfit, forced, onForce, cutoff, onC
 			<p>{owned.size} owned</p>
 			<div class="chips">{[...owned].slice(0, PREVIEW).map((id) => <img class="portrait small" alt={data.cards.get(id) ? versionName(data.cards.get(id)!) : ''} src={`${import.meta.env.BASE_URL}img/cards/${id}.png`} />)}</div>
 			<label>Unfit below <select name="fit-cutoff" value={cutoff} onChange={(e) => onCutoff(Number(e.currentTarget.value))}>
-				{GRADES.map((g) => <option value={g}>{gradeLabel(g)}{g === FIT_OFF ? ' (filter off)' : ''}</option>)}
+				{GRADE_NUMBERS.map((g) => <option value={g}>{gradeLabel(g)}{g === FIT_OFF ? ' (filter off)' : ''}</option>)}
 			</select></label>
 			<p class="muted">The Ace slot does not simulate versions whose surface or distance Aptitude is below this on the CM course.</p>
 			<button type="button" name="edit-owned" onClick={() => setOpen(true)}>Edit owned versions</button>

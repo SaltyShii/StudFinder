@@ -2,7 +2,7 @@ import type { GameData } from '../../../packages/lineage/src/gameData';
 import { parseExport } from '../../../packages/lineage/src/importer';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
-import { STYLES } from '../../../packages/scoring/src/ace';
+import { GRADE_NUMBERS, STYLES } from '../../../packages/scoring/src/ace';
 import { DEFAULT_ASSUMPTIONS, DEFAULT_DUELING_RATES, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { TierEdits } from './jobs';
 
@@ -101,7 +101,7 @@ export function saveFitCutoff(storage: Storage, grade: number): void {
 
 /** The Unfit version cutoff grade (1-8), or null (the default) when absent, stale-versioned or malformed. */
 export function loadFitCutoff(storage: Storage): number | null {
-	return loadVersioned(storage, FIT_CUTOFF_KEY, 'grade', (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 8 ? v : null));
+	return loadVersioned(storage, FIT_CUTOFF_KEY, 'grade', (v) => (typeof v === 'number' && Number.isInteger(v) && GRADE_NUMBERS.includes(v) ? v : null));
 }
 
 export function saveForcedVersions(storage: Storage, ids: number[]): void {

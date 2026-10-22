@@ -1,7 +1,7 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import type { Card, Course, ImportResult, Veteran } from '../../../packages/lineage/src/types';
 import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers';
-import { aceForCourse, categoryOf, defaultTargetStats, gradeLabel, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
+import { DEFAULT_FIT_CUTOFF, FIT_OFF, aceForCourse, categoryOf, defaultTargetStats, gradeLabel, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
 import type { CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
@@ -158,10 +158,7 @@ export function veteranTasks({ veterans, uniqueSkills, ...conditions }: VeteranJ
 	return veterans.map((veteran) => ({ ...conditions, veteran, unique: unique.get(veteran.cardId) }));
 }
 
-/** The grade below which an Owned version is unfit for the CM course; D by default. */
-export const DEFAULT_FIT_CUTOFF = 4;
-/** Grade G (1): nothing is below it, so the filter is off. */
-export const FIT_OFF = 1;
+export { DEFAULT_FIT_CUTOFF, FIT_OFF };
 
 /** An Owned version the Ace slot does not simulate for this CM, with why (for example "Dirt F"). */
 export interface UnfitVersion {
