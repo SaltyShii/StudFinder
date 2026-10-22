@@ -1,5 +1,5 @@
 import { versionName, type GameData } from '../../../packages/lineage/src/gameData';
-import { gradeLabel, STYLE_LABEL } from '../../../packages/scoring/src/ace';
+import { APTITUDE_LABEL, gradeLabel, STYLE_LABEL } from '../../../packages/scoring/src/ace';
 import type { AcePick, Candidate, CandidatePick, OwnedVersion } from '../../../packages/scoring/src/recommend';
 import { SkillDetails, UmaCard } from './UmaCard';
 
@@ -42,7 +42,7 @@ export function AceHero({ picks, data, ownedVersions, cardIds, stale }: Props) {
 				const byId = new Map(ownedVersions.find((v) => v.cardId === pick.cardId)?.candidates.map((c) => [c.id, c]));
 				return (
 					<ol class="cards" style={stale ? { opacity: 0.5 } : undefined}>
-						<UmaCard testId="ace-pick" cardId={pick.cardId} name={nameOf(data, pick.cardId)} headline={pick.score.toFixed(2)} chips={[STYLE_LABEL[pick.style], ...Object.entries(data.cards.get(pick.cardId)?.aptitudes ?? {}).map(([k, v]) => `${k} ${gradeLabel(v)}`)]} caveats={pick.fallback ? ['Fall-back style: not the selected one'] : []} />
+						<UmaCard testId="ace-pick" cardId={pick.cardId} name={nameOf(data, pick.cardId)} headline={pick.score.toFixed(2)} chips={[STYLE_LABEL[pick.style], ...Object.entries(data.cards.get(pick.cardId)?.aptitudes ?? {}).map(([k, v]) => `${APTITUDE_LABEL[k] ?? k} ${gradeLabel(v)}`)]} caveats={pick.fallback ? ['Fall-back style: not the selected one'] : []} />
 						<ParentPickList parents={pick.parents} byId={byId} cardIds={cardIds} data={data} />
 					</ol>
 				);

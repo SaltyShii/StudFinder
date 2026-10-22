@@ -7,6 +7,8 @@ export const CATEGORIES = ['short', 'mile', 'middle', 'long'] as const;
 export const STYLES = ['nige', 'senko', 'sashi', 'oikomi'] as const;
 /** Global names for UI copy; the ids stay internal. */
 export const STYLE_LABEL = { nige: 'Front Runner', senko: 'Pace Chaser', sashi: 'Late Surger', oikomi: 'End Closer' } as const;
+/** English names for the aptitude keys in the card data (surface, distance, running style). */
+export const APTITUDE_LABEL: Record<string, string> = { turf: 'Turf', dirt: 'Dirt', short: 'Short', mile: 'Mile', middle: 'Medium', long: 'Long', ...STYLE_LABEL };
 export type Category = (typeof CATEGORIES)[number];
 export type Style = (typeof STYLES)[number];
 export interface TargetStats {
