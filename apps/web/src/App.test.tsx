@@ -880,7 +880,12 @@ it('shows the loop sections again with the flag on', async () => {
 });
 
 it('leaves saved loop settings and Must-haves in storage while hidden', async () => {
-	const saved = { 'stud-finder:must-haves': JSON.stringify(['10071']), 'stud-finder:loop-versions': JSON.stringify([100201]) };
+	// Versioned like the real saves, so a loader that accepted them would show up as a rewrite or a wipe.
+	const saved = {
+		'stud-finder:must-haves': JSON.stringify({ version: 1, ids: ['10071'] }),
+		'stud-finder:loop-versions': JSON.stringify({ version: 1, ids: [100201] }),
+		'stud-finder:tier-edits': JSON.stringify({ version: 1, edits: { Racing: { moved: {}, disabled: ['Synthetic Skill'] } } }),
+	};
 	for (const [k, v] of Object.entries(saved)) localStorage.setItem(k, v);
 	render(<PlainApp loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
@@ -953,9 +958,17 @@ it('draws the selected Ace hero as a lineage tree with spark chips and redraws o
 	expect(tree().querySelectorAll('[data-testid=tree-parent]').length).toBe(2);
 	expect(tree().querySelectorAll('[data-testid=tree-grandparent]').length).toBe(4);
 	const parents = [...tree().querySelectorAll('[data-testid=tree-parent]')];
-	expect([...parents[0].querySelectorAll('.chip-pink')].map((c) => c.textContent)).toEqual(['Distance 3']);
-	expect([...parents[0].querySelectorAll('.chip-blue')].map((c) => c.textContent)).toEqual(['Dirt 2']);
+	expect([...parents[0].querySelectorAll('.chip-pink')].map((c) => c.textContent)).toEqual(['Distance 3', 'Dirt 2']);
+	expect(parents[0].querySelector('.chip-blue')).toBeNull(); // aptitude sparks are all pink
 	expect(parents[1].querySelector('.chip')).toBeNull(); // a pair without sparks shows none
 	await click(root.querySelector('[data-testid=ace-select-100201]'));
-	expect(tree().querySelector('.chip-pink')).toBeNull(); // the other hero keeps its own horses
+	expect(tree().textContent).not.toContain('Distance 3'); // the other hero keeps its own horses
+});
+
+it('shows no chips on the hero list rows or the Ace node', async () => {
+	render(<App loadData={async () => data} run={withSparks} runVeterans={noV} runRows={() => () => {}} />, root);
+	await importFile();
+	await pickAce();
+	expect(root.querySelector('.hero-list .chip')).toBeNull();
+	expect(root.querySelector('[data-testid=tree-ace] .chip')).toBeNull();
 });

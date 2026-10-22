@@ -269,4 +269,3 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .tree-node { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 6px; border-radius: 6px; background: var(--surface-2); }
 .tree-node .chips { justify-content: center; }
 .chip-pink { background: #5a2a44; color: #ffb3d1; }
-.chip-blue { background: #1f3550; color: #a9cdf5; }

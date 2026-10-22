@@ -1,6 +1,6 @@
 import { versionName, type GameData } from '../../../packages/lineage/src/gameData';
 import { STYLE_LABEL } from '../../../packages/scoring/src/ace';
-import type { LineageHorse } from '../../../packages/scoring/src/shared';
+import { surfaceStarsOf, type LineageHorse } from '../../../packages/scoring/src/shared';
 import type { AcePick, Candidate, CandidatePick, OwnedVersion } from '../../../packages/scoring/src/recommend';
 import { SkillDetails, UmaCard } from './UmaCard';
 
@@ -32,11 +32,11 @@ export function parentsById(ownedVersions: OwnedVersion[], cardId: number): Map<
 	return new Map(ownedVersions.find((v) => v.cardId === cardId)?.candidates.map((c) => [c.id, c]));
 }
 
+/** Distance and surface aptitude sparks are all pink; stat sparks are not shown. */
 function SparkChips({ horse }: { horse: LineageHorse }) {
-	const blue = [['Turf', horse.turfStars ?? 0], ['Dirt', horse.dirtStars]] as const;
+	const pink = [['Distance', horse.pinkStars], ['Turf', surfaceStarsOf(horse, 'turf')], ['Dirt', surfaceStarsOf(horse, 'dirt')]] as const;
 	return <div class="chips">
-		{horse.pinkStars > 0 && <span class="chip chip-pink">Distance {horse.pinkStars}</span>}
-		{blue.filter(([, n]) => n > 0).map(([label, n]) => <span class="chip chip-blue">{label} {n}</span>)}
+		{pink.filter(([, n]) => n > 0).map(([label, n]) => <span class="chip chip-pink">{label} {n}</span>)}
 	</div>;
 }
 
@@ -49,7 +49,7 @@ function TreeNode({ horse, testId, data }: { horse: LineageHorse; testId: string
 	</div>;
 }
 
-/** The Ace on top, its 2 parents and below each parent its own 2 grandparents; pink (distance) and blue (surface) spark chips sit on every horse, so a lineage lacking the right pink sparks stands out. */
+/** The Ace on top, its 2 parents and below each parent its own 2 grandparents; pink spark chips (distance, turf, dirt) sit on every horse but the Ace, so a lineage lacking the right pink sparks stands out. */
 export function LineageTree({ pick, data }: { pick: AcePick; data: GameData }) {
 	return <div class="lineage-tree" data-testid="lineage-tree">
 		<div class="tree-node tree-ace" data-testid="tree-ace">
@@ -63,11 +63,6 @@ export function LineageTree({ pick, data }: { pick: AcePick; data: GameData }) {
 	</div>;
 }
 
-/** The one place that says which Ace pick field is shown as "expected lengths". Switch to the expected-lengths field of the new Ace ranking (#115) here. */
-export function heroLengths(pick: AcePick): number {
-	return pick.score;
-}
-
 /** The best Ace heroes as a compact list: name, running style, expected lengths. */
 export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
 	const selectedPick = picks?.find((p) => p.cardId === selected);
@@ -79,7 +74,7 @@ export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
 					<li class="hero-row" data-testid={`ace-pick-${pick.cardId}`} data-selected={pick.cardId === selected || undefined}>
 						<strong>{nameOf(data, pick.cardId)}</strong>
 						<span class="muted">{STYLE_LABEL[pick.style]}{pick.fallback && ' (fall-back style: not the selected one)'}</span>
-						<span class="headline" data-testid="hero-lengths">{heroLengths(pick).toFixed(2)} lengths</span>
+						<span class="headline" data-testid="hero-lengths">{pick.expectedLengths.toFixed(2)} lengths</span>
 						{onSelect && <button class="select-pick" data-testid={`ace-select-${pick.cardId}`} aria-pressed={pick.cardId === selected} onClick={() => onSelect(pick.cardId)}>{pick.cardId === selected ? 'Skills shown below' : 'Show skills'}</button>}
 					</li>
 				))}
