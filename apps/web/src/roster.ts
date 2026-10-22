@@ -73,13 +73,17 @@ export function loadUseBorrowed(storage: Storage): boolean {
 	return loadVersioned(storage, BORROW_KEY, 'on', (v) => (v === true ? true : null)) ?? false;
 }
 
+function numberArray(v: unknown): number[] | null {
+	return Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null;
+}
+
 export function saveOwnedVersions(storage: Storage, ids: number[]): void {
 	saveVersioned(storage, OWNED_KEY, 'ids', ids);
 }
 
 /** Card ids the player ticked, or null (use the Roster prefill) when absent, stale-versioned or malformed. */
 export function loadOwnedVersions(storage: Storage): number[] | null {
-	return loadVersioned(storage, OWNED_KEY, 'ids', (v) => (Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null));
+	return loadVersioned(storage, OWNED_KEY, 'ids', numberArray);
 }
 
 export function saveLoopVersions(storage: Storage, ids: number[]): void {
@@ -88,7 +92,7 @@ export function saveLoopVersions(storage: Storage, ids: number[]): void {
 
 /** Card ids the player narrowed the Loop versions to, or null (every Owned version) when absent, stale-versioned or malformed. */
 export function loadLoopVersions(storage: Storage): number[] | null {
-	return loadVersioned(storage, LOOP_KEY, 'ids', (v) => (Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null));
+	return loadVersioned(storage, LOOP_KEY, 'ids', numberArray);
 }
 
 export function saveFitCutoff(storage: Storage, grade: number): void {
@@ -106,7 +110,7 @@ export function saveForcedVersions(storage: Storage, ids: number[]): void {
 
 /** Card ids of Unfit versions the player force-enabled for the Ace; empty when absent, stale-versioned or malformed. */
 export function loadForcedVersions(storage: Storage): number[] {
-	return loadVersioned(storage, FORCED_KEY, 'ids', (v) => (Array.isArray(v) && v.every((i) => typeof i === 'number') ? (v as number[]) : null)) ?? [];
+	return loadVersioned(storage, FORCED_KEY, 'ids', numberArray) ?? [];
 }
 
 export function saveMustHaves(storage: Storage, ids: string[]): void {
