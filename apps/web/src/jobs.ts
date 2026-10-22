@@ -169,16 +169,18 @@ export interface UnfitVersion {
 	reason: string;
 }
 
-const label = (word: string) => word[0].toUpperCase() + word.slice(1);
+function capitalize(word: string) {
+	return word[0].toUpperCase() + word.slice(1);
+}
 
 /** Splits the Owned versions by surface and distance Aptitude grade against the cutoff; running style is ignored. The order is kept. A forced Unfit version is still listed as unfit (so it can be unforced) but joins `fit`, the Ace list. */
 export function planFit(versions: OwnedVersion[], course: Course | undefined, cutoff: number, forced: ReadonlySet<number> = new Set()): { fit: OwnedVersion[]; unfit: UnfitVersion[] } {
 	const fit: OwnedVersion[] = [];
 	const unfit: UnfitVersion[] = [];
 	for (const version of versions) {
-		const low = course ? [surfaceOf(course.ground), categoryOf(course.distance)].filter((k) => version.aptitudes[k] < cutoff) : [];
-		if (low.length) unfit.push({ version, reason: low.map((k) => `${label(k)} ${gradeLabel(version.aptitudes[k])}`).join(', ') });
-		if (!low.length || forced.has(version.cardId)) fit.push(version);
+		const failing = course ? [surfaceOf(course.ground), categoryOf(course.distance)].filter((k) => version.aptitudes[k] < cutoff) : [];
+		if (failing.length) unfit.push({ version, reason: failing.map((k) => `${capitalize(k)} ${gradeLabel(version.aptitudes[k])}`).join(', ') });
+		if (!failing.length || forced.has(version.cardId)) fit.push(version);
 	}
 	return { fit, unfit };
 }
