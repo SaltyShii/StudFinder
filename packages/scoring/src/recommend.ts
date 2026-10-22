@@ -385,13 +385,13 @@ function sideRows(horses: LineageHorse[], detailOf: (id: string) => SkillDetail,
 	return rows.filter((r) => r.mustHave || best.includes(r));
 }
 
-// Up to the 10 best, from the best tier present only: distance A, else reachable through pink sparks, else neither (an F-sprint uma with no way up never ranks while a better tier exists).
-// Within the tier: most expected lengths gained first; Must-haves and the chance of distance A do not order them.
+// Up to the 10 best: distance A first, then reachable through pink sparks (so a short list fills up from the lower tier); the third tier, with no way to A, only ranks when nothing better exists (an F-sprint uma never pads a list).
+// Within a tier: most expected lengths gained first; Must-haves and the chance of distance A do not order them.
 function rankAceSlots(versions: AceCandidate[], category: Category): AceCandidate[] {
 	const tierOf = ({ v, reachable }: AceCandidate) => v.aptitudes[category] >= GRADE_A ? 0 : reachable ? 1 : 2;
-	const gate = Math.min(...versions.map(tierOf));
+	const floor = Math.min(2, ...versions.map(tierOf)) === 2 ? 2 : 1;
 	// Array.prototype.sort is stable, so equal ones keep the Owned order.
-	return versions.filter((x) => tierOf(x) === gate).sort((a, b) => b.pick.score - a.pick.score);
+	return versions.filter((x) => tierOf(x) <= floor).sort((a, b) => tierOf(a) - tierOf(b) || b.pick.score - a.pick.score);
 }
 
 function coreTier(v: OwnedVersion): number {

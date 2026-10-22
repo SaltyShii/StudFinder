@@ -44,7 +44,7 @@ A veteran scored as a CM runner as herself, in the running style she ran in her 
 _Avoid_: ace (when it is a finished run rather than the one about to be trained)
 
 **Ace hero**:
-An Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. The Ace slot lists the 10 best Ace heroes in the Ace order (Unfit versions excluded); selecting one opens its chart. Each shows the running style it runs in: the selected one where it has A in it, else its best-ranked style. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
+An Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. The Ace slot lists the 10 best Ace heroes in the Ace order: distance A versions first, then those that can reach A through pink sparks to fill the list (Unfit versions and ones with no way to A excluded); selecting one opens its chart. Each shows the running style it runs in: the selected one where it has A in it, else its best-ranked style. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
 _Avoid_: equipped skills (that is the Ace veteran's term), ace (for the finished run)
 
 **Buyable skill**:
