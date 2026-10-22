@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buyableSkillIds, skillsAceCanMeet } from './learnable';
+import { buyableSkillIds, poolSkillIds, skillsAceCanMeet } from './learnable';
 
 const skills = new Map([[1, { rarity: 1, gradeValue: 129 }], [2, { rarity: 2, gradeValue: 461 }], [3, { rarity: 1, gradeValue: -129 }], [4, { rarity: 3, gradeValue: 240 }], [5, { rarity: 1, gradeValue: 217 }]]);
 
@@ -13,4 +13,9 @@ test('skills conditioned on another running style, distance or surface are dropp
 	// 200532 front runner, 201232 long, 201672 dirt, 202482 long pace chaser, 200162 ground condition only, last one unknown to the sim
 	const kept = skillsAceCanMeet(['200532', '201232', '201672', '202482', '200162', '99999999'], ctx);
 	expect(kept).toEqual(['200532', '201232', '200162']);
+});
+
+test('the pool is the white and gold skills, one per group (the strongest), without penalty skills', () => {
+	const s = (id: number, rarity: number, groupId: number, gradeValue: number) => ({ id, rarity, groupId, gradeValue });
+	expect(poolSkillIds([s(1, 1, 10, 129), s(2, 1, 10, 174), s(3, 1, 10, -129), s(4, 2, 10, 461), s(5, 1, 11, 217), s(6, 3, 12, 240), s(7, 1, 13, -5)]).sort()).toEqual(['4', '5']);
 });

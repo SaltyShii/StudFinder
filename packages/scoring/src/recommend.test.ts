@@ -260,6 +260,14 @@ test('a learnable skill is an own row (certain, Must-have flagged); one a parent
 	expect(rows.map((r) => r.lengths.avg)).toEqual([...rows.map((r) => r.lengths.avg)].sort((x, y) => y - x));
 });
 
+test('buyable skills off the card list and off every parent are Other rows, apart from the rest', () => {
+	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, learnableSkillIds: ['10071'], otherSkillIds: ['10071', '10081'], candidates: [unit('a', []), unit('b', [])] }]);
+	const rows = rec.aceSlots[0].skills;
+	expect(rows.find((r) => r.skillId === '10081')).toMatchObject({ other: true, own: false });
+	expect(rows.filter((r) => r.skillId === '10071')).toHaveLength(1);
+	expect(rows.find((r) => r.skillId === '10071')!.other).toBeUndefined();
+});
+
 test('an Owned version with no learnable skills keeps the inherited rows', () => {
 	const row = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', [])], []).find((r) => r.skillId === '10071')!;
 	expect(row.inherit).toBeLessThan(1);
@@ -373,10 +381,17 @@ test('the Ace slots list up to 10 versions in the Ace order; the first is the si
 	expect(rec.aceSlots[0]).toEqual(single);
 });
 
-test('only the best tier gets Ace slots: a version that cannot reach the distance is dropped while another can', () => {
+test('a version that cannot reach the distance is dropped while another can', () => {
 	const short = { ...apt, mile: 1, middle: 1, long: 1, short: 1 };
 	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: short, candidates: [] }, { cardId: 2, aptitudes: { ...apt, short: 7, mile: 7, middle: 7, long: 7 }, candidates: [] }]);
 	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([2]);
+});
+
+test('a short list fills up from the reachable tier, after the distance A versions; versions with no way up stay out', () => {
+	const all = (g: number) => ({ ...apt, short: g, mile: g, middle: g, long: g });
+	const pinks = [unit('a', [], { pinkStars: 3 }), unit('b', [], { pinkStars: 3 })];
+	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: all(1), candidates: pinks }, { cardId: 2, aptitudes: all(6), candidates: pinks }, { cardId: 3, aptitudes: all(7), candidates: [] }, { cardId: 4, aptitudes: all(1), candidates: [] }]);
+	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([3, 2]); // 1 and 4 cannot reach A even with pink sparks
 });
 
 test('an Ace slot marks a fall-back when its style differs from the selected one', () => {

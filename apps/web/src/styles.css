@@ -269,3 +269,5 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .tree-node { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 6px; border-radius: 6px; background: var(--surface-2); }
 .tree-node .chips { justify-content: center; }
 .chip-pink { background: #5a2a44; color: #ffb3d1; }
+
+.skill-chart li.skill-section { display: block; height: auto; padding: 12px 8px 4px; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; background: none; }

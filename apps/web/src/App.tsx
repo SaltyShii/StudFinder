@@ -138,7 +138,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const aceCard = acePicked?.result === result ? acePicked.cardId : undefined;
 	const acePick = result?.aceSlots.find((s) => s.cardId === aceCard) ?? result?.aceSlots[0];
 	const aceChart = useAceRows(runRows, result, ran?.run ?? null, acePick?.cardId, !busy);
-	const chips = useMemo(() => (acePick && data ? skillChips(aceChart.rows, result!.track, data) : []), [acePick, aceChart.rows, result, data]);
+	const chips = useMemo(() => (acePick && data ? skillChips(aceChart.rows.filter((r) => !r.other), result!.track, data) : []), [acePick, aceChart.rows, result, data]);
 	// The Side loop chart follows the selected pick; the best pick until one is chosen.
 	const sidePick = result?.sideSlots.find((s) => s.cardId === sideCard) ?? result?.sideSlots[0];
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
