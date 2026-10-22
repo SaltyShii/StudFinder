@@ -36,7 +36,7 @@ test('a veteran brings itself and its parents, each with its own sparks and affi
 
 test('a veteran with no parents or sparks is still a candidate with one empty horse', () => {
 	const [c] = candidatesOf(data, [vet(10, 1, [])], opts);
-	expect(c.horses).toEqual([{ cardId: 1, affinity: 9, pinkStars: 0, dirtStars: 0, skills: [] }]);
+	expect(c.horses).toEqual([{ cardId: 1, affinity: 9, pinkStars: 0, dirtStars: 0, turfStars: 0, skills: [] }]);
 });
 
 test('core and side loop score a veteran from its own and its parents sparks', () => {

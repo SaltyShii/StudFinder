@@ -8,6 +8,8 @@ import type { Candidate, LineageHorse } from './shared';
 const PINK_GROUP: Record<Category, number> = { short: 31, mile: 32, middle: 33, long: 34 };
 /** Factor group of the dirt aptitude spark. */
 const DIRT_GROUP = 12;
+/** Factor group of the turf aptitude spark. */
+const TURF_GROUP = 11;
 
 /** Factor group of the CM-relevant pink spark: the distance aptitude of the course. */
 export function pinkGroupOf(distance: number): number {
@@ -28,6 +30,7 @@ function horseOf(data: GameData, cardId: number, factorIds: number[], affinity: 
 		affinity,
 		pinkStars: Math.max(0, ...factors.filter((f) => f.type === FactorType.Aptitude && f.groupId === pinkGroupId).map((f) => f.stars)),
 		dirtStars: factors.filter((f) => f.type === FactorType.Aptitude && f.groupId === DIRT_GROUP).reduce((s, f) => s + f.stars, 0),
+		turfStars: factors.filter((f) => f.type === FactorType.Aptitude && f.groupId === TURF_GROUP).reduce((s, f) => s + f.stars, 0),
 		skills: factors.filter((f) => f.type === FactorType.Skill && f.skillId != null).map((f) => ({ skillId: String(f.skillId), name: f.name, stars: f.stars })),
 	};
 }

@@ -89,15 +89,39 @@ test('the Ace slot keeps the selected style when the version has A in it, else i
 const mustHaveVersion = { cardId: 1, aptitudes: apt, candidates: [cand('m', horseOf(['10081'], { affinity: 100 }), horseOf(), horseOf()), cand('n', horseOf(), horseOf(), horseOf())] };
 const valueVersion = { cardId: 2, aptitudes: apt, candidates: [cand('v', horseOf(['10071']), horseOf(), horseOf()), cand('w', horseOf(['10081']), horseOf(), horseOf())] };
 
-test('the Ace with the higher Must-have inheritance chance beats the one with more simulated value', () => {
+test('Must-haves no longer change the Ace order: the Ace with more expected lengths wins', () => {
 	const slot = (mustHaves: string[]) => recommend(candidateList, preset, undefined, [valueVersion, mustHaveVersion], mustHaves).aceSlots[0];
 	expect(slot([]).cardId).toBe(2);
-	expect(slot(['10081']).cardId).toBe(1);
-	expect(slot(['10081']).parents.map((p) => p.candidateId)[0]).toBe('m');
+	expect(slot(['10081']).cardId).toBe(2);
 });
 
-test('equal Must-have chance falls back to simulated value', () => {
-	expect(recommend(candidateList, preset, undefined, [mustHaveVersion, valueVersion], ['99999']).aceSlots[0].cardId).toBe(2);
+test('the Ace pick carries its expected lengths gained and the sparks of every horse in its lineage', () => {
+	const slot = recommend(candidateList, preset, undefined, [valueVersion]).aceSlots[0];
+	expect(slot.expectedLengths).toBe(slot.score);
+	expect(slot.expectedLengths).toBeGreaterThan(0);
+	expect(slot.horses).toHaveLength(2);
+	expect(slot.horses.every((h) => h.length === 3)).toBe(true);
+});
+
+const allA = { ...apt, short: 7, mile: 7, middle: 7, long: 7 };
+function pinkPair(o: Partial<LineageHorse>) { return [unit('q', []), unit('r', []), unit('pink', [], o)]; }
+function aceParents(cs: Candidate[], aptitudes = allA, mustHaves: string[] = []) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes, candidates: cs }], mustHaves).aceSlots[0].parents.map((p) => p.candidateId).sort(); }
+
+test('of two pairs equal on skills, the one with distance pink sparks ranks first, also for a version already at A', () => {
+	expect(aceParents(pinkPair({ pinkStars: 3, affinity: 100 }))).toContain('pink');
+});
+
+test('surface pink sparks count the same way', () => {
+	expect(aceParents(pinkPair({ turfStars: 3, affinity: 100 }))).toContain('pink');
+});
+
+test('dirt pink sparks do not count on a turf course', () => {
+	expect(aceParents(pinkPair({ dirtStars: 3, affinity: 100 }))).toEqual(['q', 'r']);
+});
+
+test('a pair with pink sparks that can raise the Ace to S has more expected lengths than one without', () => {
+	const score = (cs: Candidate[]) => recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: allA, candidates: cs }]).aceSlots[0].score;
+	expect(score([unit('q', []), unit('p', [], { pinkStars: 3, affinity: 100 })])).toBeGreaterThan(score([unit('q', []), unit('r', [])]));
 });
 
 test('no Owned versions means no Ace slot', () => {
@@ -109,16 +133,12 @@ function unit(id: string, skills: string[], o: Partial<LineageHorse> = {}) { ret
 function pairIds(cs: Candidate[], mustHaves: string[] = []) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: cs }], mustHaves).aceSlots[0].parents.map((p) => p.candidateId).sort(); }
 
 test('the Ace slot picks the best pair of parents, not the two best alone', () => {
-	// Each unit alone is equally good, so a greedy pick takes the first two (a, b); only b and c together double up on one Must-have.
-	expect(pairIds([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 }), unit('c', ['10081'], { affinity: 100 })], ['10081', '10071'])).toEqual(['b', 'c']);
+	// Units b and c carry the same skill, so the pair (a, b) covers more than (b, c).
+	expect(pairIds([unit('b', ['10081']), unit('c', ['10081']), unit('a', ['10071'])])).toEqual(['a', 'b']);
 });
 
 test('grandparents are never picked apart from their parent', () => {
 	expect(pairIds([cand('g', horseOf(), horseOf(['10081'], { affinity: 100 }), horseOf()), unit('h', []), unit('i', [])], ['10081'])).toContain('g');
-});
-
-test('Must-have chances differing only by float noise still fall to simulated value', () => {
-	expect(pairIds([unit('a1', ['10081'], { affinity: 0.1 + 0.2 }), unit('a2', ['10081'], { affinity: 0.3 }), unit('v', ['10071'])], ['10081'])).toEqual(['a1', 'a2']);
 });
 
 test('same seed and samples give identical output', () => {
@@ -313,7 +333,8 @@ test('bestPair picks the very pair ranking every pair would, ties to the earlies
 		for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) pairs.push([units[i], units[j]]);
 		const all = pairs.map((p) => { const parents = rank(p); return { parents, score: 2 + parents.reduce((s, x) => s + x.score, 0) }; });
 		const expected = all.reduce((a, b) => (b.score > a.score ? b : a));
-		expect(bestPair(pairs, rank, (c) => Math.max(0, solo.get(c)!), 2, () => false)).toEqual(expected);
+		const { parents, score } = bestPair(pairs, rank, (c) => Math.max(0, solo.get(c)!), 2, () => false);
+		expect({ parents, score }).toEqual(expected);
 	}
 });
 
