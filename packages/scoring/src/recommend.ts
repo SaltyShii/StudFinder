@@ -346,7 +346,7 @@ function coreTier(v: OwnedVersion): number {
 	return v.aptitudes.turf < GRADE_A ? 2 : v.aptitudes.dirt >= GRADE_A ? 0 : v.candidates.some((c) => dirtAChance(c.horses, v.aptitudes.dirt) > 0) ? 1 : 2;
 }
 
-// The Core loop's own version, taken from the Loop versions: Turf A with Dirt A, else Turf A that can reach Dirt A through a lineage (highest dirt aptitude first), else all; the earliest breaks ties.
+// The Core loop's own version, taken from the Loop versions: Turf A with Dirt A, else Turf A that can reach Dirt A through a lineage (highest dirt aptitude first), else all; the earliest breaks ties (it used to be the higher Ace score, but the Core loop no longer depends on the Ace slot).
 // Independent of the Ace and its Owned versions: dirt only matters to the Core loop. No Loop versions means no core version.
 function coreVersion(versions: OwnedVersion[]): OwnedVersion | undefined {
 	const gate = Math.min(...versions.map(coreTier));
