@@ -124,7 +124,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 		}
 	}
 
-	const chips = useMemo(() => (result?.aceSlot && data ? skillChips(result.aceSlot.skills, result.track, data) : []), [result, data]);
+	const chips = useMemo(() => (result?.aceSlots[0] && data ? skillChips(result.aceSlots[0].skills, result.track, data) : []), [result, data]);
 	// The Side loop chart follows the selected pick; the best pick until one is chosen.
 	const sidePick = result?.sideSlots.find((s) => s.cardId === sideCard) ?? result?.sideSlots[0];
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
@@ -132,7 +132,7 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 	return (
 		<main class="layout">
 			<header class="app-header" data-testid="app-header">
-				<h1>{result?.aceSlot ? `${SKILL_CATEGORIES.find((c) => c.key === skillTab)!.label} skills` : 'Stud Finder'}</h1>
+				<h1>{result?.aceSlots.length ? `${SKILL_CATEGORIES.find((c) => c.key === skillTab)!.label} skills` : 'Stud Finder'}</h1>
 				<p class="course" data-testid="header-cm">{cm.name}{course && ` - ${course.distance}m ${surfaceOf(course.ground)}`}</p>
 				<span class="badge" data-testid="style-badge">{STYLE_LABEL[style]}</span>
 			</header>
@@ -184,9 +184,9 @@ export function App({ loadData = loadGameData, run = recommendRunner, runVeteran
 			{roster && data && ran && (
 				<div class="results">
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}... <button name="cancel" onClick={cancel}>Cancel</button></p>}
-					<AceHero pick={result?.aceSlot} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
+					<AceHero picks={result?.aceSlots} data={data} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} />
 					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={!!course && isLeftHanded(course)} chips={chips} stale={stale} />}
-					{result?.aceSlot && <SkillPanel rows={result.aceSlot.skills} track={result.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />}
+					{result?.aceSlots[0] && <SkillPanel rows={result.aceSlots[0].skills} track={result.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />}
 					<div class="picks">
 						{ownedVersions.length ? <>
 							<LoopSlots title="Side loop" testId="side" picks={result?.sideSlots} ownedVersions={ownedVersions} cardIds={cardIds} stale={stale} data={data} selected={sidePick?.cardId} onSelect={setSideCard} />

@@ -277,6 +277,21 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
+it('lists every fit Ace hero as a card, marking the ones that run in a fall-back style', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	const cards = () => [...root.querySelectorAll('[data-testid=ace-pick]')];
+	expect(cards().map((c) => c.textContent)).toEqual([expect.stringContaining('Dud'), expect.stringContaining('Stud')]);
+	expect(cards().every((c) => c.querySelector('.headline') && !c.textContent!.includes('Fall-back'))).toBe(true);
+	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
+	style.value = 'nige'; // D for every version: each falls back to Pace Chaser
+	await act(() => { style.dispatchEvent(new Event('change')); });
+	await run();
+	expect(cards()).toHaveLength(2);
+	expect(cards().every((c) => c.textContent!.includes('Fall-back style'))).toBe(true);
+});
+
 it('drops scores on cancel so they do not look current', async () => {
 	const score = { trainedId: 1, cardId: 100301, style: 'senko' as const, rankScore: 0, createdAt: '', skillsNotSimulated: 0, aptitude: { surface: 7, distance: 7 }, setLengthsGained: 1, gap: 0, detail: [], assumesPosition: false };
 	let first = true;

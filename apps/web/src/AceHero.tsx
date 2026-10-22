@@ -4,7 +4,8 @@ import type { AcePick, Candidate, CandidatePick, OwnedVersion } from '../../../p
 import { SkillDetails, UmaCard } from './UmaCard';
 
 interface Props {
-	pick: AcePick | null | undefined;
+	/** Best first; the first one's chart is the one shown. */
+	picks: AcePick[] | undefined;
 	data: GameData;
 	ownedVersions: OwnedVersion[];
 	/** Trained id to card id, for the parents' portraits. */
@@ -32,19 +33,20 @@ export function ParentPickList({ parents, byId, cardIds, data }: { parents: Cand
 	</UmaCard>)}</>;
 }
 
-/** The best Ace: version, running style, 2 parents. Grandparents are the parents' own two parents. */
-export function AceHero({ pick, data, ownedVersions, cardIds, stale }: Props) {
-	const version = pick && ownedVersions.find((v) => v.cardId === pick.cardId);
-	const byId = new Map(version?.candidates.map((c) => [c.id, c]));
+/** The best Ace heroes, each with version, running style, 2 parents. Grandparents are the parents' own two parents. */
+export function AceHero({ picks, data, ownedVersions, cardIds, stale }: Props) {
 	return (
 		<section class="panel" aria-busy={stale}>
 			<h3>Ace{stale && ' (outdated, recomputing)'}</h3>
-			{pick && (
-				<ol class="cards" style={stale ? { opacity: 0.5 } : undefined}>
-					<UmaCard testId="ace-pick" cardId={pick.cardId} name={nameOf(data, pick.cardId)} headline={pick.score.toFixed(2)} chips={[STYLE_LABEL[pick.style], ...Object.entries(data.cards.get(pick.cardId)?.aptitudes ?? {}).map(([k, v]) => `${k} ${gradeLabel(v)}`)]} />
-					<ParentPickList parents={pick.parents} byId={byId} cardIds={cardIds} data={data} />
-				</ol>
-			)}
+			{picks?.map((pick) => {
+				const byId = new Map(ownedVersions.find((v) => v.cardId === pick.cardId)?.candidates.map((c) => [c.id, c]));
+				return (
+					<ol class="cards" style={stale ? { opacity: 0.5 } : undefined}>
+						<UmaCard testId="ace-pick" cardId={pick.cardId} name={nameOf(data, pick.cardId)} headline={pick.score.toFixed(2)} chips={[STYLE_LABEL[pick.style], ...Object.entries(data.cards.get(pick.cardId)?.aptitudes ?? {}).map(([k, v]) => `${k} ${gradeLabel(v)}`)]} caveats={pick.fallback ? ['Fall-back style: not the selected one'] : []} />
+						<ParentPickList parents={pick.parents} byId={byId} cardIds={cardIds} data={data} />
+					</ol>
+				);
+			})}
 		</section>
 	);
 }

@@ -65,13 +65,13 @@ function owned(cardId: number, uniqueSkillId?: string, aptitudes = apt) { return
 
 test('versions with different uniques are ranked by their own unique skill value on the track', () => {
 	const none = { cardId: 3, aptitudes: apt, candidates: [] };
-	const slot = (uniques: string[]) => recommend(candidateList, preset, undefined, uniques.map((u, i) => ({ ...none, cardId: i + 1, uniqueSkillId: u }))).aceSlot?.cardId;
+	const slot = (uniques: string[]) => recommend(candidateList, preset, undefined, uniques.map((u, i) => ({ ...none, cardId: i + 1, uniqueSkillId: u }))).aceSlots[0]?.cardId;
 	expect(slot(['99999', '10071'])).toBe(2); // 99999 is unknown to the sim, so worth nothing
 	expect(slot(['10071', '99999'])).toBe(1);
 });
 
 test('a fresh Owned version with no candidates is still eligible, scored by its unique skill, with no parents', () => {
-	const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId: '10071', candidates: [] }]).aceSlot!;
+	const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId: '10071', candidates: [] }]).aceSlots[0];
 	expect(slot.cardId).toBe(1);
 	expect(slot.parents).toEqual([]);
 	expect(slot.score).toBeGreaterThan(0);
@@ -79,8 +79,8 @@ test('a fresh Owned version with no candidates is still eligible, scored by its 
 
 test('the Ace slot keeps the selected style when the version has A in it, else its best style by aptitude, with 2 parents', () => {
 	const versions = [owned(1, undefined, { ...apt, oikomi: 8 })];
-	expect(recommend(candidateList, preset, undefined, versions).aceSlot!.style).toBe('senko');
-	const slot = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, versions).aceSlot!;
+	expect(recommend(candidateList, preset, undefined, versions).aceSlots[0].style).toBe('senko');
+	const slot = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, versions).aceSlots[0];
 	expect(slot.style).toBe('oikomi');
 	expect(slot.parents.map((p) => p.candidateId).sort()).toEqual(['p', 'q']);
 });
@@ -90,23 +90,23 @@ const mustHaveVersion = { cardId: 1, aptitudes: apt, candidates: [cand('m', hors
 const valueVersion = { cardId: 2, aptitudes: apt, candidates: [cand('v', horseOf(['10071']), horseOf(), horseOf()), cand('w', horseOf(['10081']), horseOf(), horseOf())] };
 
 test('the Ace with the higher Must-have inheritance chance beats the one with more simulated value', () => {
-	const slot = (mustHaves: string[]) => recommend(candidateList, preset, undefined, [valueVersion, mustHaveVersion], mustHaves).aceSlot!;
+	const slot = (mustHaves: string[]) => recommend(candidateList, preset, undefined, [valueVersion, mustHaveVersion], mustHaves).aceSlots[0];
 	expect(slot([]).cardId).toBe(2);
 	expect(slot(['10081']).cardId).toBe(1);
 	expect(slot(['10081']).parents.map((p) => p.candidateId)[0]).toBe('m');
 });
 
 test('equal Must-have chance falls back to simulated value', () => {
-	expect(recommend(candidateList, preset, undefined, [mustHaveVersion, valueVersion], ['99999']).aceSlot!.cardId).toBe(2);
+	expect(recommend(candidateList, preset, undefined, [mustHaveVersion, valueVersion], ['99999']).aceSlots[0].cardId).toBe(2);
 });
 
 test('no Owned versions means no Ace slot', () => {
-	expect(recommend(candidateList, preset).aceSlot).toBeNull();
+	expect(recommend(candidateList, preset).aceSlots).toEqual([]);
 });
 
 // Parent units: each is a parent plus its own 2 grandparents, chosen together.
 function unit(id: string, skills: string[], o: Partial<LineageHorse> = {}) { return cand(id, horseOf(skills, o), horseOf(), horseOf()); }
-function pairIds(cs: Candidate[], mustHaves: string[] = []) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: cs }], mustHaves).aceSlot!.parents.map((p) => p.candidateId).sort(); }
+function pairIds(cs: Candidate[], mustHaves: string[] = []) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: cs }], mustHaves).aceSlots[0].parents.map((p) => p.candidateId).sort(); }
 
 test('the Ace slot picks the best pair of parents, not the two best alone', () => {
 	// Each unit alone is equally good, so a greedy pick takes the first two (a, b); only b and c together double up on one Must-have.
@@ -133,7 +133,7 @@ test('a hard-to-train Ace (low aptitudes) still gets every veteran listed in all
 
 // The Ace slot ignores dirt: Must-have chance, then simulated value on the selected track.
 function ownedWith(cardId: number, aptitudes: typeof apt, mustHave: boolean, dirtStars = 3) { return { cardId, aptitudes, candidates: [cand('m' + cardId, horseOf(mustHave ? ['10081'] : [], { affinity: 100, dirtStars }), horseOf([], { dirtStars }), horseOf([], { dirtStars })), cand('n' + cardId, horseOf([], { dirtStars }), horseOf([], { dirtStars }), horseOf([], { dirtStars }))] }; }
-function pick(vs: ReturnType<typeof ownedWith>[]) { return recommend(candidateList, preset, undefined, vs, ['10081']).aceSlot!.cardId; }
+function pick(vs: ReturnType<typeof ownedWith>[]) { return recommend(candidateList, preset, undefined, vs, ['10081']).aceSlots[0].cardId; }
 
 test('the Ace slot ignores dirt aptitude and dirt sparks', () => {
 	expect(pick([ownedWith(1, { ...apt, dirt: 1 }, true, 0), ownedWith(2, { ...apt, dirt: 7 }, false, 3)])).toBe(1);
@@ -144,7 +144,7 @@ test('the Side loop and Core loop rank the Loop versions, the Ace slot the Owned
 	const aceVersion = ownedWith(1, apt, true);
 	const loopVersion = ownedWith(2, apt, true);
 	const rec = recommend(candidateList, preset, { S10071: 'T0' }, [aceVersion], ['10081'], undefined, [loopVersion]);
-	expect(rec.aceSlot!.cardId).toBe(1);
+	expect(rec.aceSlots[0].cardId).toBe(1);
 	expect(rec.sideSlots.map((s) => s.cardId)).toEqual([2]);
 	expect(rec.coreSlots.map((s) => s.cardId)).toEqual([2]);
 	expect(recommend(candidateList, preset, { S10071: 'T0' }, [aceVersion], ['10081'], undefined, []).sideSlots).toEqual([]);
@@ -166,7 +166,7 @@ test('skills are screened at few samples, but every shown skill is re-simulated 
 	const phases: string[] = [];
 	const full = { ...preset, samples: 60 };
 	const rec = recommend(candidateList, full, undefined, [owned(1), owned(2)], [], (p) => phases.push(p.phase));
-	const shown = [...rec.ace, ...(rec.aceSlot?.parents ?? [])].flatMap((p) => p.detail);
+	const shown = [...rec.ace, ...(rec.aceSlots[0]?.parents ?? [])].flatMap((p) => p.detail);
 	expect(shown.length).toBeGreaterThan(0);
 	expect(shown.every((d) => !d.screened)).toBe(true);
 	expect(phases).toContain('screen');
@@ -184,7 +184,7 @@ test('a Sim assumption reaches every slot: wit checks lower the proc and value o
 	const [off, on] = [run(false), run(true)];
 	expect(on.skills[0].proc).toBeLessThan(off.skills[0].proc);
 	expect(on.ace[0].score).toBeLessThan(off.ace[0].score);
-	expect(on.aceSlot!.score).toBeLessThan(off.aceSlot!.score);
+	expect(on.aceSlots[0].score).toBeLessThan(off.aceSlots[0].score);
 	expect(on.sideSlots[0].score).not.toBe(off.sideSlots[0].score);
 });
 
@@ -196,7 +196,7 @@ test('the recommendation carries the Track overview of the selected course with 
 });
 
 // Combined Ace rows: her own skills plus everything either recommended lineage can pass on.
-function aceRows(cs: Candidate[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, candidates: cs }], mustHaves).aceSlot!.skills; }
+function aceRows(cs: Candidate[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, candidates: cs }], mustHaves).aceSlots[0].skills; }
 
 test('a skill both lineages can pass shows the combined inherit chance', () => {
 	const rows = aceRows([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10071'], { affinity: 10 })]);
@@ -224,7 +224,7 @@ test('rows sort by avg lengths gained, flag Must-haves, and hide zero-value skil
 });
 
 // The version's own learnable skills: the Ace can buy them, so they show as certain rows.
-function aceRowsWithLearnable(cs: Candidate[], learnableSkillIds: string[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, learnableSkillIds, candidates: cs }], mustHaves).aceSlot!.skills; }
+function aceRowsWithLearnable(cs: Candidate[], learnableSkillIds: string[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, learnableSkillIds, candidates: cs }], mustHaves).aceSlots[0].skills; }
 
 test('a version learnable skills are own rows: certain, Must-have flagged, not duplicated by inheritance', () => {
 	const rows = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 })], ['10071', '10081'], ['10081'], '10071');
@@ -315,4 +315,33 @@ test('bestPair picks the very pair ranking every pair would, ties to the earlies
 		const expected = all.reduce((a, b) => (b.score > a.score ? b : a));
 		expect(bestPair(pairs, rank, (c) => Math.max(0, solo.get(c)!), 2, () => false)).toEqual(expected);
 	}
+});
+
+test('the Ace slots list up to 10 versions in the Ace order; the first is the single best Ace with its chart rows', () => {
+	const versions = Array.from({ length: 12 }, (_, i) => ({ cardId: i + 1, aptitudes: apt, uniqueSkillId: i === 7 ? '10071' : undefined, candidates: [] }));
+	const rec = recommend(candidateList, preset, undefined, versions);
+	expect(rec.aceSlots).toHaveLength(10);
+	expect(rec.aceSlots[0].cardId).toBe(8); // the only one with a unique skill worth anything
+	expect(rec.aceSlots[0].skills.length).toBeGreaterThan(0);
+	// Equal scores keep the Owned order.
+	expect(rec.aceSlots.slice(1).map((s) => s.cardId)).toEqual([1, 2, 3, 4, 5, 6, 7, 9, 10]);
+	expect(rec.aceSlots.slice(1).every((s) => s.skills.length === 0)).toBe(true); // rows are built for the first only
+	const single = recommend(candidateList, preset, undefined, [versions[7]]).aceSlots[0];
+	expect(rec.aceSlots[0]).toEqual(single);
+});
+
+test('fewer versions give fewer Ace slots, and an unreachable-distance version ranks after the others instead of being dropped', () => {
+	const short = { ...apt, mile: 1, middle: 1, long: 1, short: 1 };
+	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: short, candidates: [] }, { cardId: 2, aptitudes: { ...apt, short: 7, mile: 7, middle: 7, long: 7 }, candidates: [] }]);
+	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([2, 1]);
+});
+
+test('an Ace slot marks a fall-back when its style differs from the selected one', () => {
+	const versions = [owned(1, undefined, { ...apt, oikomi: 8 }), owned(2)];
+	const rec = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, versions);
+	const byCard = (id: number) => rec.aceSlots.find((s) => s.cardId === id)!;
+	expect(byCard(1)).toMatchObject({ style: 'oikomi', fallback: true });
+	expect(byCard(2)).toMatchObject({ style: 'senko', fallback: true }); // Nige is E for it, so it falls back too
+	const same = recommend(candidateList, preset, undefined, versions);
+	expect(same.aceSlots.every((s) => s.style === 'senko' && !s.fallback)).toBe(true);
 });
