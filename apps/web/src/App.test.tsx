@@ -856,6 +856,7 @@ it('opens any Ace hero on click, building its chart rows once, until the inputs 
 	await act(() => { style.dispatchEvent(new Event('change')); });
 	await run();
 	expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
+	expect(asked).toHaveLength(1); // the old selection asks nothing of the new result
 	await click(buttons()[1]);
 	expect(asked).toHaveLength(2);
 	expect(loading()).not.toBeNull();
