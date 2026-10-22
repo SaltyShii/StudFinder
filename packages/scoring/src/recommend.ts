@@ -133,7 +133,7 @@ export async function recommendAsync(runBatch: (batch: SimBatch) => Promise<Skil
 	}
 }
 
-function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void): Generator<SimBatch, Recommendation, SkillDetail[]> {
+function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SkillDetail[]> {
 	// One cache per distinct runner, so Owned versions that run identically share simulations.
 	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
 	let simulated = 0;
@@ -184,7 +184,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const best = bestAceSlot(versions, categoryOf(courseFacts(cm.courseId).distance));
 			// The chart simulates the whole buyable pool, so only the shown Ace's rows are built.
 			const aceSlot = best && { ...best.pick, skills: best.rows() };
-		const coreV = versions.length ? coreVersion(versions) : undefined;
+		const coreV = coreVersion(loopVersions);
 		// The Core loop's dirt A chance uses the core version's affinities, not the Sim runner's.
 		// shortcut: a candidate the core version has no entry for (its own veterans are excluded) keeps the Sim runner's affinity; upgrade if that ever matters.
 		const coreById = new Map(coreV?.candidates.map((c) => [c.id, c]));
@@ -192,9 +192,9 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const sum = (ps: CandidatePick[]) => ps.reduce((t, p) => t + p.score, 0);
 		const horsesOf = (v: OwnedVersion, ps: CandidatePick[]) => ps.flatMap((p) => v.candidates.find((c) => c.id === p.candidateId)?.horses ?? []);
 		// Each loop lineage uses the loop's own greedy ranking over the version's candidates, so the 2 parents complement each other.
-		const sideSlots = owned.map((v) => { const parents = sideLoopPicks(v.candidates, detailOf, PARENTS, horse.skills, mustHaves); return { pick: { cardId: v.cardId, score: sum(parents), parents, skills: sideRows(horsesOf(v, parents), detailOf, horse.skills ?? [], mustHaves) }, key: mustHaves.length ? sideLoopPriority(horsesOf(v, parents), mustHaves) : 0 }; })
+		const sideSlots = loopVersions.map((v) => { const parents = sideLoopPicks(v.candidates, detailOf, PARENTS, horse.skills, mustHaves); return { pick: { cardId: v.cardId, score: sum(parents), parents, skills: sideRows(horsesOf(v, parents), detailOf, horse.skills ?? [], mustHaves) }, key: mustHaves.length ? sideLoopPriority(horsesOf(v, parents), mustHaves) : 0 }; })
 			.sort((a, b) => b.key - a.key || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick);
-		const coreSlots = tierList ? owned.map((v) => { const parents = coreLoopPicks(v.candidates, tierList, PARENTS, horse.skills, v.aptitudes.dirt); return { pick: { cardId: v.cardId, score: sum(parents), parents }, tier: coreTier(v) }; })
+		const coreSlots = tierList ? loopVersions.map((v) => { const parents = coreLoopPicks(v.candidates, tierList, PARENTS, horse.skills, v.aptitudes.dirt); return { pick: { cardId: v.cardId, score: sum(parents), parents }, tier: coreTier(v) }; })
 			.sort((a, b) => a.tier - b.tier || b.pick.score - a.pick.score).slice(0, TOP).map((x) => x.pick) : [];
 		return { aceSlot, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value), track };
 	};
@@ -346,11 +346,10 @@ function coreTier(v: OwnedVersion): number {
 	return v.aptitudes.turf < GRADE_A ? 2 : v.aptitudes.dirt >= GRADE_A ? 0 : v.candidates.some((c) => dirtAChance(c.horses, v.aptitudes.dirt) > 0) ? 1 : 2;
 }
 
-// The Core loop's own version: Turf A with Dirt A, else Turf A that can reach Dirt A through a lineage (highest dirt aptitude first), else all; simulated value breaks ties.
-// Independent of the displayed Ace: dirt only matters to the Core loop.
-function coreVersion(versions: AceCandidate[]): OwnedVersion | undefined {
-	const tierOf = ({ v }: { v: OwnedVersion }) => coreTier(v);
-	const gate = Math.min(...versions.map(tierOf));
-	const pool = versions.filter((x) => tierOf(x) === gate);
-	return pool.reduce<AceCandidate | undefined>((a, b) => (!a || b.v.aptitudes.dirt > a.v.aptitudes.dirt || (b.v.aptitudes.dirt === a.v.aptitudes.dirt && b.pick.score > a.pick.score) ? b : a), undefined)?.v;
+// The Core loop's own version, taken from the Loop versions: Turf A with Dirt A, else Turf A that can reach Dirt A through a lineage (highest dirt aptitude first), else all; the earliest breaks ties.
+// Independent of the Ace and its Owned versions: dirt only matters to the Core loop. No Loop versions means no core version.
+function coreVersion(versions: OwnedVersion[]): OwnedVersion | undefined {
+	const gate = Math.min(...versions.map(coreTier));
+	const pool = versions.filter((v) => coreTier(v) === gate);
+	return pool.reduce<OwnedVersion | undefined>((a, b) => (!a || b.aptitudes.dirt > a.aptitudes.dirt ? b : a), undefined);
 }
