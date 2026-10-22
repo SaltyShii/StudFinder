@@ -48,7 +48,7 @@ An Owned version to train next, with its 2 parents and 4 grandparents and the Tr
 _Avoid_: equipped skills (that is the Ace veteran's term), ace (for the finished run)
 
 **Buyable skill**:
-A general skill (white or gold) the Ace can buy with skill points after its run, when it meets the skill's running style, distance and surface conditions. The chart lists them as the Ace's own skills (certain, not inherited) next to the inheritable ones.
+A general skill (white or gold) on the Ace card's own skill list that the Ace can buy with skill points after its run, when it meets the skill's running style, distance and surface conditions. The chart lists them as the Ace's own skills (certain), except one a parent can pass on, which shows its inherit chance instead. Skills off the card list appear only through a parent.
 _Avoid_: learnable skill, equipped skill
 
 **Sim runner**:
@@ -56,7 +56,7 @@ The uma every simulation runs against, chosen by the user, with its running styl
 _Avoid_: ace (for this selector)
 
 **Owned version**:
-A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace chart also lists every skill it can buy with skill points (white and gold, whose running style, distance and surface conditions it can meet) as its own skills: certain, not inherited. The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
+A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace chart also lists the skills on its card list that it can buy with skill points (white and gold, whose running style, distance and surface conditions it can meet) as its own skills: certain, unless a parent can pass them on. The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
 
 **Unfit version**:
 An Owned version whose surface or distance Aptitude grade for the selected CM is below the cutoff grade (default D, set by the user; G switches the filter off): reaching A would take pink sparks on every parent, at the cost of the distance spark. The Ace slot does not simulate it for that CM and lists it apart with its reason; the user can force-enable a single one. The loops are unaffected (see Loop version), and its trained veterans stay parent candidates for the other versions.

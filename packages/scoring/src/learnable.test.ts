@@ -1,15 +1,10 @@
 import { expect, test } from 'vitest';
 import { buyableSkillIds, skillsAceCanMeet } from './learnable';
 
-function s(id: number, rarity: number, groupId: number, gradeValue: number) { return { id, rarity, groupId, gradeValue }; }
+const skills = new Map([[1, { rarity: 1, gradeValue: 129 }], [2, { rarity: 2, gradeValue: 461 }], [3, { rarity: 1, gradeValue: -129 }], [4, { rarity: 3, gradeValue: 240 }], [5, { rarity: 1, gradeValue: 217 }]]);
 
-test('the buyable pool is the white and gold skills, one per group (the strongest), without penalty skills', () => {
-	const pool = buyableSkillIds([s(1, 1, 10, 129), s(2, 1, 10, 174), s(3, 1, 10, -129), s(4, 2, 10, 461), s(5, 1, 11, 217), s(6, 3, 12, 240), s(7, 5, 13, 500)]);
-	expect(pool.sort()).toEqual(['4', '5']);
-});
-
-test('a group whose only skill is a penalty keeps nothing', () => {
-	expect(buyableSkillIds([s(1, 1, 10, -129)])).toEqual([]);
+test('the buyable pool is the white and gold skills on the card list, without penalty or unique skills and ones off the list', () => {
+	expect(buyableSkillIds([1, 2, 3, 4, 99], skills)).toEqual(['1', '2']);
 });
 
 const ctx = { style: 'nige', category: 'long', surface: 'turf' } as const;

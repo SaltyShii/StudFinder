@@ -158,10 +158,9 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */
 export function planOwned(data: GameData, roster: ImportResult, ownedIds: Iterable<number>, course: Course | undefined, useBorrowed: boolean): OwnedVersion[] {
-	const pool = buyableSkillIds(data.skills.values());
 	return [...ownedIds].flatMap((id) => {
 		const card = data.cards.get(id);
-		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), learnableSkillIds: pool, candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
+		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), learnableSkillIds: buyableSkillIds(card.skillIds ?? [], data.skills), candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];
 	});
 }
 

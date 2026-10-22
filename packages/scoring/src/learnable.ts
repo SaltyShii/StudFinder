@@ -7,15 +7,12 @@ import type { Category, Style } from './ace';
 const WHITE = 1;
 const GOLD = 2;
 
-/** Skills an Ace can buy with skill points: white and gold, the strongest of each skill group (the circle tiers and the gold version share one), never a penalty skill. */
-export function buyableSkillIds(skills: Iterable<{ id: number; rarity: number; groupId: number; gradeValue: number }>): string[] {
-	const best = new Map<number, { id: number; gradeValue: number }>();
-	for (const s of skills) {
-		if (s.rarity !== WHITE && s.rarity !== GOLD) continue;
-		const cur = best.get(s.groupId);
-		if (!cur || s.gradeValue > cur.gradeValue) best.set(s.groupId, s);
-	}
-	return [...best.values()].filter((s) => s.gradeValue > 0).map((s) => String(s.id));
+/** Skills an Ace can buy with skill points: the white and gold ones on its own card's skill list, never a penalty skill. Skills off the list are only reachable through a parent's sparks. */
+export function buyableSkillIds(cardSkillIds: Iterable<number>, skills: ReadonlyMap<number, { rarity: number; gradeValue: number }>): string[] {
+	return [...new Set(cardSkillIds)].filter((id) => {
+		const sk = skills.get(id);
+		return !!sk && (sk.rarity === WHITE || sk.rarity === GOLD) && sk.gradeValue > 0;
+	}).map(String);
 }
 
 type SimSkill = { alternatives: { precondition: string; condition: string }[] };

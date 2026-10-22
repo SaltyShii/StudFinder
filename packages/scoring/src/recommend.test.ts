@@ -246,14 +246,17 @@ test('rows sort by avg lengths gained, flag Must-haves, and hide zero-value skil
 // The version's own learnable skills: the Ace can buy them, so they show as certain rows.
 function aceRowsWithLearnable(cs: Candidate[], learnableSkillIds: string[], mustHaves: string[] = [], uniqueSkillId?: string) { return recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId, learnableSkillIds, candidates: cs }], mustHaves).aceSlots[0].skills; }
 
-test('a version learnable skills are own rows: certain, Must-have flagged, not duplicated by inheritance', () => {
-	const rows = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', ['10081'], { affinity: 100 })], ['10071', '10081'], ['10081'], '10071');
-	for (const id of ['10071', '10081']) {
-		const mine = rows.filter((r) => r.skillId === id);
-		expect(mine).toHaveLength(1);
-		expect(mine[0].inherit).toBe(1);
-	}
-	expect(rows.find((r) => r.skillId === '10081')!.mustHave).toBe(true);
+test('a learnable skill is an own row (certain, Must-have flagged); one a parent can pass on shows its inherit chance instead', () => {
+	const rows = aceRowsWithLearnable([unit('a', ['10071'], { affinity: 100 }), unit('b', [])], ['10071', '10081'], ['10081']);
+	const carried = rows.filter((r) => r.skillId === '10071');
+	expect(carried).toHaveLength(1);
+	expect(carried[0].own).toBe(false);
+	expect(carried[0].inherit).toBeLessThan(1);
+	const bought = rows.filter((r) => r.skillId === '10081');
+	expect(bought).toHaveLength(1);
+	expect(bought[0].own).toBe(true);
+	expect(bought[0].inherit).toBe(1);
+	expect(bought[0].mustHave).toBe(true);
 	expect(rows.map((r) => r.lengths.avg)).toEqual([...rows.map((r) => r.lengths.avg)].sort((x, y) => y - x));
 });
 
