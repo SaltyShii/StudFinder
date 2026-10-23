@@ -36,7 +36,7 @@ The long-lived foundation line of great-grandparents, kept strong across CMs by 
 Grandparents and parents built specifically for one upcoming CM, ranked by spark % of the Must-have skills plus the CM's relevant pink spark, so they can later become parents of the Ace. The track's best simulated skills only break ties.
 
 **Ace**:
-The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by expected lengths gained: the mean lengths gained over its Whole-Ace runs, which cover its own skills, the skills its parents can pass on and the aptitude its pink sparks can raise, each as often as it procs. The Skill chart rows are per skill and do not add up to this score. Must-have skills do not decide the order.
+The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by expected lengths gained: the mean lengths gained over its Whole-Ace runs, which cover its own skills, the skills its parents can pass on and the aptitude its pink sparks can raise, each as often as it procs. The Track overview skill chart rows are per skill and do not add up to this score. Must-have skills do not decide the order.
 _Avoid_: trainee (when meaning the final CM runner)
 
 **Ace veteran**:
