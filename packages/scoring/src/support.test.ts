@@ -111,6 +111,32 @@ describe('Support deck', () => {
 		expect(rolled.hints['10091']).toBe(5);
 		expect(run([version(['10091'], [spark])], sup, 150).aceSlots[0].skills.find((r) => r.skillId === '10091')?.bought).toBe(1);
 	});
+	test('chart rows carry the source cards of a hinted skill, an off-list one included as a row', () => {
+		const rows = run([version([])], support([card(1, ['10071'], { type: 'wit' })], [card(41, ['10071'])]), 1000).aceSlots[0].skills;
+		const row = rows.find((r) => r.skillId === '10071')!;
+		expect(row.sources).toEqual([{ cardId: 1, name: 'card 1', type: 'wit' }, { cardId: 41, name: 'card 41', type: 'speed' }]);
+		expect(row.other).toBe(true);
+		expect(row.bought).toBe(1);
+	});
+	test('a hinted skill on the card list or a parent keeps its inherit chance and bought share', () => {
+		const spark: Candidate = { id: 's', name: 's', horses: [horseOf(['10091'], 3), horseOf([]), horseOf([])] };
+		const v = [version(['10071'], [spark])];
+		const rows = run(v, support([card(1, ['10071', '10091'])]), 1000, { candidates: [spark] }).aceSlots[0].skills;
+		const plain = run(v, undefined, 1000, { candidates: [spark] }).aceSlots[0].skills;
+		for (const id of ['10071', '10091']) {
+			const row = rows.find((r) => r.skillId === id)!;
+			const before = plain.find((r) => r.skillId === id)!;
+			expect(row.sources?.map((s) => s.cardId)).toEqual([1]);
+			expect(row.inherit).toBe(before.inherit);
+			expect(row.own).toBe(before.own);
+			expect(row.bought).toBeDefined();
+		}
+		expect(plain.every((r) => r.sources === undefined)).toBe(true);
+	});
+	test('a skill no deck card hints has no source', () => {
+		const rows = run([version(['10071', '10091'])], support([card(1, ['10071'])]), 1000).aceSlots[0].skills;
+		expect(rows.find((r) => r.skillId === '10091')!.sources).toBeUndefined();
+	});
 	test('deterministic for a seed, shortlist and budget, also through the worker batches', async () => {
 		const sup = support([card(1, ['10071', '10091']), ...fillers], [card(41, ['10081'])], { trainingsPerCard: 30 });
 		const v = [version(['10071', '10081'], [{ id: 'p', name: 'p', horses: [horseOf(['10091'], 1), horseOf([]), horseOf([])] }])];

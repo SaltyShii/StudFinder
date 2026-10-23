@@ -2,6 +2,7 @@ import { versionName, type GameData } from '../../../packages/lineage/src/gameDa
 import { STYLE_LABEL } from '../../../packages/scoring/src/ace';
 import { surfaceStarsOf, type LineageHorse } from '../../../packages/scoring/src/shared';
 import type { AcePick, Candidate, CandidatePick, OwnedVersion } from '../../../packages/scoring/src/recommend';
+import { SupportDeckView } from './SupportDeckView';
 import { SkillDetails, UmaCard } from './UmaCard';
 
 interface Props {
@@ -80,6 +81,7 @@ export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
 				))}
 			</ol>
 			{selectedPick && <LineageTree pick={selectedPick} data={data} />}
+			{selectedPick?.deck && <SupportDeckView deck={selectedPick.deck} />}
 		</section>
 	);
 }
