@@ -93,7 +93,7 @@ describe('wholeAceRuns with a Skill point budget', () => {
 		seeds: Array.from({ length: 30 }, (_, i) => i + 1),
 	};
 	// Values are lengths gained as simulated; here they are chosen so the best set is easy to read off.
-	const budget = (points: number) => ({ points, costs: { A: { cost: 300, group: 1 }, B: { cost: 250, group: 2 }, C: { cost: 250, group: 3 } }, values: { A: 5, B: 3, C: 2 } });
+	const budget = (points: number) => ({ budget: points, costs: { A: { cost: 300, group: 1 }, B: { cost: 250, group: 2 }, C: { cost: 250, group: 3 } }, values: { A: 5, B: 3, C: 2 } });
 	// A spark for B on every run: Hint level 5, 40% off.
 	const hinted = [horse({ affinity: 1e6, skills: [{ skillId: 'B', name: 'B', stars: 3 }] })];
 	const run = (over: Partial<WholeAceInput>) => wholeAceRuns({ ...base, ...over, buyableSkillIds: over.buyableSkillIds ?? [] });
@@ -102,7 +102,7 @@ describe('wholeAceRuns with a Skill point budget', () => {
 		expect(run({ buyableSkillIds: ['10071', '10081'] }).bought).toEqual({ '10071': 1, '10081': 1 });
 	});
 	test('a skill that always fits is bought in every run; one that never does, in none', () => {
-		const b = { points: 300, costs: { '10071': { cost: 300, group: 1 }, '10081': { cost: 400, group: 2 } }, values: { '10071': 1, '10081': 9 } };
+		const b = { budget: 300, costs: { '10071': { cost: 300, group: 1 }, '10081': { cost: 400, group: 2 } }, values: { '10071': 1, '10081': 9 } };
 		expect(run({ buyableSkillIds: ['10071', '10081'], budget: b }).bought).toEqual({ '10071': 1 });
 	});
 	test('a hinted skill costs its discounted price: 450 SP buys A + B only when B is hinted', () => {

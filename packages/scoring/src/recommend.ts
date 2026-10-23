@@ -414,14 +414,14 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 					costs[id] = c;
 					if (c.replacesId && c.replacesId in skillPoints.costs) costs[c.replacesId] = skillPoints.costs[c.replacesId];
 				}
-				budgets.set(p, { points: skillPoints.budget, costs, values: Object.fromEntries(ids.map((id) => [id, detailerOf(h)(id).value])) });
+				budgets.set(p, { budget: skillPoints.budget, costs, values: Object.fromEntries(ids.map((id) => [id, detailerOf(h)(id).value])) });
 			}
 			return budgets.get(p);
 		};
 		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: skillsAceCanMeet(uniqueIdsOf(p.pair.flatMap((c) => c.horses)), { style, category, surface: course.surface }), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}) });
 		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}`;
 		// The values are screened or full, so the same pair reruns once its values change.
-		const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.points}|${Object.values(b.values).join()}` : ''; };
+		const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.budget}|${Object.values(b.values).join()}` : ''; };
 		const fullKey = (p: ScoredPair) => `full|${keyOf(p)}${budgetKey(p)}`;
 		const screenKey = (p: ScoredPair) => `screen|${keyOf(p)}${budgetKey(p)}`;
 		// Asked before the runs: a pass that still waits for those values is thrown away, so it skips them.
