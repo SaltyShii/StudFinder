@@ -1,4 +1,5 @@
 import { discounted, MAX_HINT_LEVEL } from './skillBudget';
+import { categoryOf, type Category } from './ace';
 
 export type SupportType = 'speed' | 'stamina' | 'power' | 'guts' | 'wit' | 'friend';
 
@@ -19,10 +20,27 @@ export interface SupportPick {
 	limitBreak: number;
 }
 
+/** The Type mix: cards per type over the 6 deck slots (for example 3 speed, 2 wit, 1 friend). Any mix is allowed. */
+export type TypeMix = Partial<Record<SupportType, number>>;
+
+const DEFAULT_MIXES: Record<Category, TypeMix> = {
+	short: { speed: 3, wit: 2, friend: 1 },
+	mile: { speed: 3, power: 1, wit: 1, friend: 1 },
+	middle: { speed: 2, stamina: 1, power: 1, wit: 1, friend: 1 },
+	long: { speed: 2, stamina: 2, wit: 1, friend: 1 },
+};
+
+/** The Type mix a Champions Meeting starts with, by course distance in metres. */
+export function defaultTypeMix(distance: number): TypeMix {
+	return { ...DEFAULT_MIXES[categoryOf(distance)] };
+}
+
 /** The Support input of `recommend()`: what the player would consider running. Both lists empty (or the input absent) changes nothing. */
 export interface SupportInput {
 	own: SupportPick[];
 	borrowed: SupportPick[];
+	/** How many cards of each type the deck holds over all 6 slots, the borrowed card included. Absent or empty: no constraint. */
+	typeMix?: TypeMix;
 	/** Trainings each deck card appears in over a run (a Sim assumption); DEFAULT_TRAININGS_PER_CARD when absent. */
 	trainingsPerCard?: number;
 }
@@ -31,6 +49,10 @@ export interface SupportInput {
 export interface SupportDeck {
 	own: SupportPick[];
 	borrowed?: SupportPick;
+	/**
+	 * Own slots held by a hintless filler: the Type mix asked for friend cards and none is shortlisted. The catalogue has no friend cards (they carry no skill hints), so a friend slot counts toward the mix, gives no hints and needs no card.
+	 */
+	friendFillers?: number;
 	/** Why the deck is not the full 5 + 1. */
 	notes: string[];
 }
@@ -79,22 +101,78 @@ function cardScore(pick: SupportPick, trainings: number, { onList, usable, value
 	return total;
 }
 
+const TYPES: SupportType[] = ['speed', 'stamina', 'power', 'guts', 'wit', 'friend'];
+
+interface Scored { p: SupportPick; i: number; s: number }
+
+/** Own cards for the slots a borrowed card leaves in the mix: best per type up to its quota (friend quota with no card becomes a filler), then the best of the rest. */
+function ownForMix(scored: Scored[], quota: TypeMix): { picks: Scored[]; fillers: number } {
+	const picks: Scored[] = [];
+	let fillers = 0;
+	for (const t of TYPES) {
+		const of = scored.filter((x) => x.p.card.type === t).slice(0, quota[t] ?? 0);
+		picks.push(...of);
+		if (t === 'friend') fillers += (quota.friend ?? 0) - of.length;
+	}
+	// Quotas past the 5 own slots drop their lowest scores first; a filler scores 0.
+	const room = OWN_SLOTS - fillers;
+	const kept = picks.sort((a, b) => b.s - a.s || a.i - b.i).slice(0, Math.max(0, room));
+	fillers = Math.min(fillers, OWN_SLOTS);
+	const rest = scored.filter((x) => !kept.includes(x));
+	const gap = OWN_SLOTS - fillers - kept.length;
+	return { picks: [...kept, ...rest.slice(0, Math.max(0, gap))], fillers };
+}
+
+function mixNote(mix: TypeMix, held: SupportPick[], fillers: number): string | undefined {
+	const short = TYPES.filter((t) => (mix[t] ?? 0) > held.filter((p) => p.card.type === t).length + (t === 'friend' ? fillers : 0));
+	if (!short.length) return undefined;
+	const label = short.map((t) => `${mix[t]} ${t}`).join(', ');
+	return `Type mix not met (wanted ${label}): the shortlist cannot fill it, so the gaps are filled from other shortlisted cards.`;
+}
+
 /**
  * The deck for one Ace hero: its best 5 own cards and its best borrowed card, by the additive score. Ties keep the earlier card.
- * Undefined without a shortlist. Type mix is not considered yet.
+ * With a Type mix the borrowed card counts in it; every borrowed candidate is tried and the deck with the fewest unmet slots wins, then the highest score.
+ * A friend slot no shortlisted card fills is a hintless filler (see `friendFillers`), not a gap. A mix the shortlists cannot fill is filled from other shortlisted cards, with a note.
+ * Undefined without a shortlist.
  */
 export function pickDeck(support: SupportInput | undefined, ctx: DeckContext): SupportDeck | undefined {
 	if (!support || (!support.own.length && !support.borrowed.length)) return undefined;
 	const trainings = support.trainingsPerCard ?? DEFAULT_TRAININGS_PER_CARD;
-	const best = (picks: SupportPick[], n: number) => picks
+	const rank = (picks: SupportPick[]): Scored[] => picks
 		.map((p, i) => ({ p, i, s: cardScore(p, trainings, ctx) }))
-		.sort((a, b) => b.s - a.s || a.i - b.i)
-		.slice(0, n)
-		.map((x) => x.p);
-	const own = best(support.own, OWN_SLOTS);
-	const borrowed = best(support.borrowed, 1)[0];
+		.sort((a, b) => b.s - a.s || a.i - b.i);
+	const ownRanked = rank(support.own);
+	const borrowedRanked = rank(support.borrowed);
+	const mix = support.typeMix;
+	const constrained = !!mix && TYPES.some((t) => (mix[t] ?? 0) > 0);
+	let own: SupportPick[];
+	let borrowed: SupportPick | undefined;
+	let fillers = 0;
+	if (!constrained) {
+		own = ownRanked.slice(0, OWN_SLOTS).map((x) => x.p);
+		borrowed = borrowedRanked[0]?.p;
+	} else {
+		let best: { own: Scored[]; fillers: number; b?: Scored; unmet: number; score: number } | undefined;
+		for (const b of borrowedRanked.length ? borrowedRanked : [undefined]) {
+			const quota = { ...mix };
+			if (b && (quota[b.p.card.type] ?? 0) > 0) quota[b.p.card.type]! -= 1;
+			const { picks, fillers: f } = ownForMix(ownRanked, quota);
+			const held = [...picks.map((x) => x.p), ...(b ? [b.p] : [])];
+			const unmet = TYPES.reduce((n, t) => n + Math.max(0, (mix[t] ?? 0) - held.filter((p) => p.card.type === t).length - (t === 'friend' ? f : 0)), 0);
+			const score = picks.reduce((n, x) => n + x.s, 0) + (b?.s ?? 0);
+			if (!best || unmet < best.unmet || (unmet === best.unmet && score > best.score)) best = { own: picks, fillers: f, b, unmet, score };
+		}
+		own = best!.own.map((x) => x.p);
+		borrowed = best!.b?.p;
+		fillers = best!.fillers;
+	}
 	const notes: string[] = [];
-	if (own.length < OWN_SLOTS) notes.push(`Only ${own.length} own support cards shortlisted: the deck has fewer than ${OWN_SLOTS}.`);
+	if (own.length + fillers < OWN_SLOTS) notes.push(`Only ${own.length} own support cards shortlisted: the deck has fewer than ${OWN_SLOTS}.`);
 	if (!borrowed) notes.push('No Borrowed support card shortlisted: the deck is own cards only.');
-	return { own, borrowed, notes };
+	if (constrained) {
+		const note = mixNote(mix!, [...own, ...(borrowed ? [borrowed] : [])], fillers);
+		if (note) notes.push(note);
+	}
+	return { own, borrowed, ...(fillers ? { friendFillers: fillers } : {}), notes };
 }

@@ -15,7 +15,8 @@ import { GRADE_A } from '@stud-finder/lineage/src/inheritance';
 import { aceSupply, aptitudeOutcomes, surfaceStarsOf, dirtAChance, greedyRank, mustHaveChance, skillChance, maxStars, newShare, type Candidate, type LineageHorse, type CmPreset, type SkillPoints, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
 export type { SkillCost, AceBudget } from './skillBudget';
-export type { SupportCard, SupportDeck, SupportInput, SupportPick, SupportType } from './support';
+export { defaultTypeMix } from './support';
+export type { SupportCard, SupportDeck, SupportInput, SupportPick, SupportType, TypeMix } from './support';
 export type { Candidate, CmPreset, SkillPoints, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
 /** A version the player can train as the Ace; candidates are measured against it (affinity, own-version exclusion). */
