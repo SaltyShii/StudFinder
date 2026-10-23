@@ -80,10 +80,18 @@ def build(mdb: Path, meta_extra: dict) -> dict:
 
     skill_names, skill_desc = texts(con, TXT_SKILL_NAME), texts(con, TXT_SKILL_DESC)
     skills = {}
-    for sid, rarity, group_id, icon, grade, cat, pre1, cond1, pre2, cond2 in q(
+    # Base SP cost per skill (Hint level discounts are applied at scoring time); skills the career mode never sells have no cost row.
+    sp_cost = dict(q("select id, need_skill_point from single_mode_skill_need_point"))
+    rows = list(q(
         """select id, rarity, group_id, icon_id, grade_value, skill_category,
-                  precondition_1, condition_1, precondition_2, condition_2 from skill_data"""
-    ):
+                  precondition_1, condition_1, precondition_2, condition_2, group_rate from skill_data"""
+    ))
+    # A gold skill replaces the white version just below it in its group: the highest positive group_rate under its own.
+    whites = defaultdict(list)
+    for sid, rarity, group_id, *_, group_rate in rows:
+        if rarity == 1 and group_rate > 0:
+            whites[group_id].append((group_rate, sid))
+    for sid, rarity, group_id, icon, grade, cat, pre1, cond1, pre2, cond2, group_rate in rows:
         if sid not in skill_names:
             continue
         blocks = [{"pre": p or "", "cond": c or ""} for p, c in ((pre1, cond1), (pre2, cond2)) if c]
@@ -98,6 +106,15 @@ def build(mdb: Path, meta_extra: dict) -> dict:
             "category": cat,
             "conditions": blocks,
         }
+        if rarity in (1, 2):
+            below = [w for w in whites[group_id] if w[0] < group_rate] if rarity == 2 else []
+            # A gold skill with no white version in its group is a one-off (event or scenario reward), not a bundle the Ace can price.
+            if sp_cost.get(sid, 0) <= 0 or (rarity == 2 and not below):
+                skills[sid]["purchasable"] = False
+            else:
+                skills[sid]["spCost"] = sp_cost[sid]
+                if below:
+                    skills[sid]["replacesId"] = max(below)[1]
 
     factor_names = texts(con, TXT_FACTOR_NAME)
     effects = defaultdict(list)
