@@ -221,10 +221,10 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	});
 	// Details the Ace ranking scored with at aptitudes other than the Ace's own, for the picks that won: they are re-simulated at full samples like every shown skill.
 	let extras: SkillDetail[] = [];
-	// One seed list for every version and pair.
 	const aceMemo = new Map<string, number>();
 	// Whole-Ace runs a pass asked for that no simulation has answered yet.
 	const aceMissing = new Map<string, WholeAceRequest>();
+	// One seed list for every version and pair.
 	const aceRuns: AceRuns = {
 		seeds: wholeAceSeeds(seed, samples),
 		screenSeeds: wholeAceSeeds(seed, Math.min(samples, SCREEN_SAMPLES)),
@@ -318,8 +318,8 @@ interface Cell { key: string; chance: number; /** With the unique skill. */ h: H
 
 // Every version runs the sim runner's Target stats in its own best style, so only aptitudes and the unique skill differ.
 // A parent and its own 2 grandparents are permanently linked, so each candidate is one unit and the slot takes the best PAIR of units (never grandparents alone).
-// A pair scores expected lengths: the Ace is simulated at every distance and surface grade the pair's pink sparks can reach, weighted by the chance of that grade;
-// at each it counts the lengths the higher aptitude gains, the unique skill and the parents' inheritable skills (weighted by inherit chance). Style pink sparks and Must-haves play no part.
+// The additive score (the Ace simulated at every distance and surface grade the pair's pink sparks can reach, weighted by the chance of that grade) only shortlists pairs;
+// the score a pick shows comes from racing the whole Ace with the pair's parents (Whole-Ace runs). Style pink sparks and Must-haves play no part.
 // A version with no roster candidates still scores by its unique alone.
 function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns): AceCandidate[] {
 	const out: AceCandidate[] = [];
@@ -396,23 +396,27 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const buyable = skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface });
 		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: p.pair.flatMap((c) => c.horses), seeds });
 		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}`;
+		const fullKey = (p: ScoredPair) => `full|${keyOf(p)}`;
+		const screenKey = (p: ScoredPair) => `screen|${keyOf(p)}`;
 		let win = shortlist[0];
 		let score = win.score;
 		let refine: AceRefine | undefined;
 		if (!partial()) {
 			if (shortlist.length === 1) {
 				// Nothing to choose: no screening, straight to full samples.
-				score = runs.memo(`full|${keyOf(win)}`, requestOf(win, runs.seeds));
+				score = runs.memo(fullKey(win), requestOf(win, runs.seeds));
 			} else {
 				let top = -Infinity;
 				for (const p of shortlist) {
-					const m = runs.memo(`screen|${keyOf(p)}`, requestOf(p, runs.screenSeeds));
+					const m = runs.memo(screenKey(p), requestOf(p, runs.screenSeeds));
 					if (m > top) { top = m; win = p; }
 				}
 				const w = win;
 				const full = requestOf(w, runs.seeds);
-				if (runs.full.has(keyOf(w))) score = runs.memo(`full|${keyOf(w)}`, full);
-				else { score = top; refine = { pairKey: keyOf(w), fullKey: `full|${keyOf(w)}`, input: full }; }
+				// Few samples: the screen already ran every seed, so a full re-run would repeat it.
+				if (runs.screenSeeds.length === runs.seeds.length) score = top;
+				else if (runs.full.has(keyOf(w))) score = runs.memo(fullKey(w), full);
+				else { score = top; refine = { pairKey: keyOf(w), fullKey: fullKey(w), input: full }; }
 			}
 		}
 		const winCells = cellsOf(win.pair);

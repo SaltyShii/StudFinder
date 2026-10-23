@@ -478,6 +478,16 @@ describe('Ace slot scored by Whole-Ace runs', () => {
 			expect(got).toEqual(expected);
 			expect(apart).toEqual(serial);
 		});
+		test('with no more samples than the screen takes, no Whole-Ace run is asked twice', async () => {
+			const small = { ...preset, samples: 20 };
+			const asked: string[] = [];
+			await recommendAsync(async (batch) => {
+				for (const r of batch.requests) if (r.kind === 'wholeAce') asked.push(JSON.stringify(r.input));
+				return batch.requests.map((r) => simulateRequest(r, batch.scenario));
+			}, candidateList, small, undefined, [{ cardId: 1, aptitudes: apt, candidates: units }], []);
+			expect(asked.length).toBeGreaterThan(0);
+			expect(new Set(asked).size).toBe(asked.length);
+		});
 		test('progress reports the screen and refine phases for the Ace runs', () => {
 			const phases = new Set<string>();
 			recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: units }], [], (p) => phases.add(p.phase));
