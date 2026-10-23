@@ -1,4 +1,5 @@
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
+import { wholeAceMean, wholeAceSeeds } from './wholeAce';
 import { skillDetail } from './skillDetail';
 import { DEFAULT_ASSUMPTIONS } from './assumptions';
 import { skillChance } from './shared';
@@ -402,4 +403,33 @@ test('an Ace slot marks a fall-back when its style differs from the selected one
 	expect(byCard(2)).toMatchObject({ style: 'senko', fallback: true }); // Nige is E for it, so it falls back too
 	const same = recommend(candidateList, preset, undefined, versions);
 	expect(same.aceSlots.every((s) => s.style === 'senko' && !s.fallback)).toBe(true);
+});
+
+describe('Ace slot scored by Whole-Ace runs', () => {
+	const sure = (skills: string[], id = skills.join() || 'none') => cand(id, horseOf(skills, { affinity: 1e6 }), horseOf([], { affinity: 1e6 }), horseOf([], { affinity: 1e6 }));
+	const target = { speed: horse.speed, stamina: horse.stamina, power: horse.power, guts: horse.guts, wisdom: horse.wisdom };
+	const meanOf = (aptitudes: typeof apt, uniqueSkillId: string | undefined, horses: LineageHorse[]) => wholeAceMean({
+		aptitudes, style: 'senko', scenario: { courseId: preset.courseId }, target, uniqueSkillId, buyableSkillIds: [], horses, seeds: wholeAceSeeds(preset.seed, preset.samples),
+	});
+	test('a version without candidates scores its Whole-Ace run mean', () => {
+		const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId: '10071', candidates: [] }]).aceSlots[0];
+		expect(slot.score).toBe(meanOf(apt, '10071', []));
+		expect(slot.expectedLengths).toBe(slot.score);
+		expect(slot.score).toBeGreaterThan(0);
+	});
+	test("a version with a pair scores the mean over that pair's lineage", () => {
+		const cs = [sure(['10071']), sure(['10081'], 'o')];
+		const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: cs }]).aceSlots[0];
+		expect(slot.score).toBe(meanOf(apt, undefined, cs.flatMap((c) => c.horses)));
+	});
+	test('a skill both lineages carry counts once', () => {
+		const score = (candidates: Candidate[]) => recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates }]).aceSlots[0].score;
+		const one = score([sure(['10071']), sure([], 'o')]);
+		expect(score([sure(['10071']), sure(['10071'], 'o')])).toBeCloseTo(one, 9);
+		expect(one).toBeGreaterThan(0);
+	});
+	test('same inputs give the same output', () => {
+		const v = [{ cardId: 1, aptitudes: apt, candidates: [sure(['10071']), sure(['10081'], 'o')] }];
+		expect(recommend(candidateList, preset, undefined, v)).toEqual(recommend(candidateList, preset, undefined, v));
+	});
 });

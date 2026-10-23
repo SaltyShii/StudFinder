@@ -93,3 +93,8 @@ export function wholeAceMean(input: WholeAceInput): number {
 	}
 	return total / seeds.length;
 }
+
+/** The one seed list every version and pair is scored on (common random numbers): one seed per Whole-Ace run. */
+export function wholeAceSeeds(seed: number, samples: number): number[] {
+	return Array.from({ length: samples }, (_, i) => seed + i);
+}
