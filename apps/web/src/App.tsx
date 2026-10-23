@@ -13,6 +13,8 @@ import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { LoopVersions } from './LoopVersions';
 import { SimRunner } from './SimRunner';
+import { SupportSettings } from './SupportSettings';
+import { supportInputOf, type SupportSettings as SupportSettingsValue } from './supportSettings';
 import { TierEditor } from './TierEditor';
 import { skillChips } from './SkillChart';
 import { SkillPanel } from './SkillPanel';
@@ -26,7 +28,7 @@ import { aceRowsRunner, recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { useAceRows } from './useAceRows';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadFitCutoff, saveFitCutoff, loadForcedVersions, saveForcedVersions, loadMustHaves, loadRoster, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadFitCutoff, saveFitCutoff, loadForcedVersions, saveForcedVersions, loadMustHaves, loadRoster, loadSupportSettings, saveSupportSettings, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -81,6 +83,11 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const [skillPointBudget, setSkillPointBudget] = useState(() => loadSkillPointBudget(localStorage));
 	const changeSkillPointBudget = (next: number | null) => { saveSkillPointBudget(localStorage, next); setSkillPointBudget(next); };
 
+	const [supportSettings, setSupportSettings] = useState(() => loadSupportSettings(localStorage));
+	const changeSupportSettings = (next: SupportSettingsValue) => { saveSupportSettings(localStorage, next); setSupportSettings(next); };
+	// Shortlists resolved against the catalogue; undefined (no key in the preset) while nothing is shortlisted.
+	const support = useMemo(() => (data ? supportInputOf(supportSettings, data.supportCards) : undefined), [data, supportSettings]);
+
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
 	const card = data && simRunnerId != null ? data.cards.get(simRunnerId) : undefined;
@@ -93,7 +100,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const loopVersions = useMemo(() => ownedVersions.filter((v) => loopPicked.has(v.cardId)), [ownedVersions, loopPicked]);
 	// The hidden loops must not steer the ranking; the stored Must-haves stay untouched.
 	const activeMustHaves = useMemo(() => (showLoops ? mustHaves : []), [showLoops, mustHaves]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves: activeMustHaves, assumptions, skillPointBudget }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, activeMustHaves, assumptions, skillPointBudget]);
+	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves: activeMustHaves, assumptions, skillPointBudget, support }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, activeMustHaves, assumptions, skillPointBudget, support]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
@@ -107,13 +114,13 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const [ran, setRan] = useState<{ job: RecommendJob; veteranJob: VeteranJob | null; run: RecommendJob; vRun: VeteranJob | null } | null>(null);
 	// The veteran scores depend on the CM, roster and assumptions only: while those are unchanged, a finished or running job stays as it is (a cancelled or failed one has no result and runs again).
 	const snapshot = () => job && setRan({ job, veteranJob, run: { ...job }, vRun: ran?.veteranJob === veteranJob && (vs.busy || vs.result) ? ran.vRun : veteranJob && { ...veteranJob } });
-	// A new assumption changes every score, and a new Skill point budget the Ace's, so results already on screen are recomputed rather than left outdated.
-	const lastAssumptions = useRef({ assumptions, skillPointBudget });
+	// A new assumption changes every score, a new Skill point budget and new Support cards the Ace's, so results already on screen are recomputed rather than left outdated.
+	const lastAssumptions = useRef({ assumptions, skillPointBudget, support });
 	useEffect(() => {
-		if (lastAssumptions.current.assumptions === assumptions && lastAssumptions.current.skillPointBudget === skillPointBudget) return;
-		lastAssumptions.current = { assumptions, skillPointBudget };
+		if (lastAssumptions.current.assumptions === assumptions && lastAssumptions.current.skillPointBudget === skillPointBudget && lastAssumptions.current.support === support) return;
+		lastAssumptions.current = { assumptions, skillPointBudget, support };
 		if (ran) snapshot();
-	}, [assumptions, skillPointBudget]);
+	}, [assumptions, skillPointBudget, support]);
 	const { result, progress, busy, stale: running, error: jobError, cancel } = useJob(run, ran?.run ?? null);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, ran?.vRun ?? null, { clearOnRestart: true });
@@ -196,6 +203,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 							if (text === '') changeSkillPointBudget(null);
 							else if (Number.isInteger(n) && n >= 0) changeSkillPointBudget(n);
 						}} /><span class="muted"> Skill points the Ace may spend on skills; empty is unlimited.</span></label>
+						<SupportSettings data={data} value={supportSettings} onChange={changeSupportSettings} />
 						<OwnedVersions data={data} owned={owned} unfit={unfit} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />
 						{showLoops && <>
 							<LoopVersions data={data} owned={owned} picked={loopPicked} onChange={(ids) => { saveLoopVersions(localStorage, ids); setLoopChoice(ids); }} />

@@ -1,5 +1,5 @@
 import { EMPTY_EXTRAS, loadRaceExtras, type RaceExtras } from "./raceExtras";
-import type { Card, CareerGoal, Chara, Course, Factor, Race, RawGameData, Saddle, Skill } from "./types";
+import type { Card, CareerGoal, Chara, Course, Factor, Race, RawGameData, Saddle, Skill, SupportCardData } from "./types";
 
 /** Display name of a version: title and name, title omitted when empty. */
 export function versionName(card: Pick<Card, "title" | "name">): string {
@@ -15,6 +15,8 @@ export class GameData {
   readonly factors = new Map<number, Factor>();
   readonly saddles = new Map<number, Saddle>();
   readonly courses = new Map<number, Course>();
+  /** The Support card catalogue (empty when the data predates it). */
+  readonly supportCards = new Map<number, SupportCardData>();
   readonly tracks = new Map<number, string>();
   readonly races: RawGameData["races"];
   readonly raceById = new Map<number, Race>();
@@ -35,6 +37,7 @@ export class GameData {
     for (const f of Object.values(raw.factors)) this.factors.set(f.id, f);
     for (const s of Object.values(raw.saddles)) this.saddles.set(s.id, s);
     for (const c of Object.values(raw.courses)) this.courses.set(c.id, c);
+    for (const c of Object.values(raw.supportCards ?? {})) this.supportCards.set(c.id, c);
     for (const [id, name] of Object.entries(raw.tracks)) this.tracks.set(Number(id), name);
     for (const [type, pts] of Object.entries(raw.relations.points)) this.relationPoints.set(Number(type), pts);
     for (const [type, members] of Object.entries(raw.relations.members)) {

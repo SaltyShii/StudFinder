@@ -489,6 +489,43 @@ it('shows the Skill point budget as 2700, passes it to the job, re-runs on a cha
 	expect(field().value).toBe('');
 });
 
+it('shortlists Support cards in a searchable popup at max limit break, passes them to the job, re-runs on a change, and persists them', async () => {
+	data.supportCards.set(10001, { id: 10001, charaId: 1, name: 'Alpha', title: '[T]', rarity: 3, type: 'speed', pool: [10071], hintFrequency: [20, 20, 20, 20, 30], hintLevelBonus: [0, 0, 0, 0, 2] });
+	data.supportCards.set(10002, { id: 10002, charaId: 2, name: 'Beta', title: '[T]', rarity: 3, type: 'wit', pool: [10071], hintFrequency: [20, 20, 20, 20, 30], hintLevelBonus: [0, 0, 0, 0, 2] });
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };
+	const mount = () => render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root);
+	mount();
+	await importFile();
+	await run();
+	expect(jobs).toHaveLength(1);
+	expect(jobs[0].preset.support).toBeUndefined();
+	await click(root.querySelector('button[name=edit-support-own]'));
+	const search = root.querySelector<HTMLInputElement>('.modal input[name=skill-search]')!;
+	search.value = 'beta';
+	await act(() => { search.dispatchEvent(new Event('input')); });
+	expect(root.querySelectorAll('.modal [data-testid=skill-row]')).toHaveLength(1);
+	await click(root.querySelector('.modal button[name=skill]'));
+	await closeModal();
+	expect(jobs).toHaveLength(2);
+	expect(jobs[1].preset.support?.own).toEqual([{ card: expect.objectContaining({ id: 10002, pool: ['10071'] }), limitBreak: 4 }]);
+	expect(jobs[1].preset.support?.borrowed).toEqual([]);
+	const level = root.querySelector<HTMLSelectElement>('[data-testid=support-own] select[name=own-limit-break]')!;
+	level.value = '1';
+	await act(() => { level.dispatchEvent(new Event('change')); });
+	expect(jobs).toHaveLength(3);
+	expect(jobs[2].preset.support?.own[0].limitBreak).toBe(1);
+	render(null, root);
+	mount();
+	await flush();
+	await flush();
+	expect(root.querySelector<HTMLSelectElement>('[data-testid=support-own] select')!.value).toBe('1');
+	await click(root.querySelector('[data-testid=support-own] button[aria-label^=Remove]'));
+	await run();
+	expect(jobs.at(-1)!.preset.support).toBeUndefined();
+	data.supportCards.clear();
+});
+
 it('shows it is recomputing after an assumption change, and runs nothing before the first Run', async () => {
 	const jobs: RecommendJob[] = [];
 	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };

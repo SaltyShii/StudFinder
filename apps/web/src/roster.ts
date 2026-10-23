@@ -5,6 +5,7 @@ import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
 import { GRADE_NUMBERS, STYLES } from '../../../packages/scoring/src/ace';
 import { DEFAULT_ASSUMPTIONS, DEFAULT_DUELING_RATES, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { TierEdits } from './jobs';
+import { EMPTY_SUPPORT, isLimitBreak, type ShortlistEntry, type SupportSettings } from './supportSettings';
 
 const KEY = 'stud-finder:roster';
 const CM_KEY = 'stud-finder:cm';
@@ -177,6 +178,24 @@ export function loadSkillPointBudget(storage: Storage): number | null {
 	} catch {
 		return DEFAULT_SKILL_POINT_BUDGET;
 	}
+}
+
+const SUPPORT_OWN_KEY = 'stud-finder:support-own';
+const SUPPORT_BORROWED_KEY = 'stud-finder:support-borrowed';
+
+/** Each shortlist has its own key and nothing here bumps VERSION: a save from before Support cards simply has none. Not wiped by Clear data: they are settings, not Roster data. */
+export function saveSupportSettings(storage: Storage, settings: SupportSettings): void {
+	saveVersioned(storage, SUPPORT_OWN_KEY, 'list', settings.own);
+	saveVersioned(storage, SUPPORT_BORROWED_KEY, 'list', settings.borrowed);
+}
+
+function loadShortlist(storage: Storage, key: string): ShortlistEntry[] {
+	return loadVersioned(storage, key, 'list', (v) => (Array.isArray(v) && v.every((e) => Number.isInteger(e?.id) && isLimitBreak(e?.limitBreak)) ? v.map((e): ShortlistEntry => ({ id: e.id, limitBreak: e.limitBreak })) : null)) ?? [];
+}
+
+/** The stored shortlists; a list that is absent, stale-versioned or malformed loads as empty. */
+export function loadSupportSettings(storage: Storage): SupportSettings {
+	return { ...EMPTY_SUPPORT, own: loadShortlist(storage, SUPPORT_OWN_KEY), borrowed: loadShortlist(storage, SUPPORT_BORROWED_KEY) };
 }
 
 export function clearRoster(storage: Storage): void {

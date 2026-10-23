@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { DEFAULT_ASSUMPTIONS } from '../../../packages/scoring/src/assumptions';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -103,4 +103,20 @@ it('persists the Skill point budget: 2700 by default, a cleared field is unlimit
 	}
 	s.setItem('stud-finder:skill-point-budget', 'garbage');
 	expect(loadSkillPointBudget(s)).toBe(2700);
+});
+
+it('persists the Support shortlists under their own keys; absent, stale or malformed saves load as empty; Clear data keeps them', () => {
+	const s = fakeStorage();
+	expect(loadSupportSettings(s)).toEqual({ own: [], borrowed: [] });
+	const settings = { own: [{ id: 10001, limitBreak: 2 }], borrowed: [{ id: 30001, limitBreak: 4 }] };
+	saveSupportSettings(s, settings);
+	expect(loadSupportSettings(s)).toEqual(settings);
+	clearRoster(s);
+	expect(loadSupportSettings(s)).toEqual(settings);
+	for (const body of [{ version: 99, list: settings.own }, { version: 1, list: [{ id: 'x', limitBreak: 4 }] }, { version: 1, list: [{ id: 1, limitBreak: 7 }] }, { version: 1, list: 'no' }, { version: 1 }]) {
+		s.setItem('stud-finder:support-own', JSON.stringify(body));
+		expect(loadSupportSettings(s).own).toEqual([]);
+	}
+	s.setItem('stud-finder:support-borrowed', 'garbage');
+	expect(loadSupportSettings(s).borrowed).toEqual([]);
 });

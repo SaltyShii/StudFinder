@@ -137,6 +137,22 @@ export interface RawGameData {
   races: Race[];
   /** chara id -> career goals of its default route. */
   careerGoals?: Record<string, CareerGoal[]>;
+  /** Support card catalogue by id; absent in data generated before it was ingested. */
+  supportCards?: Record<string, SupportCardData>;
+}
+
+/** A Support card of the catalogue. The two arrays hold one value per limit break level, 0 to 4. */
+export interface SupportCardData {
+  id: number;
+  charaId: number;
+  name: string;
+  title: string;
+  rarity: number;
+  type: "speed" | "stamina" | "power" | "guts" | "wit" | "friend";
+  /** Skill ids the card hints, 1 Hint level each. */
+  pool: number[];
+  hintFrequency: number[];
+  hintLevelBonus: number[];
 }
 
 /**
