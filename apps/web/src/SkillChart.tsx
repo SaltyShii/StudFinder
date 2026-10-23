@@ -99,10 +99,10 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 	);
 }
 
-export function SkillFootnote({ rows }: { rows: AceSkillRow[] }) {
+export function SkillFootnote({ rows, aceScore }: { rows: AceSkillRow[]; aceScore?: boolean }) {
 	return (
 		<p class="muted skill-footnote" data-testid="skill-footnote">
-			L = horse lengths gained at the finish · Proc = share of runs in which the skill procced · {rows.some((r) => r.assumesPosition) ? '* also needs a race position (assumed), so the sim cannot judge it fully · ' : ''}highlighted rows are Must-haves · hover a dot for its inherit chance
+			L = horse lengths gained at the finish · Proc = share of runs in which the skill procced · {rows.some((r) => r.assumesPosition) ? '* also needs a race position (assumed), so the sim cannot judge it fully · ' : ''}highlighted rows are Must-haves · hover a dot for its inherit chance{aceScore && ' · rows are each skill on its own, so they do not add up to the Ace score (that comes from racing the whole Ace)'}
 		</p>
 	);
 }

@@ -36,7 +36,7 @@ The long-lived foundation line of great-grandparents, kept strong across CMs by 
 Grandparents and parents built specifically for one upcoming CM, ranked by spark % of the Must-have skills plus the CM's relevant pink spark, so they can later become parents of the Ace. The track's best simulated skills only break ties.
 
 **Ace**:
-The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by expected lengths gained: the Ace's own skills, the skills its parents can pass on (each weighted by its inherit chance) and the aptitude its pink sparks can raise (each outcome weighted by its chance). Must-have skills do not decide the order.
+The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by expected lengths gained: the mean lengths gained over its Whole-Ace runs, which cover its own skills, the skills its parents can pass on and the aptitude its pink sparks can raise, each as often as it procs. The Skill chart rows are per skill and do not add up to this score. Must-have skills do not decide the order.
 _Avoid_: trainee (when meaning the final CM runner)
 
 **Ace veteran**:
@@ -44,7 +44,7 @@ A veteran scored as a CM runner as herself, in the running style she ran in her 
 _Avoid_: ace (when it is a finished run rather than the one about to be trained)
 
 **Ace hero**:
-An Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. The Ace slot lists the 10 best Ace heroes in the Ace order: distance A versions first, then those that can reach A through pink sparks to fill the list (Unfit versions and ones with no way to A excluded); selecting one opens its chart. Each shows the running style it runs in: the selected one where it has A in it, else its best-ranked style. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
+An Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. The Ace slot lists the 10 best Ace heroes in the Ace order (expected lengths gained = the mean of its Whole-Ace runs): distance A versions first, then those that can reach A through pink sparks to fill the list (Unfit versions and ones with no way to A excluded); selecting one opens its chart. Each shows the running style it runs in: the selected one where it has A in it, else its best-ranked style. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
 _Avoid_: equipped skills (that is the Ace veteran's term), ace (for the finished run)
 
 **Buyable skill**:
