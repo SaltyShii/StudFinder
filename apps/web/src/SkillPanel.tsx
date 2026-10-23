@@ -19,7 +19,7 @@ interface Props {
 export function SkillPanel({ rows, track, data, tab, onTab, stale, heading }: Props) {
 	const chart = rows.length ? <>
 		<SkillChart rows={rows} track={track} data={data} tab={tab} onTab={onTab} stale={stale} />
-		<SkillFootnote rows={rows} />
+		<SkillFootnote rows={rows} aceScore={!heading} />
 	</> : heading && <p class="panel empty muted" data-testid={`${heading.testId}-empty`}>{heading.empty}</p>;
 	if (!heading) return <>{chart}</>;
 	return (
