@@ -36,7 +36,7 @@ The long-lived foundation line of great-grandparents, kept strong across CMs by 
 Grandparents and parents built specifically for one upcoming CM, ranked by spark % of the Must-have skills plus the CM's relevant pink spark, so they can later become parents of the Ace. The track's best simulated skills only break ties.
 
 **Ace**:
-The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by expected lengths gained: the Ace's own skills, the skills its parents can pass on (each weighted by its inherit chance) and the aptitude its pink sparks can raise (each outcome weighted by its chance). Must-have skills do not decide the order.
+The final trainee run for the CM, picked from the Owned versions together with its best 2 parents and 4 grandparents for the selected track. It ranks by expected lengths gained: the mean lengths gained over its Whole-Ace runs, which cover its own skills, the skills its parents can pass on and the aptitude its pink sparks can raise, each as often as it procs. The Track overview skill chart rows are per skill and do not add up to this score. Must-have skills do not decide the order.
 _Avoid_: trainee (when meaning the final CM runner)
 
 **Ace veteran**:
@@ -44,7 +44,7 @@ A veteran scored as a CM runner as herself, in the running style she ran in her 
 _Avoid_: ace (when it is a finished run rather than the one about to be trained)
 
 **Ace hero**:
-An Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. The Ace slot lists the 10 best Ace heroes in the Ace order: distance A versions first, then those that can reach A through pink sparks to fill the list (Unfit versions and ones with no way to A excluded); selecting one opens its chart. Each shows the running style it runs in: the selected one where it has A in it, else its best-ranked style. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
+An Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. The Ace slot lists the 10 best Ace heroes in the Ace order (expected lengths gained = the mean of its Whole-Ace runs): distance A versions first, then those that can reach A through pink sparks to fill the list (Unfit versions and ones with no way to A excluded); selecting one opens its chart. Each shows the running style it runs in: the selected one where it has A in it, else its best-ranked style. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
 _Avoid_: equipped skills (that is the Ace veteran's term), ace (for the finished run)
 
 **Buyable skill**:
@@ -54,6 +54,21 @@ _Avoid_: learnable skill, equipped skill
 **Other buyable skill**:
 A white or gold skill (the strongest of its group) the Ace meets the conditions of but that is on neither its card list nor a parent lineage. The chart lists these in their own section below the Ace's own and inheritable skills; they never feed the Track overview chips or the Ace ranking.
 _Avoid_: extra skill
+
+**Skill points (SP)**:
+What the Ace spends after its run to buy skills. Every buyable skill has a base cost; a gold skill costs its white version plus its own.
+_Avoid_: points (alone)
+
+**Hint level**:
+How far a skill's cost is discounted for an Ace, from 1 to 5 (10%, 20%, 30%, 35%, 40% off). Procced sparks for the skill raise it by their stars, up to 5; a hinted skill off the card list also becomes buyable. Each of a gold skill's two costs takes the discount.
+_Avoid_: hint (alone), discount level
+
+**Skill point budget**:
+The total SP the Ace has to spend, one setting for every version (default about 2700, a typical Grand Concert run). The Ace then buys the affordable set with the most lengths gained per SP. Unset means unlimited: it buys every Buyable skill, as before.
+
+**Whole-Ace run**:
+One Monte Carlo sample of an Ace hero with a given pair of parents: the sparks that procced are rolled (aptitude upgrades, inherited skills), the full trained Ace is built from them and raced paired against the version's untrained base (its own aptitudes, no skills). The Ace score is the mean lengths gained over these runs, so overlapping skills and aptitude and skill combinations count once.
+_Avoid_: sample (alone; the sim also samples runs for a single skill)
 
 **Sim runner**:
 The uma every simulation runs against, chosen by the user, with its running style and Target stats. It is a measuring stick, not a recommendation: the Ace is picked separately.

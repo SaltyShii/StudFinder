@@ -13,13 +13,15 @@ interface Props {
 	stale?: boolean;
 	/** Set for a slot that gets a heading, a test id and an empty state (the Side loop); the Ace's chart has none of them. */
 	heading?: { testId: string; title: string; empty: string };
+	/** The Ace's chart: its footnote says the rows do not add up to the Ace score. */
+	aceScore?: boolean;
 }
 
 /** One slot's skill chart with its footnote; with a `heading` it also carries the title and says so when the slot has no skill to chart. */
-export function SkillPanel({ rows, track, data, tab, onTab, stale, heading }: Props) {
+export function SkillPanel({ rows, track, data, tab, onTab, stale, heading, aceScore }: Props) {
 	const chart = rows.length ? <>
 		<SkillChart rows={rows} track={track} data={data} tab={tab} onTab={onTab} stale={stale} />
-		<SkillFootnote rows={rows} />
+		<SkillFootnote rows={rows} aceScore={aceScore} />
 	</> : heading && <p class="panel empty muted" data-testid={`${heading.testId}-empty`}>{heading.empty}</p>;
 	if (!heading) return <>{chart}</>;
 	return (

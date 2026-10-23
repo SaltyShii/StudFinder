@@ -1,9 +1,10 @@
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
+import { wholeAceMean, wholeAceSeeds } from './wholeAce';
 import { skillDetail } from './skillDetail';
 import { DEFAULT_ASSUMPTIONS } from './assumptions';
 import { skillChance } from './shared';
 import { sideLoopPicks, sideLoopPriority } from './sideLoop';
-import { bestPair, recommend, recommendAsync, simulateSkill, type Candidate, type LineageHorse, type CandidateList } from './recommend';
+import { bestPair, bestPairs, recommend, recommendAsync, simulateRequest, type SimResult, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 30, seed: 7 };
@@ -134,7 +135,8 @@ function pairIds(cs: Candidate[], mustHaves: string[] = []) { return recommend(c
 
 test('the Ace slot picks the best pair of parents, not the two best alone', () => {
 	// Units b and c carry the same skill, so the pair (a, b) covers more than (b, c).
-	expect(pairIds([unit('b', ['10081']), unit('c', ['10081']), unit('a', ['10071'])])).toEqual(['a', 'b']);
+	const sure = { affinity: 1e6 }; // every spark procs, so the Whole-Ace runs agree with the coverage
+	expect(pairIds([unit('b', ['10081'], sure), unit('c', ['10081'], sure), unit('a', ['10071'], sure)])).toEqual(['a', 'b']);
 });
 
 test('grandparents are never picked apart from their parent', () => {
@@ -324,7 +326,7 @@ test('recommendAsync, with the refine step simulated apart and out of order, giv
 	const got = await recommendAsync(async (batch) => {
 		batches++;
 		const out = [];
-		for (const r of [...batch.requests].reverse()) { out.unshift(simulateSkill(r, batch.scenario)); batch.progress(out.length); }
+		for (const r of [...batch.requests].reverse()) { out.unshift(simulateRequest(r, batch.scenario)); batch.progress(out.length); }
 		return out;
 	}, lineage, preset, undefined, [], [], (p) => apart.push(p));
 	expect(batches).toBeGreaterThan(1); // the screen step, then the refine step
@@ -346,6 +348,22 @@ test('bestPair picks the very pair ranking every pair would, ties to the earlies
 		const expected = all.reduce((a, b) => (b.score > a.score ? b : a));
 		const { parents, score } = bestPair(pairs, rank, (c) => Math.max(0, solo.get(c)!), 2, () => false);
 		expect({ parents, score }).toEqual(expected);
+	}
+});
+
+test('bestPairs returns the very top N pairs exhaustive ranking would, best first, ties to the earliest', () => {
+	let seed = 4242;
+	const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648);
+	for (let round = 0; round < 30; round++) {
+		const units = Array.from({ length: 9 }, (_, i) => cand(`u${i}`, horseOf()));
+		const solo = new Map(units.map((u) => [u, (next() % 7) - 2]));
+		const rank = (cs: Candidate[]) => [...cs].sort((x, y) => solo.get(y)! - solo.get(x)! || x.id.localeCompare(y.id)).map((c, i) => ({ candidateId: c.id, score: solo.get(c)! * (i ? 0.5 : 1), reason: '', detail: [] }));
+		const pairs: Candidate[][] = [];
+		for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) pairs.push([units[i], units[j]]);
+		const all = pairs.map((p, i) => ({ i, parents: rank(p), score: 1 + rank(p).reduce((s, x) => s + x.score, 0) }));
+		const expected = [...all].sort((a, b) => b.score - a.score || a.i - b.i).slice(0, 10).map(({ parents, score }) => ({ parents, score }));
+		const got = bestPairs(pairs, rank, (c) => Math.max(0, solo.get(c)!), 1, () => false, 10).map(({ parents, score }) => ({ parents, score }));
+		expect(got).toEqual(expected);
 	}
 });
 
@@ -402,4 +420,78 @@ test('an Ace slot marks a fall-back when its style differs from the selected one
 	expect(byCard(2)).toMatchObject({ style: 'senko', fallback: true }); // Nige is E for it, so it falls back too
 	const same = recommend(candidateList, preset, undefined, versions);
 	expect(same.aceSlots.every((s) => s.style === 'senko' && !s.fallback)).toBe(true);
+});
+
+describe('Ace slot scored by Whole-Ace runs', () => {
+	const sure = (skills: string[], id = skills.join() || 'none') => cand(id, horseOf(skills, { affinity: 1e6 }), horseOf([], { affinity: 1e6 }), horseOf([], { affinity: 1e6 }));
+	const target = { speed: horse.speed, stamina: horse.stamina, power: horse.power, guts: horse.guts, wisdom: horse.wisdom };
+	const meanOf = (aptitudes: typeof apt, uniqueSkillId: string | undefined, horses: LineageHorse[]) => wholeAceMean({
+		aptitudes, style: 'senko', scenario: { courseId: preset.courseId }, target, uniqueSkillId, buyableSkillIds: [], horses, seeds: wholeAceSeeds(preset.seed, preset.samples),
+	});
+	test('a version without candidates scores its Whole-Ace run mean', () => {
+		const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId: '10071', candidates: [] }]).aceSlots[0];
+		expect(slot.score).toBe(meanOf(apt, '10071', []));
+		expect(slot.expectedLengths).toBe(slot.score);
+		expect(slot.score).toBeGreaterThan(0);
+	});
+	test("a version with a pair scores the mean over that pair's lineage", () => {
+		const cs = [sure(['10071']), sure(['10081'], 'o')];
+		const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: cs }]).aceSlots[0];
+		expect(slot.score).toBe(meanOf(apt, undefined, cs.flatMap((c) => c.horses)));
+	});
+	test('a skill both lineages carry counts once', () => {
+		const score = (candidates: Candidate[]) => recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates }]).aceSlots[0].score;
+		const one = score([sure(['10071']), sure([], 'o')]);
+		expect(score([sure(['10071']), sure(['10071'], 'o')])).toBeCloseTo(one, 9);
+		expect(one).toBeGreaterThan(0);
+	});
+	test('same inputs give the same output', () => {
+		const v = [{ cardId: 1, aptitudes: apt, candidates: [sure(['10071']), sure(['10081'], 'o')] }];
+		expect(recommend(candidateList, preset, undefined, v)).toEqual(recommend(candidateList, preset, undefined, v));
+	});
+	describe('shortlist', () => {
+		const skillIds = ['10071', '10081', '10091', '10101', '10111'];
+		const units = skillIds.map((id, i) => sure([id], 'u' + i)); // 10 pairs: all are shortlisted
+		const screenSeeds = wholeAceSeeds(preset.seed, 20);
+		const pairMean = (pair: Candidate[], seeds: number[]) => wholeAceMean({ aptitudes: apt, style: 'senko', scenario: { courseId: preset.courseId }, target, buyableSkillIds: [], horses: pair.flatMap((c) => c.horses), seeds });
+		test('fewer than 10 pairs are all scored: the shown pair wins the screen by Whole-Ace mean, and is shown at full samples', () => {
+			const pairs: Candidate[][] = [];
+			for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) pairs.push([units[i], units[j]]);
+			const winner = pairs.reduce((a, b) => (pairMean(b, screenSeeds) > pairMean(a, screenSeeds) ? b : a));
+			const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: units }]).aceSlots[0];
+			expect(slot.parents.map((p) => p.candidateId).sort()).toEqual(winner.map((c) => c.id).sort());
+			expect(slot.score).toBe(pairMean(winner, wholeAceSeeds(preset.seed, preset.samples)));
+		});
+		test('recommendAsync runs the Whole-Ace runs as requests of their own kind, out of order, and gives the very recommendation and progress of recommend', async () => {
+			const versions = [{ cardId: 1, aptitudes: apt, uniqueSkillId: '10071', candidates: units }, { cardId: 2, aptitudes: apt, candidates: [units[0]] }];
+			const serial: unknown[] = [];
+			const apart: unknown[] = [];
+			const expected = recommend(candidateList, preset, undefined, versions, [], (p) => serial.push(p));
+			const kinds: string[] = [];
+			const got = await recommendAsync(async (batch) => {
+				batch.requests.forEach((r) => kinds.push(r.kind));
+				const out: SimResult[] = [];
+				for (const r of [...batch.requests].reverse()) { out.unshift(simulateRequest(r, batch.scenario)); batch.progress(out.length); }
+				return out;
+			}, candidateList, preset, undefined, versions, [], (p) => apart.push(p));
+			expect(kinds).toContain('wholeAce');
+			expect(got).toEqual(expected);
+			expect(apart).toEqual(serial);
+		});
+		test('with no more samples than the screen takes, no Whole-Ace run is asked twice', async () => {
+			const small = { ...preset, samples: 20 };
+			const asked: string[] = [];
+			await recommendAsync(async (batch) => {
+				for (const r of batch.requests) if (r.kind === 'wholeAce') asked.push(JSON.stringify(r.input));
+				return batch.requests.map((r) => simulateRequest(r, batch.scenario));
+			}, candidateList, small, undefined, [{ cardId: 1, aptitudes: apt, candidates: units }], []);
+			expect(asked.length).toBeGreaterThan(0);
+			expect(new Set(asked).size).toBe(asked.length);
+		});
+		test('progress reports the screen and refine phases for the Ace runs', () => {
+			const phases = new Set<string>();
+			recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: units }], [], (p) => phases.add(p.phase));
+			expect([...phases]).toEqual(expect.arrayContaining(['screen', 'refine']));
+		});
+	});
 });
