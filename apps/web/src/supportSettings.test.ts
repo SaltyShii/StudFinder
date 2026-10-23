@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SupportCardData } from '../../../packages/lineage/src/types';
 import type { SupportCard } from '../../../packages/scoring/src/support';
-import { addCard, removeCard, setLimitBreak, setTypeCount, supportInputOf, typeMixOf, typeMixTotal, EMPTY_SUPPORT, MAX_LIMIT_BREAK } from './supportSettings';
+import { addCard, isTypeMix, removeCard, setLimitBreak, setTypeCount, supportInputOf, typeMixOf, typeMixTotal, EMPTY_SUPPORT, MAX_LIMIT_BREAK } from './supportSettings';
 
 const raw = (id: number): SupportCardData => ({ id, charaId: 1, name: `Card ${id}`, title: '[T]', rarity: 3, type: 'speed', pool: [200162], hintFrequency: [0, 0, 0, 0, 0], hintLevelBonus: [0, 0, 0, 0, 0] });
 // The scorer keys skills by string id.
@@ -54,5 +54,12 @@ describe('supportSettings', () => {
 		expect(setTypeCount({}, 'guts', -1)).toEqual({});
 		expect(setTypeCount({}, 'guts', 2.6)).toEqual({ guts: 3 });
 		expect(typeMixTotal({ speed: 3, wit: 2, friend: 1 })).toBe(6);
+	});
+
+	it('never lets the mix pass the 6 deck slots: a count takes only the room the other types leave', () => {
+		expect(setTypeCount({ speed: 4, wit: 1 }, 'guts', 5)).toEqual({ speed: 4, wit: 1, guts: 1 });
+		expect(setTypeCount({ speed: 6 }, 'wit', 2)).toEqual({ speed: 6 });
+		expect(setTypeCount({ speed: 4, wit: 2 }, 'speed', 6)).toEqual({ speed: 4, wit: 2 });
+		expect(isTypeMix(setTypeCount({ speed: 3, wit: 2 }, 'friend', 6))).toBe(true);
 	});
 });

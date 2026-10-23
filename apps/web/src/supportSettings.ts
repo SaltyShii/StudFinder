@@ -41,10 +41,10 @@ export function typeMixOf(settings: SupportSettings, cmId: number, distance: num
 	return settings.typeMixes[String(cmId)] ?? defaultTypeMix(distance);
 }
 
-/** One type's count set (whole number, 0 to 6); zeros are dropped so an empty mix means no constraint. */
+/** One type's count set (whole number, 0 to 6, at most the room the other types leave in the 6 slots, so a stored mix always passes `isTypeMix`); zeros are dropped so an empty mix means no constraint. */
 export function setTypeCount(mix: TypeMix, type: SupportType, count: number): TypeMix {
-	const n = Math.min(DECK_SLOTS, Math.max(0, Math.round(count)));
 	const rest = Object.fromEntries(Object.entries(mix).filter(([t]) => t !== type));
+	const n = Math.min(DECK_SLOTS - typeMixTotal(rest), Math.max(0, Math.round(count)));
 	return n > 0 ? { ...rest, [type]: n } : rest;
 }
 

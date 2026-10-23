@@ -79,7 +79,11 @@ export function SupportSettings({ data, value, onChange, cm, typeMix }: Props) {
 				{SUPPORT_TYPES.map((t) => (
 					<label>{t} <input type="number" name={`mix-${t}`} min={0} max={DECK_SLOTS} step={1} value={typeMix[t] ?? 0} onInput={(e) => {
 						const n = Number(e.currentTarget.value);
-						if (Number.isFinite(n)) onChange({ ...value, typeMixes: { ...value.typeMixes, [String(cm.id)]: setTypeCount(typeMix, t, n) } });
+						if (!Number.isFinite(n)) return;
+						const next = setTypeCount(typeMix, t, n);
+						// A clamped count can equal the state, so Preact would not rewrite what the player typed.
+						e.currentTarget.value = String(next[t] ?? 0);
+						onChange({ ...value, typeMixes: { ...value.typeMixes, [String(cm.id)]: next } });
 					}} /></label>
 				))}
 				<span data-testid="type-mix-total" class={typeMixTotal(typeMix) > DECK_SLOTS ? 'error' : 'muted'}> {typeMixTotal(typeMix)} / {DECK_SLOTS}</span>

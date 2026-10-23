@@ -196,7 +196,8 @@ describe('Type mix', () => {
 		expect(ids(deckOf(sup))).toEqual([1, 2, 3, 4, 5]);
 	});
 	test('only sprint has a default mix (3 speed, 2 wit, 1 friend); the rest start empty for the player to set', () => {
-		expect(defaultTypeMix(1200)).toEqual({ speed: 3, wit: 2, friend: 1 });
-		for (const d of [1600, 2000, 3000]) expect(defaultTypeMix(d)).toEqual({});
+		for (const d of [1000, 1200, 1400]) expect(defaultTypeMix(d)).toEqual({ speed: 3, wit: 2, friend: 1 });
+		// Mile (1401-1800) is not folded into short; middle and long start empty too.
+		for (const d of [1401, 1600, 1800, 2000, 2400, 3000, 3600]) expect(defaultTypeMix(d)).toEqual({});
 	});
 });
