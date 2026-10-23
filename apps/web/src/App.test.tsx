@@ -526,6 +526,49 @@ it('shortlists Support cards in a searchable popup at max limit break, passes th
 	data.supportCards.clear();
 });
 
+it('sets the Type mix per CM and the trainings per card, passes both to the job, re-runs, and persists them', async () => {
+	data.supportCards.set(10001, { id: 10001, charaId: 1, name: 'Alpha', title: '[T]', rarity: 3, type: 'speed', pool: [10071], hintFrequency: [20, 20, 20, 20, 30], hintLevelBonus: [0, 0, 0, 0, 2] });
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };
+	const mount = () => render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root);
+	mount();
+	await importFile();
+	await run();
+	await click(root.querySelector('button[name=edit-support-own]'));
+	await click(root.querySelector('.modal button[name=skill]'));
+	await closeModal();
+	const count = () => jobs.length;
+	expect(jobs.at(-1)!.preset.support).toMatchObject({ trainingsPerCard: 30 });
+	expect(jobs.at(-1)!.preset.support?.typeMix).toBeUndefined();
+	const field = (name: string) => root.querySelector<HTMLInputElement>(`input[name=${name}]`)!;
+	expect(field('mix-speed').value).toBe('0');
+	expect(root.querySelector('[data-testid=type-mix-total]')!.textContent).toContain('0 / 6');
+	const before = count();
+	field('mix-speed').value = '4';
+	await act(() => { field('mix-speed').dispatchEvent(new Event('input')); });
+	field('mix-wit').value = '2';
+	await act(() => { field('mix-wit').dispatchEvent(new Event('input')); });
+	expect(count()).toBeGreaterThan(before);
+	expect(jobs.at(-1)!.preset.support?.typeMix).toEqual({ speed: 4, wit: 2 });
+	expect(root.querySelector('[data-testid=type-mix-total]')!.textContent).toContain('6 / 6');
+	const mixed = count();
+	field('trainings-per-card').value = '45';
+	await act(() => { field('trainings-per-card').dispatchEvent(new Event('input')); });
+	expect(count()).toBeGreaterThan(mixed);
+	expect(jobs.at(-1)!.preset.support).toMatchObject({ trainingsPerCard: 45, typeMix: { speed: 4, wit: 2 } });
+	render(null, root);
+	mount();
+	await flush();
+	await flush();
+	expect(field('mix-speed').value).toBe('4');
+	expect(field('trainings-per-card').value).toBe('45');
+	const cm = root.querySelector<HTMLSelectElement>('select[name=cm]')!;
+	cm.value = String(CMS.find((c) => c.id !== Number(cm.value))!.id);
+	await act(() => { cm.dispatchEvent(new Event('change')); });
+	expect(field('mix-speed').value).toBe('0');
+	data.supportCards.clear();
+});
+
 it('shows it is recomputing after an assumption change, and runs nothing before the first Run', async () => {
 	const jobs: RecommendJob[] = [];
 	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };

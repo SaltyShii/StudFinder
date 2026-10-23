@@ -1,11 +1,12 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
 import { parseExport } from '../../../packages/lineage/src/importer';
 import type { ImportResult } from '../../../packages/lineage/src/types';
+import type { TypeMix } from '../../../packages/scoring/src/support';
 import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
 import { GRADE_NUMBERS, STYLES } from '../../../packages/scoring/src/ace';
 import { DEFAULT_ASSUMPTIONS, DEFAULT_DUELING_RATES, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { TierEdits } from './jobs';
-import { EMPTY_SUPPORT, isLimitBreak, type ShortlistEntry, type SupportSettings } from './supportSettings';
+import { EMPTY_SUPPORT, isLimitBreak, isTypeMix, type ShortlistEntry, type SupportSettings } from './supportSettings';
 
 const KEY = 'stud-finder:roster';
 const CM_KEY = 'stud-finder:cm';
@@ -182,11 +183,15 @@ export function loadSkillPointBudget(storage: Storage): number | null {
 
 const SUPPORT_OWN_KEY = 'stud-finder:support-own';
 const SUPPORT_BORROWED_KEY = 'stud-finder:support-borrowed';
+const SUPPORT_TRAININGS_KEY = 'stud-finder:support-trainings-per-card';
+const SUPPORT_TYPE_MIX_KEY = 'stud-finder:support-type-mix';
 
-/** Each shortlist has its own key and nothing here bumps VERSION: a save from before Support cards simply has none. Not wiped by Clear data: they are settings, not Roster data. */
+/** Each field (shortlists, trainings per card, Type mixes) has its own key and nothing here bumps VERSION: a save from before Support cards simply has none. Not wiped by Clear data: they are settings, not Roster data. */
 export function saveSupportSettings(storage: Storage, settings: SupportSettings): void {
 	saveVersioned(storage, SUPPORT_OWN_KEY, 'list', settings.own);
 	saveVersioned(storage, SUPPORT_BORROWED_KEY, 'list', settings.borrowed);
+	saveVersioned(storage, SUPPORT_TRAININGS_KEY, 'count', settings.trainingsPerCard);
+	saveVersioned(storage, SUPPORT_TYPE_MIX_KEY, 'mixes', settings.typeMixes);
 }
 
 function loadShortlist(storage: Storage, key: string): ShortlistEntry[] {
@@ -195,7 +200,9 @@ function loadShortlist(storage: Storage, key: string): ShortlistEntry[] {
 
 /** The stored shortlists; a list that is absent, stale-versioned or malformed loads as empty. */
 export function loadSupportSettings(storage: Storage): SupportSettings {
-	return { ...EMPTY_SUPPORT, own: loadShortlist(storage, SUPPORT_OWN_KEY), borrowed: loadShortlist(storage, SUPPORT_BORROWED_KEY) };
+	const count = loadVersioned(storage, SUPPORT_TRAININGS_KEY, 'count', (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : null));
+	const mixes = loadVersioned(storage, SUPPORT_TYPE_MIX_KEY, 'mixes', (v) => (v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(isTypeMix) ? (v as Record<string, TypeMix>) : null));
+	return { own: loadShortlist(storage, SUPPORT_OWN_KEY), borrowed: loadShortlist(storage, SUPPORT_BORROWED_KEY), trainingsPerCard: count ?? EMPTY_SUPPORT.trainingsPerCard, typeMixes: mixes ?? {} };
 }
 
 export function clearRoster(storage: Storage): void {

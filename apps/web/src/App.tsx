@@ -14,7 +14,7 @@ import { OwnedVersions } from './OwnedVersions';
 import { LoopVersions } from './LoopVersions';
 import { SimRunner } from './SimRunner';
 import { SupportSettings } from './SupportSettings';
-import { supportInputOf, type SupportSettings as SupportSettingsValue } from './supportSettings';
+import { supportInputOf, typeMixOf, type SupportSettings as SupportSettingsValue } from './supportSettings';
 import { TierEditor } from './TierEditor';
 import { skillChips } from './SkillChart';
 import { SkillPanel } from './SkillPanel';
@@ -85,14 +85,15 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 
 	const [supportSettings, setSupportSettings] = useState(() => loadSupportSettings(localStorage));
 	const changeSupportSettings = (next: SupportSettingsValue) => { saveSupportSettings(localStorage, next); setSupportSettings(next); };
-	// Shortlists resolved against the catalogue; undefined (no key in the preset) while nothing is shortlisted.
-	const support = useMemo(() => (data ? supportInputOf(supportSettings, data.supportCards) : undefined), [data, supportSettings]);
 
 	useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
 
 	const card = data && simRunnerId != null ? data.cards.get(simRunnerId) : undefined;
 	const cm = useMemo(() => pickCm(new Date(), cmId), [cmId]);
 	const course = data?.courses.get(cm.courseId);
+	const typeMix = useMemo(() => typeMixOf(supportSettings, cmId, course?.distance ?? 2000), [supportSettings, cmId, course]);
+	// Shortlists resolved against the catalogue; undefined (no key in the preset) while nothing is shortlisted.
+	const support = useMemo(() => (data ? supportInputOf(supportSettings, data.supportCards, typeMix) : undefined), [data, supportSettings, typeMix]);
 	const candidates = useMemo(() => (data && roster ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
 	// The Ace slot simulates the fit versions only; the loops rank the Loop versions whatever their Aptitude.
@@ -196,14 +197,14 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 						{defaults && <fieldset class="panel"><legend>Target stats</legend>{STATS.map((k) => (
 							<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>
 						))}</fieldset>}
-						<AssumptionsPanel value={assumptions} onChange={changeAssumptions} />
+						<AssumptionsPanel value={assumptions} onChange={changeAssumptions} trainingsPerCard={supportSettings.trainingsPerCard} onTrainingsPerCard={(n) => changeSupportSettings({ ...supportSettings, trainingsPerCard: n })} />
 						<label class="panel">Skill point budget <input type="number" name="skill-point-budget" min={0} step={1} placeholder="unlimited" value={skillPointBudget ?? ''} onChange={(e) => {
 							const text = e.currentTarget.value.trim();
 							const n = Number(text);
 							if (text === '') changeSkillPointBudget(null);
 							else if (Number.isInteger(n) && n >= 0) changeSkillPointBudget(n);
 						}} /><span class="muted"> Skill points the Ace may spend on skills; empty is unlimited.</span></label>
-						<SupportSettings data={data} value={supportSettings} onChange={changeSupportSettings} />
+						<SupportSettings data={data} value={supportSettings} onChange={changeSupportSettings} cm={cm} typeMix={typeMix} />
 						<OwnedVersions data={data} owned={owned} unfit={unfit} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />
 						{showLoops && <>
 							<LoopVersions data={data} owned={owned} picked={loopPicked} onChange={(ids) => { saveLoopVersions(localStorage, ids); setLoopChoice(ids); }} />

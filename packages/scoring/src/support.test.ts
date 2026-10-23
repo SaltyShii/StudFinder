@@ -195,8 +195,8 @@ describe('Type mix', () => {
 		expect(deckOf({ ...sup, typeMix: {} })).toEqual(deckOf(sup));
 		expect(ids(deckOf(sup))).toEqual([1, 2, 3, 4, 5]);
 	});
-	test('the default mix by distance fills 6 slots, sprint is 3 speed, 2 wit, 1 friend', () => {
+	test('only sprint has a default mix (3 speed, 2 wit, 1 friend); the rest start empty for the player to set', () => {
 		expect(defaultTypeMix(1200)).toEqual({ speed: 3, wit: 2, friend: 1 });
-		for (const d of [1200, 1600, 2000, 3000]) expect(Object.values(defaultTypeMix(d)).reduce((a, b) => a + b, 0)).toBe(6);
+		for (const d of [1600, 2000, 3000]) expect(defaultTypeMix(d)).toEqual({});
 	});
 });

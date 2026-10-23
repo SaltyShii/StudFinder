@@ -1,5 +1,5 @@
 import { discounted, MAX_HINT_LEVEL } from './skillBudget';
-import { categoryOf, type Category } from './ace';
+import { categoryOf } from './ace';
 
 export type SupportType = 'speed' | 'stamina' | 'power' | 'guts' | 'wit' | 'friend';
 
@@ -23,16 +23,9 @@ export interface SupportPick {
 /** The Type mix: cards per type over the 6 deck slots (for example 3 speed, 2 wit, 1 friend). Any mix is allowed. */
 export type TypeMix = Partial<Record<SupportType, number>>;
 
-const DEFAULT_MIXES: Record<Category, TypeMix> = {
-	short: { speed: 3, wit: 2, friend: 1 },
-	mile: { speed: 3, power: 1, wit: 1, friend: 1 },
-	middle: { speed: 2, stamina: 1, power: 1, wit: 1, friend: 1 },
-	long: { speed: 2, stamina: 2, wit: 1, friend: 1 },
-};
-
-/** The Type mix a Champions Meeting starts with, by course distance in metres. */
+/** The Type mix a Champions Meeting starts with, by course distance in metres. Only sprint has one (the spec gives just that); the rest start empty, no constraint, for the player to set. */
 export function defaultTypeMix(distance: number): TypeMix {
-	return { ...DEFAULT_MIXES[categoryOf(distance)] };
+	return categoryOf(distance) === 'short' ? { speed: 3, wit: 2, friend: 1 } : {};
 }
 
 /** The Support input of `recommend()`: what the player would consider running. Both lists empty (or the input absent) changes nothing. */

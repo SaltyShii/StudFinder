@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { DEFAULT_ASSUMPTIONS } from '../../../packages/scoring/src/assumptions';
+import { EMPTY_SUPPORT } from './supportSettings';
 import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
@@ -107,8 +108,8 @@ it('persists the Skill point budget: 2700 by default, a cleared field is unlimit
 
 it('persists the Support shortlists under their own keys; absent, stale or malformed saves load as empty; Clear data keeps them', () => {
 	const s = fakeStorage();
-	expect(loadSupportSettings(s)).toEqual({ own: [], borrowed: [] });
-	const settings = { own: [{ id: 10001, limitBreak: 2 }], borrowed: [{ id: 30001, limitBreak: 4 }] };
+	expect(loadSupportSettings(s)).toEqual(EMPTY_SUPPORT);
+	const settings = { own: [{ id: 10001, limitBreak: 2 }], borrowed: [{ id: 30001, limitBreak: 4 }], trainingsPerCard: 40, typeMixes: { '5': { speed: 4, wit: 2 } } };
 	saveSupportSettings(s, settings);
 	expect(loadSupportSettings(s)).toEqual(settings);
 	clearRoster(s);
@@ -119,4 +120,16 @@ it('persists the Support shortlists under their own keys; absent, stale or malfo
 	}
 	s.setItem('stud-finder:support-borrowed', 'garbage');
 	expect(loadSupportSettings(s).borrowed).toEqual([]);
+});
+
+it('rejects a malformed Type mix or trainings per card and falls back to the defaults, per field', () => {
+	const s = fakeStorage();
+	for (const body of [{ version: 99, mixes: { '5': { speed: 6 } } }, { version: 1, mixes: { '5': { speed: 9 } } }, { version: 1, mixes: { '5': { zzz: 1 } } }, { version: 1, mixes: { '5': { speed: 4, wit: 4 } } }, { version: 1, mixes: 'no' }]) {
+		s.setItem('stud-finder:support-type-mix', JSON.stringify(body));
+		expect(loadSupportSettings(s).typeMixes).toEqual({});
+	}
+	for (const body of [{ version: 1, count: 0 }, { version: 1, count: 1.5 }, { version: 1, count: 'x' }, { version: 99, count: 40 }]) {
+		s.setItem('stud-finder:support-trainings-per-card', JSON.stringify(body));
+		expect(loadSupportSettings(s).trainingsPerCard).toBe(30);
+	}
 });

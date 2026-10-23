@@ -1,5 +1,5 @@
 import type { SupportCardData } from '../../../packages/lineage/src/types';
-import type { SupportCard, SupportInput, SupportPick } from '../../../packages/scoring/src/support';
+import { DEFAULT_TRAININGS_PER_CARD, defaultTypeMix, type SupportCard, type SupportInput, type SupportPick, type SupportType, type TypeMix } from '../../../packages/scoring/src/support';
 
 export const MAX_LIMIT_BREAK = 4;
 
@@ -9,16 +9,47 @@ export interface ShortlistEntry {
 	limitBreak: number;
 }
 
+/** The Type mix has this many slots: 5 own cards and 1 Borrowed support card. */
+export const DECK_SLOTS = 6;
+
+export const SUPPORT_TYPES: SupportType[] = ['speed', 'stamina', 'power', 'guts', 'wit', 'friend'];
+
 /**
- * The Support settings the player edits. Extend this shape for the Type mix and trainings per card: each new field gets its own storage key in roster.ts
- * and a default in EMPTY_SUPPORT, so older saves load with the default.
+ * The Support settings the player edits. Each field has its own storage key in roster.ts and a default in EMPTY_SUPPORT, so older saves load with the default.
  */
 export interface SupportSettings {
 	own: ShortlistEntry[];
 	borrowed: ShortlistEntry[];
+	/** Trainings each deck card appears in over a run, a Sim assumption. */
+	trainingsPerCard: number;
+	/** The Type mix the player set, by Champions Meeting id; a CM without an entry uses the distance default. */
+	typeMixes: Record<string, TypeMix>;
 }
 
-export const EMPTY_SUPPORT: SupportSettings = { own: [], borrowed: [] };
+export const EMPTY_SUPPORT: SupportSettings = { own: [], borrowed: [], trainingsPerCard: DEFAULT_TRAININGS_PER_CARD, typeMixes: {} };
+
+/** A mix is valid when every count is a whole number of 0 to 6 over known types and the total fits the 6 slots. */
+export function isTypeMix(v: unknown): v is TypeMix {
+	if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+	const entries = Object.entries(v);
+	return entries.every(([t, n]) => (SUPPORT_TYPES as string[]).includes(t) && Number.isInteger(n) && n >= 0 && n <= DECK_SLOTS) && entries.reduce((a, [, n]) => a + (n as number), 0) <= DECK_SLOTS;
+}
+
+export function typeMixTotal(mix: TypeMix): number {
+	return Object.values(mix).reduce((a, n) => a + (n ?? 0), 0);
+}
+
+/** The mix the Champions Meeting ranks with: the player's, else the default for its course distance. */
+export function typeMixOf(settings: SupportSettings, cmId: number, distance: number): TypeMix {
+	return settings.typeMixes[String(cmId)] ?? defaultTypeMix(distance);
+}
+
+/** One type's count set (whole number, 0 to 6); zeros are dropped so an empty mix means no constraint. */
+export function setTypeCount(mix: TypeMix, type: SupportType, count: number): TypeMix {
+	const n = Math.min(DECK_SLOTS, Math.max(0, Math.round(count)));
+	const rest = Object.fromEntries(Object.entries(mix).filter(([t]) => t !== type));
+	return n > 0 ? { ...rest, [type]: n } : rest;
+}
 
 const clampLevel = (level: number) => Math.min(MAX_LIMIT_BREAK, Math.max(0, Math.round(level)));
 
@@ -44,10 +75,10 @@ function cardOf({ id, name, type, pool, hintFrequency, hintLevelBonus }: Support
 	return { id, name, type, pool: pool.map(String), hintFrequency, hintLevelBonus };
 }
 
-/** The `recommend()` input: ids resolved against the catalogue (cards it no longer has are dropped). Undefined with nothing shortlisted, so the preset is the one the ranking had before Support cards. */
-export function supportInputOf(settings: SupportSettings, catalogue: ReadonlyMap<number, SupportCardData>): SupportInput | undefined {
+/** The `recommend()` input (with the Type mix of the current Champions Meeting): ids resolved against the catalogue (cards it no longer has are dropped). Undefined with nothing shortlisted, so the preset is the one the ranking had before Support cards. */
+export function supportInputOf(settings: SupportSettings, catalogue: ReadonlyMap<number, SupportCardData>, typeMix: TypeMix): SupportInput | undefined {
 	const picks = (list: ShortlistEntry[]): SupportPick[] => list.flatMap((e) => { const card = catalogue.get(e.id); return card ? [{ card: cardOf(card), limitBreak: e.limitBreak }] : []; });
 	const own = picks(settings.own);
 	const borrowed = picks(settings.borrowed);
-	return own.length || borrowed.length ? { own, borrowed } : undefined;
+	return own.length || borrowed.length ? { own, borrowed, trainingsPerCard: settings.trainingsPerCard, ...(typeMixTotal(typeMix) > 0 ? { typeMix } : {}) } : undefined;
 }

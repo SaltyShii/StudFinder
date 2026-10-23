@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SupportCardData } from '../../../packages/lineage/src/types';
 import type { SupportCard } from '../../../packages/scoring/src/support';
-import { addCard, removeCard, setLimitBreak, supportInputOf, MAX_LIMIT_BREAK } from './supportSettings';
+import { addCard, removeCard, setLimitBreak, setTypeCount, supportInputOf, typeMixOf, typeMixTotal, EMPTY_SUPPORT, MAX_LIMIT_BREAK } from './supportSettings';
 
 const raw = (id: number): SupportCardData => ({ id, charaId: 1, name: `Card ${id}`, title: '[T]', rarity: 3, type: 'speed', pool: [200162], hintFrequency: [0, 0, 0, 0, 0], hintLevelBonus: [0, 0, 0, 0, 0] });
 // The scorer keys skills by string id.
@@ -24,13 +24,35 @@ describe('supportSettings', () => {
 	});
 
 	it('gives no Support input for empty shortlists, so the ranking stays as it was', () => {
-		expect(supportInputOf({ own: [], borrowed: [] }, catalogue)).toBeUndefined();
+		expect(supportInputOf(EMPTY_SUPPORT, catalogue, {})).toBeUndefined();
 	});
 
 	it('resolves ids against the catalogue and drops cards it no longer has', () => {
-		const input = supportInputOf({ own: [{ id: 1, limitBreak: 2 }, { id: 99, limitBreak: 4 }], borrowed: [{ id: 3, limitBreak: 0 }] }, catalogue)!;
+		const input = supportInputOf({ ...EMPTY_SUPPORT, own: [{ id: 1, limitBreak: 2 }, { id: 99, limitBreak: 4 }], borrowed: [{ id: 3, limitBreak: 0 }] }, catalogue, {})!;
 		expect(input.own).toEqual([{ card: card(1), limitBreak: 2 }]);
 		expect(input.borrowed).toEqual([{ card: card(3), limitBreak: 0 }]);
-		expect(supportInputOf({ own: [{ id: 99, limitBreak: 4 }], borrowed: [] }, catalogue)).toBeUndefined();
+		expect(supportInputOf({ ...EMPTY_SUPPORT, own: [{ id: 99, limitBreak: 4 }] }, catalogue, {})).toBeUndefined();
+	});
+
+	it('passes the Type mix and trainings per card on; an empty mix is no constraint', () => {
+		const settings = { ...EMPTY_SUPPORT, own: [{ id: 1, limitBreak: 4 }], trainingsPerCard: 45 };
+		expect(supportInputOf(settings, catalogue, { speed: 3, wit: 3 })).toMatchObject({ typeMix: { speed: 3, wit: 3 }, trainingsPerCard: 45 });
+		expect(supportInputOf(settings, catalogue, {})!.typeMix).toBeUndefined();
+	});
+
+	it('uses the CM mix when the player set one, else the distance default (sprint only)', () => {
+		const settings = { ...EMPTY_SUPPORT, typeMixes: { '7': { power: 6 } } };
+		expect(typeMixOf(settings, 7, 1200)).toEqual({ power: 6 });
+		expect(typeMixOf(settings, 8, 1200)).toEqual({ speed: 3, wit: 2, friend: 1 });
+		expect(typeMixOf(settings, 8, 2000)).toEqual({});
+	});
+
+	it('sets one type count, clamped to 0..6 whole numbers, dropping zeros; totals the mix', () => {
+		expect(setTypeCount({ speed: 3 }, 'wit', 2)).toEqual({ speed: 3, wit: 2 });
+		expect(setTypeCount({ speed: 3 }, 'speed', 0)).toEqual({});
+		expect(setTypeCount({}, 'guts', 9)).toEqual({ guts: 6 });
+		expect(setTypeCount({}, 'guts', -1)).toEqual({});
+		expect(setTypeCount({}, 'guts', 2.6)).toEqual({ guts: 3 });
+		expect(typeMixTotal({ speed: 3, wit: 2, friend: 1 })).toBe(6);
 	});
 });
