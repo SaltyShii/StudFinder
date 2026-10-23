@@ -17,7 +17,9 @@ const cand = (i: number): Candidate => ({ id: String(i), name: `c${i}`, charaId:
 const apt = { turf: 7, dirt: 5, short: 6, mile: 7, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 const owned = Array.from({ length: versions }, (_, v) => ({ cardId: v + 1, aptitudes: apt, candidates: Array.from({ length: perVersion }, (_, i) => cand(v * 1000 + i)) }));
 const args = [{ candidates: owned[0].candidates }, { courseId: 10101, runner, samples, seed: 1 }, undefined, owned, []] satisfies Parameters<typeof recommend>;
-const hash = (r: unknown) => createHash('sha1').update(JSON.stringify(r)).digest('hex').slice(0, 12);
+function hash(r: unknown) {
+	return createHash('sha1').update(JSON.stringify(r)).digest('hex').slice(0, 12);
+}
 let t = performance.now();
 const sync = recommend(...args);
 console.log(`${versions} versions x ${perVersion} candidates, ${samples} samples: ${((performance.now() - t) / 1000).toFixed(1)}s sync, hash ${hash(sync)}`);
