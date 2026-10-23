@@ -6,6 +6,7 @@ import { buildAce, categoryOf, courseFacts, type Style, type TargetStats } from 
 import { pairedRace, type Scenario } from './pairedRace';
 import { buySet, MAX_HINT_LEVEL, type AceBudget } from './skillBudget';
 import { surfaceStarsOf, type LineageHorse } from './shared';
+import { hintChance } from './support';
 
 /** The aptitudes a pair of parents can change: the CM distance and surface (grade numbers, 1 = G ... 8 = S). */
 export interface RolledAptitudes {
@@ -21,6 +22,21 @@ export interface SparkRoll extends RolledAptitudes {
 	hints: Record<string, number>;
 	/** White unique variants a parent made buyable (a parent always, a grandparent when its green spark procced); not skills the Ace has, so they carry no hint. */
 	unlocked: string[];
+	/** Skills a Support card hinted, in the order of their first hint; their levels are in `hints`, added to the spark levels. */
+	hinted: string[];
+}
+
+/** One deck card as a roll needs it: its pool and its Hint Frequency and Hint level bonus at the owned limit break level. */
+export interface HintCard {
+	pool: string[];
+	frequency: number;
+	bonus: number;
+}
+
+/** The Support deck's hint rolls: every card appears in `trainings` trainings, each hinting with its Hint Frequency's chance. */
+export interface SupportRolls {
+	cards: HintCard[];
+	trainings: number;
 }
 
 /** Whether a spark of this chance procs: a 0 chance never does, a certain one always does (the draw is in [0, 1)). */
@@ -43,7 +59,7 @@ function rollAptitude(base: number, stars: number[], affinities: number[], rng: 
  * Rolls which sparks of these lineage horses (both parents and all four grandparents) procced, from the seed alone: pink distance and surface sparks, white skill sparks.
  * Chances are the inheritance model's (stars, affinity, two inspirations). Pure: the same seed gives the same roll.
  */
-export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surface: 'turf' | 'dirt', seed: number): SparkRoll {
+export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surface: 'turf' | 'dirt', seed: number, support?: SupportRolls): SparkRoll {
 	const prng = new SeededRng(seed);
 	const rng = () => prng.random();
 	const pink = (starsOf: (h: LineageHorse) => number, grade: number) => {
@@ -73,7 +89,18 @@ export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surfac
 		for (let i = 0; !procced && i < INSPIRATIONS; i++) procced = rolls(procChance(FactorType.Unique, u.stars, h.affinity), rng);
 		if (procced) unlocked.push(u.skillId);
 	}
-	return { distance, surface: surfaceGrade, skillIds, hints, unlocked };
+	// After every spark roll, so lineages without a deck draw the same numbers as before.
+	const hinted: string[] = [];
+	for (const card of support?.cards ?? []) {
+		const chance = hintChance(card.frequency);
+		for (let t = 0; t < support!.trainings; t++) {
+			if (!card.pool.length || !rolls(chance, rng)) continue;
+			const id = card.pool[Math.floor(rng() * card.pool.length)];
+			if (!hinted.includes(id)) hinted.push(id);
+			hints[id] = Math.min(MAX_HINT_LEVEL, (hints[id] ?? 0) + 1 + card.bonus);
+		}
+	}
+	return { distance, surface: surfaceGrade, skillIds, hints, unlocked, hinted };
 }
 
 export interface WholeAceInput {
@@ -93,6 +120,8 @@ export interface WholeAceInput {
 	horses: LineageHorse[];
 	/** The Skill point budget the Ace buys within; absent means unlimited: every Buyable skill is bought. */
 	budget?: AceBudget;
+	/** The Support deck's hint rolls, and the skills the Ace can use (a hint on another is wasted); absent without a deck. */
+	support?: SupportRolls & { usable: string[] };
 	/** Race seeds shared by every version and pair; one Whole-Ace run per seed, the spark roll uses the same seed. */
 	seeds: number[];
 }
@@ -110,7 +139,7 @@ export interface WholeAceRuns {
  * Pure and deterministic.
  */
 export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
-	const { aptitudes, style, scenario, target, uniqueSkillId, buyableSkillIds, uniqueSkillIds = [], horses, seeds, budget } = input;
+	const { aptitudes, style, scenario, target, uniqueSkillId, buyableSkillIds, uniqueSkillIds = [], horses, seeds, budget, support } = input;
 	if (!seeds.length) return { mean: 0, bought: {} };
 	const { distance, surface } = courseFacts(scenario.courseId);
 	const category = categoryOf(distance);
@@ -120,14 +149,16 @@ export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
 	const counts: Record<string, number> = {};
 	let total = 0;
 	for (const seed of seeds) {
-		const rolled = rollSparks(horses, { distance: aptitudes[category], surface: aptitudes[surface] }, surface, seed);
+		const rolled = rollSparks(horses, { distance: aptitudes[category], surface: aptitudes[surface] }, surface, seed, support);
 		const ace = buildAce({ aptitudes: { ...aptitudes, [category]: rolled.distance, [surface]: rolled.surface }, style, category, surface, target });
 		// No hint of its own: the green spark only unlocks the white version, at the base cost.
 		const unlocked = rolled.unlocked.filter((id) => uniqueSkillIds.includes(id));
-		const unlockedBeyond = (known: string[]) => unlocked.filter((id) => !known.includes(id));
+		// A card's hint on a skill off the card list makes it buyable like an unlocked one; one the Ace cannot use is wasted.
+		const hinted = support ? rolled.hinted.filter((id) => support.usable.includes(id)) : [];
+		const unlockedBeyond = (known: string[]) => [...unlocked, ...hinted].filter((id, i, all) => !known.includes(id) && all.indexOf(id) === i);
 		let bought: string[];
 		if (budget) {
-			const key = `${rolled.skillIds.map((id) => `${id}:${rolled.hints[id]}`).join()}|${unlocked.join()}`;
+			const key = `${rolled.skillIds.map((id) => `${id}:${rolled.hints[id]}`).join()}|${unlocked.join()}|${hinted.map((id) => `${id}:${rolled.hints[id]}`).join()}`;
 			let set = sets.get(key);
 			if (!set) sets.set(key, (set = buySet(budget, buyableSkillIds, { skillIds: [...rolled.skillIds, ...unlockedBeyond(rolled.skillIds)], hints: rolled.hints })));
 			bought = set;

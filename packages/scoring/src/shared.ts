@@ -6,6 +6,7 @@ import type { SimAssumptions } from './assumptions';
 import type { RaceConditions } from './pairedRace';
 import type { SkillValue } from './skillValue';
 import type { SkillCost } from './skillBudget';
+import type { SupportInput } from './support';
 
 /** Spark name (as in the tier list) to tier. */
 export type TierList = Record<string, Tier>;
@@ -62,6 +63,8 @@ export interface CmPreset extends RaceConditions {
 	seed?: number;
 	/** The Skill point budget the Ace slot buys within; absent means unlimited (every Buyable skill is bought). Ace heroes only. */
 	skillPoints?: SkillPoints;
+	/** The Support cards the player would consider running; the Ace slot picks a Support deck from them per Ace hero. Absent or both lists empty changes nothing. Ace heroes only. */
+	support?: SupportInput;
 	/** Race conditions every paired race assumes; umalator's defaults when unset. */
 	assumptions?: SimAssumptions;
 }
