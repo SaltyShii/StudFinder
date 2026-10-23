@@ -112,10 +112,8 @@ interface AceRuns {
 	screenSeeds: number[];
 	/** Winners (version|parents) already re-run at full samples. */
 	full: Set<string>;
-	/** The mean of a run already simulated; otherwise a stand-in, and the run is noted for the next batch. */
-	memo(key: string, input: WholeAceRequest): number;
-	/** The share of runs that bought each Buyable skill, for a run already simulated. */
-	boughtOf(key: string): Record<string, number> | undefined;
+	/** The runs already simulated; otherwise a stand-in (mean 0, nothing bought), and the run is noted for the next batch. The mean and the bought shares come back together so a score and its chart share the same runs. */
+	memo(key: string, input: WholeAceRequest): WholeAceRuns;
 }
 
 /** A Whole-Ace run set: everything but the scenario, which the batch shares. */
@@ -237,12 +235,11 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		full: new Set(),
 		memo: (key, input) => {
 			const m = aceMemo.get(key);
-			if (m !== undefined) return m.mean;
+			if (m !== undefined) return m;
 			// Like a skill: the pass is run again once the batch is in, so the stand-in reaches no result.
 			aceMissing.set(key, input);
-			return 0;
+			return { mean: 0, bought: {} };
 		},
-		boughtOf: (key) => aceMemo.get(key)?.bought,
 	};
 	// Shown Aces still scored from screened runs after the last pass.
 	let aceTodo: AceRefine[] = [];
@@ -422,24 +419,27 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		let score = win.score;
 		let refine: AceRefine | undefined;
 		// The runs the pick's score comes from: its bought shares are theirs.
-		let scoreKey = fullKey(win);
+		let scored: WholeAceRuns | undefined;
 		if (!partial()) {
 			if (shortlist.length === 1) {
 				// Nothing to choose: no screening, straight to full samples.
-				score = runs.memo(fullKey(win), requestOf(win, runs.seeds));
+				scored = runs.memo(fullKey(win), requestOf(win, runs.seeds));
+				score = scored.mean;
 			} else {
-				let top = -Infinity;
+				let top: WholeAceRuns | undefined;
 				for (const p of shortlist) {
 					const m = runs.memo(screenKey(p), requestOf(p, runs.screenSeeds));
-					if (m > top) { top = m; win = p; }
+					if (!top || m.mean > top.mean) { top = m; win = p; }
 				}
 				const w = win;
 				const full = requestOf(w, runs.seeds);
 				// Few samples: the screen already ran every seed, so a full re-run would repeat it.
-				scoreKey = screenKey(w);
-				if (runs.screenSeeds.length === runs.seeds.length) score = top;
-				else if (runs.full.has(keyOf(w))) { scoreKey = fullKey(w); score = runs.memo(scoreKey, full); }
-				else { score = top; refine = { pairKey: keyOf(w), fullKey: fullKey(w), input: full }; }
+				scored = top;
+				if (runs.screenSeeds.length !== runs.seeds.length) {
+					if (runs.full.has(keyOf(w))) scored = runs.memo(fullKey(w), full);
+					else refine = { pairKey: keyOf(w), fullKey: fullKey(w), input: full };
+				}
+				score = scored.mean;
 			}
 		}
 		const winCells = cellsOf(win.pair);
@@ -449,7 +449,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints ? runs.boughtOf(scoreKey) : undefined) });
+		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined) });
 	}
 	return out;
 }
@@ -497,7 +497,7 @@ function lineageIdsOf(horses: LineageHorse[]): string[] {
 }
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
-function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = [], bought?: Record<string, number>): AceSkillRow[] {
+function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = [], bought?: { shares: Record<string, number>; priced: Record<string, unknown> }): AceSkillRow[] {
 	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
 	const ids = new Set(parents.flatMap((p) => lineageIdsOf(p.horses)));
 	// A buyable skill is certain, so it is an own row, unless a parent lineage can pass it on: that one shows its inherit chance (the skill points it may save), not a claim that it is bought. The unique skill is not shown twice.
@@ -510,10 +510,10 @@ function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses:
 	}
 	const listed = new Set([...rows.map((r) => r.skillId), ...own]);
 	for (const id of new Set(otherSkillIds)) if (!listed.has(id) && id in skillData) rows.push({ ...rowOf(detailOf(id), 0, mustHaves), other: true });
-	// Only the card list's Buyable skills are bought, so a skill that is only inherited stays unmarked.
+	// Only the card list's Buyable skills are bought, so a skill that is only inherited stays unmarked. A skill with no cost in the data is one the budget cannot price: it shows no share rather than a 0 the data caused.
 	// The white unique variants a parent makes buyable are bought too.
 	const buyable = new Set([...learnableSkillIds, ...parents.flatMap((p) => uniqueIdsOf(p.horses))]);
-	return chartRows(bought ? rows.map((r) => (buyable.has(r.skillId) ? { ...r, bought: bought[r.skillId] ?? 0 } : r)) : rows);
+	return chartRows(bought ? rows.map((r) => (buyable.has(r.skillId) && r.skillId in bought.priced ? { ...r, bought: bought.shares[r.skillId] ?? 0 } : r)) : rows);
 }
 
 function rowOf(detail: SkillDetail, inherit: number, mustHaves: string[], own = false): AceSkillRow {

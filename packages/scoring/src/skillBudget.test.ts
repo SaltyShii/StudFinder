@@ -104,6 +104,13 @@ describe('Skill point budget', () => {
 			expect(b['10071']).toBe(1);
 			expect(b['200011']).toBe(1);
 		});
+		test('a skill the data gives no cost shows no share, not a 0', () => {
+			const priced = { ...costs };
+			delete priced['200011'];
+			const row = recommend(none, { ...preset, skillPoints: { budget: 1e6, costs: priced } }, undefined, [version(['10071', '200011'])]).aceSlots[0].skills;
+			expect(row.find((r) => r.skillId === '200011')?.bought).toBeUndefined();
+			expect(row.find((r) => r.skillId === '10071')?.bought).toBe(1);
+		});
 		test('a skill the budget never covers is bought in no run', () => {
 			const b = boughtOf(version(['10071', '10091']), 280);
 			expect(b['10071']).toBe(0);
