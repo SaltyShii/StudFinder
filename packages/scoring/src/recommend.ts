@@ -5,6 +5,7 @@ import { gainOverId, skillDetail, unsimulated } from './skillDetail';
 import type { Scenario } from './pairedRace';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
+import { wholeAceMean, wholeAceSeeds } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
@@ -31,7 +32,7 @@ export interface AcePick {
 	/** The style differs from the selected one: the version has no A in it, so it runs in its best-ranked style instead. */
 	fallback: boolean;
 	score: number;
-	/** Expected lengths gained by this Ace with these parents: the unique skill, the parents' inheritable skills (weighted by inherit chance) and what pink sparks raise (distance and surface), each over the aptitudes the pair can reach weighted by its chance of them. Equals `score`. */
+	/** Expected lengths gained by this Ace with these parents: the mean over the Whole-Ace runs (sparks rolled, unique and Buyable skills and procced inherited skills raced together). Equals `score`. */
 	expectedLengths: number;
 	/** Per parent, its horses: itself, then its own 2 parents (the Ace's grandparents), with their sparks. */
 	horses: LineageHorse[][];
@@ -181,13 +182,15 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	});
 	// Details the Ace ranking scored with at aptitudes other than the Ace's own, for the picks that won: they are re-simulated at full samples like every shown skill.
 	let extras: SkillDetail[] = [];
+	// One seed list for every version and pair.
+	const aceSeeds = wholeAceSeeds(seed, samples);
 	const track = trackOverview({ ...cm, horse, seed });
 	const pass = (): Recommendation => {
 		const detailFor = detailerOf(horse);
 		const seen = new Map<string, SkillDetail>();
 		const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
 			extras = [];
-			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras);
+			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceSeeds);
 		const ranked = rankAceSlots(versions, categoryOf(courseFacts(cm.courseId).distance)).slice(0, ACE_SLOTS);
 		// The chart simulates the whole buyable pool, so only the first Ace's rows are built.
 		const aceSlots = ranked.map((x, i) => ({ ...x.pick, skills: i === 0 ? x.rows() : [] }));
@@ -248,7 +251,7 @@ interface Cell { key: string; chance: number; /** With the unique skill. */ h: H
 // A pair scores expected lengths: the Ace is simulated at every distance and surface grade the pair's pink sparks can reach, weighted by the chance of that grade;
 // at each it counts the lengths the higher aptitude gains, the unique skill and the parents' inheritable skills (weighted by inherit chance). Style pink sparks and Must-haves play no part.
 // A version with no roster candidates still scores by its unique alone.
-function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[]): AceCandidate[] {
+function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, seeds: number[]): AceCandidate[] {
 	const out: AceCandidate[] = [];
 	for (const v of owned) {
 		const units = v.candidates;
@@ -325,8 +328,11 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		for (const cell of winCells) for (const p of win.pair) for (const id of maxStars(p.horses.flatMap((x) => x.skills)).keys()) extras.push(detailerOf(cell.h)(id));
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
+		// The additive score only picks the pair; the version's score is the Whole-Ace run mean of that pair. A pass still waiting for simulations is thrown away, so it skips the runs.
+		const buyable = skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface });
+		const score = partial() ? win.score : wholeAceMean({ aptitudes: v.aptitudes, style, scenario, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: winHorses, seeds });
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-		out.push({ v, reachable, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score: win.score, expectedLengths: win.score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface }), skillsAceCanMeet(v.otherSkillIds ?? [], { style, category, surface: course.surface })) });
+		out.push({ v, reachable, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, skillsAceCanMeet(v.otherSkillIds ?? [], { style, category, surface: course.surface })) });
 	}
 	return out;
 }
