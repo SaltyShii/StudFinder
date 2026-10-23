@@ -21,6 +21,28 @@ function load(path: string): Record<string, unknown> | null {
 	return v && typeof v === 'object' ? (v as Record<string, unknown>) : null;
 }
 
+const WHITE = 1;
+const GOLD = 2;
+
+type SkillRow = { rarity?: unknown; spCost?: unknown; replacesId?: unknown; purchasable?: unknown };
+
+// White and gold skills need a base SP cost and gold needs the white version it replaces, unless the ingest flagged
+// them `purchasable: false` (cut skills the game's career mode never sells). Bad costs would silently skew the Ace budget.
+function skillCostErrors(skills: unknown): string[] {
+	if (!skills || typeof skills !== 'object') return [];
+	const rows = new Map<string, SkillRow>();
+	for (const [key, v] of Object.entries(skills)) if (v && typeof v === 'object') rows.set(key, v as SkillRow);
+	const errors: string[] = [];
+	for (const [key, sk] of rows) {
+		if ((sk.rarity !== WHITE && sk.rarity !== GOLD) || sk.purchasable === false) continue;
+		if (!Number.isInteger(sk.spCost) || (sk.spCost as number) <= 0) errors.push(`game-data.json: skill ${key}: spCost missing or not a positive integer`);
+		if (sk.rarity !== GOLD) continue;
+		const white = rows.get(String(sk.replacesId));
+		if (!white || white.rarity !== WHITE) errors.push(`game-data.json: skill ${key}: replacesId must name a white skill`);
+	}
+	return errors;
+}
+
 export function validateData(candidateDir: string, committedDir: string): string[] {
 	const errors: string[] = [];
 	for (const [file, tables] of Object.entries(REQUIRED)) {
@@ -40,6 +62,7 @@ export function validateData(candidateDir: string, committedDir: string): string
 			const was = old ? count(old[t]) : 0;
 			if (was > 0 && n < was * (1 - MAX_DROP)) errors.push(`${file}: ${t} dropped ${was} -> ${n}`);
 		}
+		if (file === 'game-data.json') errors.push(...skillCostErrors(cand.skills));
 	}
 	return errors;
 }
