@@ -17,6 +17,12 @@ it('lists the 5 own cards and the borrowed card apart, with their types', () => 
 	expect(root.querySelector('[data-testid=deck-borrowed]')?.textContent).toBe('Card 41 (friend)');
 });
 
+it('lists the hintless friend slots among the own cards, so a 3-2-1 deck shows 6 slots', () => {
+	const root = html({ own: [1, 2, 3, 4].map((i) => pick(i, 'speed')), borrowed: pick(41, 'wit'), friendFillers: 1, notes: [] });
+	expect(root.querySelectorAll('[data-testid=deck-own], [data-testid=deck-filler]')).toHaveLength(5);
+	expect(root.querySelector('[data-testid=deck-filler]')?.textContent).toBe('Friend (no hints)');
+});
+
 it('shows the notes of a short deck and no borrowed line without a borrowed card', () => {
 	const root = html({ own: [pick(1, 'wit')], notes: ['Only 1 own support cards shortlisted'] });
 	expect(root.querySelector('[data-testid=deck-borrowed]')).toBeNull();
