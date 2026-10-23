@@ -5,7 +5,7 @@ import { gainOverId, skillDetail, unsimulated } from './skillDetail';
 import type { Scenario } from './pairedRace';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
-import { wholeAceMean, wholeAceSeeds, type WholeAceInput } from './wholeAce';
+import { wholeAceRuns, wholeAceSeeds, type WholeAceInput, type WholeAceRuns } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
 import type { AceBudget, SkillCost } from './skillBudget';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
@@ -56,6 +56,8 @@ export interface AceSkillRow extends SkillDetail {
 	mustHave: boolean;
 	/** An Other buyable skill: on neither the Ace's card list nor a parent, so the chart lists it apart. */
 	other?: boolean;
+	/** With a Skill point budget, the share of Whole-Ace runs (0 to 1) in which the Ace bought this Buyable skill; absent without a budget, and for a skill that is not Buyable. */
+	bought?: number;
 }
 
 /** A Side loop or Core loop lineage: the version to train with the 2 parents (and their grandparents) to run it with. */
@@ -112,6 +114,8 @@ interface AceRuns {
 	full: Set<string>;
 	/** The mean of a run already simulated; otherwise a stand-in, and the run is noted for the next batch. */
 	memo(key: string, input: WholeAceRequest): number;
+	/** The share of runs that bought each Buyable skill, for a run already simulated. */
+	boughtOf(key: string): Record<string, number> | undefined;
 }
 
 /** A Whole-Ace run set: everything but the scenario, which the batch shares. */
@@ -132,7 +136,7 @@ export interface SkillRequest {
 	samples: number;
 }
 
-/** The Whole-Ace runs of one pair (their mean over the request's seeds), simulated as one unit. */
+/** The Whole-Ace runs of one pair (their mean and bought shares over the request's seeds), simulated as one unit. */
 export interface WholeAceRunsRequest {
 	kind: 'wholeAce';
 	input: WholeAceRequest;
@@ -140,8 +144,8 @@ export interface WholeAceRunsRequest {
 
 export type SimRequest = SkillRequest | WholeAceRunsRequest;
 
-/** What a request answers with: a skill detail, or a Whole-Ace mean. */
-export type SimResult = SkillDetail | number;
+/** What a request answers with: a skill detail, or the Whole-Ace runs of a pair. */
+export type SimResult = SkillDetail | WholeAceRuns;
 
 /** Skills to simulate, each for one runner. They are independent, so a caller may simulate them in any order, in parallel. */
 export interface SimBatch {
@@ -158,7 +162,7 @@ export function simulateSkill({ horse, id, samples }: SkillRequest, scenario: Si
 
 /** Simulates one request of either kind. */
 export function simulateRequest(request: SimRequest, scenario: SimBatch['scenario']): SimResult {
-	return request.kind === 'skill' ? simulateSkill(request, scenario) : wholeAceMean({ ...request.input, scenario });
+	return request.kind === 'skill' ? simulateSkill(request, scenario) : wholeAceRuns({ ...request.input, scenario });
 }
 
 /** Simulates a batch right here, one skill after the other. */
@@ -223,7 +227,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	});
 	// Details the Ace ranking scored with at aptitudes other than the Ace's own, for the picks that won: they are re-simulated at full samples like every shown skill.
 	let extras: SkillDetail[] = [];
-	const aceMemo = new Map<string, number>();
+	const aceMemo = new Map<string, WholeAceRuns>();
 	// Whole-Ace runs a pass asked for that no simulation has answered yet.
 	const aceMissing = new Map<string, WholeAceRequest>();
 	// One seed list for every version and pair.
@@ -233,11 +237,12 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		full: new Set(),
 		memo: (key, input) => {
 			const m = aceMemo.get(key);
-			if (m !== undefined) return m;
+			if (m !== undefined) return m.mean;
 			// Like a skill: the pass is run again once the batch is in, so the stand-in reaches no result.
 			aceMissing.set(key, input);
 			return 0;
 		},
+		boughtOf: (key) => aceMemo.get(key)?.bought,
 	};
 	// Shown Aces still scored from screened runs after the last pass.
 	let aceTodo: AceRefine[] = [];
@@ -281,8 +286,8 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 				simulated += asks.length;
 			} else {
 				const asks = [...aceMissing];
-				const means = (yield { scenario: { ...cm, seed }, requests: asks.map(([, input]): SimRequest => ({ kind: 'wholeAce', input })), progress: (done) => onProgress?.({ phase: 'screen', done: simulated + done }) }) as SimResult[] as number[];
-				asks.forEach(([key], i) => aceMemo.set(key, means[i]));
+				const runs = (yield { scenario: { ...cm, seed }, requests: asks.map(([, input]): SimRequest => ({ kind: 'wholeAce', input })), progress: (done) => onProgress?.({ phase: 'screen', done: simulated + done }) }) as SimResult[] as WholeAceRuns[];
+				asks.forEach(([key], i) => aceMemo.set(key, runs[i]));
 				simulated += asks.length;
 			}
 		}
@@ -299,7 +304,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const total = entries.length + aceAsks.length;
 		const results = yield { scenario: { ...cm, seed }, requests: [...entries.map(({ key, id }): SimRequest => ({ kind: 'skill', horse: sims.get(key)!.horse, id, samples })), ...aceAsks.map(([, input]): SimRequest => ({ kind: 'wholeAce', input }))], progress: (done) => onProgress?.({ phase: 'refine', done: simulated + done, total }) };
 		entries.forEach(({ key, id }, i) => sims.get(key)!.cache.set(id, { ...(results[i] as SkillDetail), screened: false, src: key }));
-		aceAsks.forEach(([key], i) => aceMemo.set(key, results[entries.length + i] as number));
+		aceAsks.forEach(([key], i) => aceMemo.set(key, results[entries.length + i] as WholeAceRuns));
 		for (const r of aceTodo) aceRuns.full.add(r.pairKey);
 		simulated += total;
 		rec = yield* settle();
@@ -424,6 +429,8 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		let win = shortlist[0];
 		let score = win.score;
 		let refine: AceRefine | undefined;
+		// The runs the pick's score comes from: its bought shares are theirs.
+		let scoreKey = fullKey(win);
 		if (!partial()) {
 			if (shortlist.length === 1) {
 				// Nothing to choose: no screening, straight to full samples.
@@ -437,8 +444,9 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 				const w = win;
 				const full = requestOf(w, runs.seeds);
 				// Few samples: the screen already ran every seed, so a full re-run would repeat it.
+				scoreKey = screenKey(w);
 				if (runs.screenSeeds.length === runs.seeds.length) score = top;
-				else if (runs.full.has(keyOf(w))) score = runs.memo(fullKey(w), full);
+				else if (runs.full.has(keyOf(w))) { scoreKey = fullKey(w); score = runs.memo(scoreKey, full); }
 				else { score = top; refine = { pairKey: keyOf(w), fullKey: fullKey(w), input: full }; }
 			}
 		}
@@ -449,7 +457,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, skillsAceCanMeet(v.otherSkillIds ?? [], { style, category, surface: course.surface })) });
+		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, skillsAceCanMeet(v.otherSkillIds ?? [], { style, category, surface: course.surface }), skillPoints ? runs.boughtOf(scoreKey) : undefined) });
 	}
 	return out;
 }
@@ -488,7 +496,7 @@ export function bestPairs(pairs: Candidate[][], rank: (cs: Candidate[]) => Candi
 }
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
-function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = []): AceSkillRow[] {
+function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = [], bought?: Record<string, number>): AceSkillRow[] {
 	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
 	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
 	// A buyable skill is certain, so it is an own row, unless a parent lineage can pass it on: that one shows its inherit chance (the skill points it may save), not a claim that it is bought. The unique skill is not shown twice.
@@ -501,7 +509,9 @@ function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses:
 	}
 	const listed = new Set([...rows.map((r) => r.skillId), ...own]);
 	for (const id of new Set(otherSkillIds)) if (!listed.has(id) && id in skillData) rows.push({ ...rowOf(detailOf(id), 0, mustHaves), other: true });
-	return chartRows(rows);
+	// Only the card list's Buyable skills are bought, so a skill that is only inherited stays unmarked.
+	const buyable = new Set(learnableSkillIds);
+	return chartRows(bought ? rows.map((r) => (buyable.has(r.skillId) ? { ...r, bought: bought[r.skillId] ?? 0 } : r)) : rows);
 }
 
 function rowOf(detail: SkillDetail, inherit: number, mustHaves: string[], own = false): AceSkillRow {

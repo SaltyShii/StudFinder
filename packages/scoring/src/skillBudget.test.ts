@@ -96,4 +96,44 @@ describe('Skill point budget', () => {
 		const tight = recommend(list, { ...preset, skillPoints: { budget: 100, costs } }, { S10071: 'T0' }, v);
 		expect({ ...tight, aceSlots: 0 }).toEqual({ ...free, aceSlots: 0 });
 	});
+
+	describe('bought share', () => {
+		const boughtOf = (v: OwnedVersion, budget?: number) => Object.fromEntries(recommend(none, { ...preset, skillPoints: budget === undefined ? undefined : { budget, costs } }, undefined, [v]).aceSlots[0].skills.map((r) => [r.skillId, r.bought]));
+		test('a skill the Ace can always afford is bought in every run', () => {
+			const b = boughtOf(version(['10071', '200011']), 1e6);
+			expect(b['10071']).toBe(1);
+			expect(b['200011']).toBe(1);
+		});
+		test('a skill the budget never covers is bought in no run', () => {
+			const b = boughtOf(version(['10071', '10091']), 280);
+			expect(b['10071']).toBe(0);
+			expect(b['10091']).toBe(1);
+		});
+		test('hint rolls decide the share: a lineage hint discounts a skill into the budget, and its inherit chance stays', () => {
+			// 10091 costs 250 against a budget of 240: only a run whose spark procced (a hint, 10% off or more) can buy it.
+			// The pink sparks draw first, so consecutive run seeds roll the skill spark independently.
+			const hinted: Candidate = { id: 'h', name: 'h', horses: [{ ...horseOf(['10091'], 200), pinkStars: 3 }, horseOf([]), horseOf([])] };
+			const row = recommend(none, { ...preset, skillPoints: { budget: 240, costs } }, undefined, [version(['10091'], [hinted, sure('o')])]).aceSlots[0].skills.find((r) => r.skillId === '10091');
+			expect(row?.bought).toBeGreaterThan(0);
+			expect(row?.bought).toBeLessThan(1);
+			expect(row?.inherit).toBeGreaterThan(0);
+			expect(row?.inherit).toBeLessThan(1);
+		});
+		test('a skill that is only inherited carries no bought share', () => {
+			const hinted: Candidate = { id: 'h', name: 'h', horses: [horseOf(['10091']), horseOf([]), horseOf([])] };
+			const row = recommend(none, { ...preset, skillPoints: { budget: 1e6, costs } }, undefined, [version(['10071'], [hinted])]).aceSlots[0].skills.find((r) => r.skillId === '10091');
+			expect(row).toBeDefined();
+			expect(row?.bought).toBeUndefined();
+		});
+		test('without a budget the rows carry no bought share', () => {
+			expect(boughtOf(version(['10071', '200011']))['10071']).toBeUndefined();
+		});
+		test('the share survives the worker batches', async () => {
+			const v = [version(['10071', '200011'])];
+			const p = { ...preset, skillPoints: { budget: 350, costs } };
+			const batched = await recommendAsync(async (batch) => batch.requests.map((r) => simulateRequest(r, batch.scenario)), none, p, undefined, v);
+			expect(batched).toEqual(recommend(none, p, undefined, v));
+			expect(batched.aceSlots[0].skills.find((r) => r.skillId === '10071')?.bought).toBe(1);
+		});
+	});
 });

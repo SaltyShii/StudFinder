@@ -271,3 +271,5 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .chip-pink { background: #5a2a44; color: #ffb3d1; }
 
 .skill-chart li.skill-section { display: block; height: auto; padding: 12px 8px 4px; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; background: none; }
+
+.skill-chart .skill-bought { display: block; font-size: 0.7rem; color: var(--muted); line-height: 1.1; }
