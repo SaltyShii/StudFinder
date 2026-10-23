@@ -4,7 +4,7 @@ import { skillDetail } from './skillDetail';
 import { DEFAULT_ASSUMPTIONS } from './assumptions';
 import { skillChance } from './shared';
 import { sideLoopPicks, sideLoopPriority } from './sideLoop';
-import { bestPair, bestPairs, recommend, recommendAsync, simulateSkill, type Candidate, type LineageHorse, type CandidateList } from './recommend';
+import { bestPair, bestPairs, recommend, recommendAsync, simulateRequest, type SimResult, type Candidate, type LineageHorse, type CandidateList } from './recommend';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 30, seed: 7 };
@@ -326,7 +326,7 @@ test('recommendAsync, with the refine step simulated apart and out of order, giv
 	const got = await recommendAsync(async (batch) => {
 		batches++;
 		const out = [];
-		for (const r of [...batch.requests].reverse()) { out.unshift(simulateSkill(r, batch.scenario)); batch.progress(out.length); }
+		for (const r of [...batch.requests].reverse()) { out.unshift(simulateRequest(r, batch.scenario)); batch.progress(out.length); }
 		return out;
 	}, lineage, preset, undefined, [], [], (p) => apart.push(p));
 	expect(batches).toBeGreaterThan(1); // the screen step, then the refine step
@@ -461,6 +461,22 @@ describe('Ace slot scored by Whole-Ace runs', () => {
 			const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, candidates: units }]).aceSlots[0];
 			expect(slot.parents.map((p) => p.candidateId).sort()).toEqual(winner.map((c) => c.id).sort());
 			expect(slot.score).toBe(pairMean(winner, wholeAceSeeds(preset.seed, preset.samples)));
+		});
+		test('recommendAsync runs the Whole-Ace runs as requests of their own kind, out of order, and gives the very recommendation and progress of recommend', async () => {
+			const versions = [{ cardId: 1, aptitudes: apt, uniqueSkillId: '10071', candidates: units }, { cardId: 2, aptitudes: apt, candidates: [units[0]] }];
+			const serial: unknown[] = [];
+			const apart: unknown[] = [];
+			const expected = recommend(candidateList, preset, undefined, versions, [], (p) => serial.push(p));
+			const kinds: string[] = [];
+			const got = await recommendAsync(async (batch) => {
+				batch.requests.forEach((r) => kinds.push(r.kind));
+				const out: SimResult[] = [];
+				for (const r of [...batch.requests].reverse()) { out.unshift(simulateRequest(r, batch.scenario)); batch.progress(out.length); }
+				return out;
+			}, candidateList, preset, undefined, versions, [], (p) => apart.push(p));
+			expect(kinds).toContain('wholeAce');
+			expect(got).toEqual(expected);
+			expect(apart).toEqual(serial);
 		});
 		test('progress reports the screen and refine phases for the Ace runs', () => {
 			const phases = new Set<string>();
