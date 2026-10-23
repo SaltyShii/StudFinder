@@ -7,12 +7,14 @@ import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { wholeAceMean, wholeAceSeeds, type WholeAceInput } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
+import type { AceBudget, SkillCost } from './skillBudget';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { GRADE_A } from '@stud-finder/lineage/src/inheritance';
-import { aceSupply, aptitudeOutcomes, surfaceStarsOf, dirtAChance, greedyRank, mustHaveChance, skillChance, maxStars, newShare, type Candidate, type LineageHorse, type CmPreset, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
+import { aceSupply, aptitudeOutcomes, surfaceStarsOf, dirtAChance, greedyRank, mustHaveChance, skillChance, maxStars, newShare, type Candidate, type LineageHorse, type CmPreset, type SkillPoints, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
-export type { Candidate, CmPreset, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
+export type { SkillCost, AceBudget } from './skillBudget';
+export type { Candidate, CmPreset, SkillPoints, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
 /** A version the player can train as the Ace; candidates are measured against it (affinity, own-version exclusion). */
 export interface OwnedVersion {
@@ -185,7 +187,7 @@ export async function recommendAsync(runBatch: (batch: SimBatch) => Promise<SimR
 	}
 }
 
-function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SimResult[]> {
+function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, skillPoints, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SimResult[]> {
 	// One cache per distinct runner, so Owned versions that run identically share simulations.
 	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
 	let simulated = 0;
@@ -245,7 +247,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const seen = new Map<string, SkillDetail>();
 		const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
 			extras = [];
-			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceRuns);
+			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceRuns, skillPoints);
 		const ranked = rankAceSlots(versions, categoryOf(courseFacts(cm.courseId).distance)).slice(0, ACE_SLOTS);
 		// The chart simulates the whole buyable pool, so only the first Ace's rows are built.
 		aceTodo = ranked.flatMap((x) => (x.refine ? [x.refine] : []));
@@ -321,7 +323,7 @@ interface Cell { key: string; chance: number; /** With the unique skill. */ h: H
 // The additive score (the Ace simulated at every distance and surface grade the pair's pink sparks can reach, weighted by the chance of that grade) only shortlists pairs;
 // the score a pick shows comes from racing the whole Ace with the pair's parents (Whole-Ace runs). Style pink sparks and Must-haves play no part.
 // A version with no roster candidates still scores by its unique alone.
-function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns): AceCandidate[] {
+function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns, skillPoints?: SkillPoints): AceCandidate[] {
 	const out: AceCandidate[] = [];
 	for (const [vi, v] of owned.entries()) {
 		const units = v.candidates;
@@ -394,10 +396,31 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const shortlist = bestPairs(pairs, rank, bound, extraOf, partial, SHORTLIST);
 		// Whole-Ace runs choose among the shortlist; the additive score only decides who is on it. A pass still waiting for simulations is thrown away, so it skips the runs.
 		const buyable = skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface });
-		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: p.pair.flatMap((c) => c.horses), seeds });
+		// With a budget the run buys within it: it needs the cost and the simulated value (lengths gained) of every skill it may buy, the card list's and the pair's hinted ones.
+		const budgets = new Map<ScoredPair, AceBudget | undefined>();
+		const budgetOf = (p: ScoredPair): AceBudget | undefined => {
+			if (!skillPoints) return undefined;
+			if (!budgets.has(p)) {
+				const lineage = skillsAceCanMeet([...new Set(p.pair.flatMap((c) => c.horses.flatMap((x) => x.skills.map((s) => s.skillId))))], { style, category, surface: course.surface });
+				const ids = [...new Set([...buyable, ...lineage])].filter((id) => id in skillPoints.costs);
+				const costs: Record<string, SkillCost> = {};
+				for (const id of ids) {
+					const c = skillPoints.costs[id];
+					costs[id] = c;
+					if (c.replacesId && c.replacesId in skillPoints.costs) costs[c.replacesId] = skillPoints.costs[c.replacesId];
+				}
+				budgets.set(p, { points: skillPoints.budget, costs, values: Object.fromEntries(ids.map((id) => [id, detailerOf(h)(id).value])) });
+			}
+			return budgets.get(p);
+		};
+		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}) });
 		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}`;
-		const fullKey = (p: ScoredPair) => `full|${keyOf(p)}`;
-		const screenKey = (p: ScoredPair) => `screen|${keyOf(p)}`;
+		// The values are screened or full, so the same pair reruns once its values change.
+		const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.points}|${Object.values(b.values).join()}` : ''; };
+		const fullKey = (p: ScoredPair) => `full|${keyOf(p)}${budgetKey(p)}`;
+		const screenKey = (p: ScoredPair) => `screen|${keyOf(p)}${budgetKey(p)}`;
+		// Asked before the runs: a pass that still waits for those values is thrown away, so it skips them.
+		if (skillPoints && !partial()) for (const p of shortlist) budgetOf(p);
 		let win = shortlist[0];
 		let score = win.score;
 		let refine: AceRefine | undefined;

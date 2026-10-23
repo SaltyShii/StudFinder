@@ -5,6 +5,7 @@ import type { Tier } from '@stud-finder/lineage/src/tiers';
 import type { SimAssumptions } from './assumptions';
 import type { RaceConditions } from './pairedRace';
 import type { SkillValue } from './skillValue';
+import type { SkillCost } from './skillBudget';
 
 /** Spark name (as in the tier list) to tier. */
 export type TierList = Record<string, Tier>;
@@ -41,12 +42,19 @@ export interface Candidate {
 export interface CandidateList {
 	candidates: Candidate[];
 }
+/** A Skill point budget and what the skills in play cost (skills missing from `costs` are not for sale). */
+export interface SkillPoints {
+	budget: number;
+	costs: Record<string, SkillCost>;
+}
 export interface CmPreset extends RaceConditions {
 	courseId: number;
 	/** The runner the CM is simulated for (a stand-in for the Ace). */
 	runner: HorseDesc;
 	samples?: number;
 	seed?: number;
+	/** The Skill point budget the Ace slot buys within; absent means unlimited (every Buyable skill is bought). Ace heroes only. */
+	skillPoints?: SkillPoints;
 	/** Race conditions every paired race assumes; umalator's defaults when unset. */
 	assumptions?: SimAssumptions;
 }
