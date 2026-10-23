@@ -1,7 +1,8 @@
 import { discounted, MAX_HINT_LEVEL } from './skillBudget';
 import { categoryOf } from './ace';
 
-export type SupportType = 'speed' | 'stamina' | 'power' | 'guts' | 'wit' | 'friend';
+export const SUPPORT_TYPES = ['speed', 'stamina', 'power', 'guts', 'wit', 'friend'] as const;
+export type SupportType = (typeof SUPPORT_TYPES)[number];
 
 /** A Support card as the catalogue lists it (`supportCards` in the game data). The two arrays hold one value per limit break level, 0 to 4. */
 export interface SupportCard {
@@ -54,6 +55,18 @@ export interface SupportDeck {
 export const BASE_HINT_CHANCE = 0.07;
 export const DEFAULT_TRAININGS_PER_CARD = 30;
 export const OWN_SLOTS = 5;
+/** The Support deck: the own slots and 1 Borrowed support card. */
+export const DECK_SLOTS = OWN_SLOTS + 1;
+
+/** Trainings each deck card appears in: the input's, else the default. */
+export function trainingsPerCardOf(support: SupportInput): number {
+	return support.trainingsPerCard ?? DEFAULT_TRAININGS_PER_CARD;
+}
+
+/** The deck's cards in roll order: the own ones, then the borrowed one. */
+export function deckPicks(deck: SupportDeck): SupportPick[] {
+	return deck.borrowed ? [...deck.own, deck.borrowed] : deck.own;
+}
 
 /** A Support card's hint chance per training: the base chance raised by its Hint Frequency (a percentage). */
 export function hintChance(frequency: number): number {
@@ -94,15 +107,13 @@ function cardScore(pick: SupportPick, trainings: number, { onList, usable, value
 	return total;
 }
 
-const TYPES: SupportType[] = ['speed', 'stamina', 'power', 'guts', 'wit', 'friend'];
-
 interface Scored { p: SupportPick; i: number; s: number }
 
 /** Own cards for the slots a borrowed card leaves in the mix: best per type up to its quota (friend quota with no card becomes a filler), then the best of the rest. */
 function ownForMix(scored: Scored[], quota: TypeMix): { picks: Scored[]; fillers: number } {
 	const picks: Scored[] = [];
 	let fillers = 0;
-	for (const t of TYPES) {
+	for (const t of SUPPORT_TYPES) {
 		const of = scored.filter((x) => x.p.card.type === t).slice(0, quota[t] ?? 0);
 		picks.push(...of);
 		if (t === 'friend') fillers += (quota.friend ?? 0) - of.length;
@@ -117,7 +128,7 @@ function ownForMix(scored: Scored[], quota: TypeMix): { picks: Scored[]; fillers
 }
 
 function mixNote(mix: TypeMix, held: SupportPick[], fillers: number): string | undefined {
-	const short = TYPES.filter((t) => (mix[t] ?? 0) > held.filter((p) => p.card.type === t).length + (t === 'friend' ? fillers : 0));
+	const short = SUPPORT_TYPES.filter((t) => (mix[t] ?? 0) > held.filter((p) => p.card.type === t).length + (t === 'friend' ? fillers : 0));
 	if (!short.length) return undefined;
 	const label = short.map((t) => `${mix[t]} ${t}`).join(', ');
 	return `Type mix not met (wanted ${label}): the shortlist cannot fill it, so the gaps are filled from other shortlisted support cards.`;
@@ -131,14 +142,14 @@ function mixNote(mix: TypeMix, held: SupportPick[], fillers: number): string | u
  */
 export function pickDeck(support: SupportInput | undefined, ctx: DeckContext): SupportDeck | undefined {
 	if (!support || (!support.own.length && !support.borrowed.length)) return undefined;
-	const trainings = support.trainingsPerCard ?? DEFAULT_TRAININGS_PER_CARD;
+	const trainings = trainingsPerCardOf(support);
 	const rank = (picks: SupportPick[]): Scored[] => picks
 		.map((p, i) => ({ p, i, s: cardScore(p, trainings, ctx) }))
 		.sort((a, b) => b.s - a.s || a.i - b.i);
 	const ownRanked = rank(support.own);
 	const borrowedRanked = rank(support.borrowed);
 	const mix = support.typeMix;
-	const constrained = !!mix && TYPES.some((t) => (mix[t] ?? 0) > 0);
+	const constrained = !!mix && SUPPORT_TYPES.some((t) => (mix[t] ?? 0) > 0);
 	let own: SupportPick[];
 	let borrowed: SupportPick | undefined;
 	let fillers = 0;
@@ -152,7 +163,7 @@ export function pickDeck(support: SupportInput | undefined, ctx: DeckContext): S
 			if (b && (quota[b.p.card.type] ?? 0) > 0) quota[b.p.card.type]! -= 1;
 			const { picks, fillers: f } = ownForMix(ownRanked, quota);
 			const held = [...picks.map((x) => x.p), ...(b ? [b.p] : [])];
-			const unmet = TYPES.reduce((n, t) => n + Math.max(0, (mix[t] ?? 0) - held.filter((p) => p.card.type === t).length - (t === 'friend' ? f : 0)), 0);
+			const unmet = SUPPORT_TYPES.reduce((n, t) => n + Math.max(0, (mix[t] ?? 0) - held.filter((p) => p.card.type === t).length - (t === 'friend' ? f : 0)), 0);
 			const score = picks.reduce((n, x) => n + x.s, 0) + (b?.s ?? 0);
 			if (!best || unmet < best.unmet || (unmet === best.unmet && score > best.score)) best = { own: picks, fillers: f, b, unmet, score };
 		}

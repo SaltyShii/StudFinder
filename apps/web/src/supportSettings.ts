@@ -1,5 +1,5 @@
 import type { SupportCardData } from '../../../packages/lineage/src/types';
-import { DEFAULT_TRAININGS_PER_CARD, defaultTypeMix, type SupportCard, type SupportInput, type SupportPick, type SupportType, type TypeMix } from '../../../packages/scoring/src/support';
+import { DECK_SLOTS, DEFAULT_TRAININGS_PER_CARD, defaultTypeMix, SUPPORT_TYPES, type SupportCard, type SupportInput, type SupportPick, type SupportType, type TypeMix } from '../../../packages/scoring/src/support';
 
 export const MAX_LIMIT_BREAK = 4;
 
@@ -9,10 +9,7 @@ export interface ShortlistEntry {
 	limitBreak: number;
 }
 
-/** The Type mix has this many slots: 5 own cards and 1 Borrowed support card. */
-export const DECK_SLOTS = 6;
-
-export const SUPPORT_TYPES: SupportType[] = ['speed', 'stamina', 'power', 'guts', 'wit', 'friend'];
+export { DECK_SLOTS, SUPPORT_TYPES };
 
 /**
  * The Support settings the player edits. Each field has its own storage key in roster.ts and a default in EMPTY_SUPPORT, so older saves load with the default.
@@ -32,7 +29,7 @@ export const EMPTY_SUPPORT: SupportSettings = { own: [], borrowed: [], trainings
 export function isTypeMix(v: unknown): v is TypeMix {
 	if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
 	const entries = Object.entries(v);
-	return entries.every(([t, n]) => (SUPPORT_TYPES as string[]).includes(t) && Number.isInteger(n) && n >= 0 && n <= DECK_SLOTS) && entries.reduce((a, [, n]) => a + (n as number), 0) <= DECK_SLOTS;
+	return entries.every(([t, n]) => (SUPPORT_TYPES as readonly string[]).includes(t) && Number.isInteger(n) && n >= 0 && n <= DECK_SLOTS) && entries.reduce((a, [, n]) => a + (n as number), 0) <= DECK_SLOTS;
 }
 
 export function typeMixTotal(mix: TypeMix): number {

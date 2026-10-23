@@ -8,7 +8,7 @@ import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { wholeAceRuns, wholeAceSeeds, type WholeAceInput, type WholeAceRuns } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
 import { aceBudget, type AceBudget } from './skillBudget';
-import { atLimitBreak, DEFAULT_TRAININGS_PER_CARD, hintLevelOf, pickDeck, type SupportDeck, type SupportType, type SupportInput, type SupportPick } from './support';
+import { atLimitBreak, deckPicks, hintLevelOf, pickDeck, trainingsPerCardOf, type SupportDeck, type SupportType, type SupportInput } from './support';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { GRADE_A } from '@stud-finder/lineage/src/inheritance';
@@ -416,8 +416,9 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		// With a budget the run buys within it: it needs the cost and the simulated value (lengths gained) of every skill it may buy, the card list's and the pair's hinted ones.
 		// One deck per Ace hero, whatever the parents: its cards' hinted skills at their simulated value. Asked before the runs, like the budget's values.
 		const deck = pickDeck(support, { onList: new Set(buyable), usable: meet, value: (id) => detailerOf(h)(id).value });
-		const deckSkills = deck ? meet([...new Set(deckPicks(deck).flatMap((p) => p.card.pool))]) : [];
-		const supportRolls = deck ? { cards: deckPicks(deck).map((p) => ({ pool: p.card.pool, frequency: atLimitBreak(p.card.hintFrequency, p.limitBreak), bonus: hintLevelOf(p) - 1 })), trainings: support!.trainingsPerCard ?? DEFAULT_TRAININGS_PER_CARD, usable: deckSkills } : undefined;
+		const picks = deck ? deckPicks(deck) : [];
+		const deckSkills = deck ? meet([...new Set(picks.flatMap((p) => p.card.pool))]) : [];
+		const supportRolls = deck ? { cards: picks.map((p) => ({ pool: p.card.pool, frequency: atLimitBreak(p.card.hintFrequency, p.limitBreak), bonus: hintLevelOf(p) - 1 })), trainings: trainingsPerCardOf(support!), usable: deckSkills } : undefined;
 		const budgets = new Map<ScoredPair, AceBudget | undefined>();
 		const budgetOf = (p: ScoredPair): AceBudget | undefined => {
 			if (!skillPoints) return undefined;
@@ -426,7 +427,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 			return b;
 		};
 		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: meet(uniqueIdsOf(p.pair.flatMap((c) => c.horses))), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}), ...(supportRolls ? { support: supportRolls } : {}) });
-		const deckKey = deck ? `|${deckPicks(deck).map((p) => `${p.card.id}:${p.limitBreak}`).join()}` : '';
+		const deckKey = deck ? `|${picks.map((p) => `${p.card.id}:${p.limitBreak}`).join()}` : '';
 		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}${deckKey}`;
 		// The values are screened or full, so the same pair reruns once its values change.
 		const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.budget}|${Object.values(b.values).join()}` : ''; };
@@ -481,11 +482,6 @@ function sourcesOf(deck: SupportDeck | undefined, usable: string[]): Record<stri
 		for (const id of new Set(card.pool)) if (usable.includes(id)) (out[id] ??= []).push({ cardId: card.id, name: card.name, type: card.type });
 	}
 	return out;
-}
-
-/** The deck's cards in roll order: the own ones, then the borrowed one. */
-function deckPicks(deck: SupportDeck): SupportPick[] {
-	return deck.borrowed ? [...deck.own, deck.borrowed] : deck.own;
 }
 
 interface ScoredPair { parents: CandidatePick[]; score: number; pair: Candidate[] }
