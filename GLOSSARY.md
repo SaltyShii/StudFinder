@@ -55,6 +55,21 @@ _Avoid_: learnable skill, equipped skill
 A white or gold skill (the strongest of its group) the Ace meets the conditions of but that is on neither its card list nor a parent lineage. The chart lists these in their own section below the Ace's own and inheritable skills; they never feed the Track overview chips or the Ace ranking.
 _Avoid_: extra skill
 
+**Skill points (SP)**:
+What the Ace spends after its run to buy skills. Every buyable skill has a base cost; a gold skill costs its white version plus its own.
+_Avoid_: points (alone)
+
+**Hint level**:
+How far a skill's cost is discounted for an Ace, from 1 to 5 (10%, 20%, 30%, 35%, 40% off). Procced sparks for the skill raise it by their stars, up to 5; a hinted skill off the card list also becomes buyable. Each of a gold skill's two costs takes the discount.
+_Avoid_: hint (alone), discount level
+
+**Skill point budget**:
+The total SP the Ace has to spend, one setting for every version (default about 2700, a typical Grand Concert run). The Ace then buys the affordable set with the most lengths gained per SP. Unset means unlimited: it buys every Buyable skill, as before.
+
+**Whole-Ace run**:
+One Monte Carlo sample of an Ace hero with a given pair of parents: the sparks that procced are rolled (aptitude upgrades, inherited skills), the full trained Ace is built from them and raced paired against the version's untrained base (its own aptitudes, no skills). The Ace score is the mean lengths gained over these runs, so overlapping skills and aptitude and skill combinations count once.
+_Avoid_: sample (alone; the sim also samples runs for a single skill)
+
 **Sim runner**:
 The uma every simulation runs against, chosen by the user, with its running style and Target stats. It is a measuring stick, not a recommendation: the Ace is picked separately.
 _Avoid_: ace (for this selector)
