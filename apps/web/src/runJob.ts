@@ -6,7 +6,7 @@ import { aceRowsOf, recommendArgs, type JobProgress, type JobRequest } from './j
 export function runJob(req: JobRequest, onProgress: (p: JobProgress) => void): Recommendation | AceSkillRow[] | AceVeteranScore | SimResult {
 	if (req.kind === 'recommend') return recommend(...recommendArgs(req.job, onProgress));
 	if (req.kind === 'aceRows') return aceRowsOf(recommend(...recommendArgs(req.job, onProgress)));
-	if (req.kind === 'skill') return simulateRequest(req.task.request, req.task.scenario);
+	if (req.kind === 'sim') return simulateRequest(req.task.request, req.task.scenario);
 	const { veteran, ...options } = req.task;
 	return scoreVeteran(veteran, options);
 }

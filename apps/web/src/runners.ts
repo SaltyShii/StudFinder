@@ -15,7 +15,7 @@ export const veteranRunner: VeteranRunner = poolRunner<Parameters<VeteranRunner>
 // The skill sims and Whole-Ace runs of a Recommend run's batches are independent too. The pool is started here, not in recommend.worker.ts, which asks for it with a call.
 type Batch = Pick<SimBatch, 'scenario' | 'requests'>;
 const skillPool = poolRunner<Batch, JobRequest, SimResult, SimResult[]>(
-	make, POOL_WORKERS, (batch) => batch.requests.map((request): JobRequest => ({ kind: 'skill', task: { request, scenario: batch.scenario } })), (parts) => parts,
+	make, POOL_WORKERS, (batch) => batch.requests.map((request): JobRequest => ({ kind: 'sim', task: { request, scenario: batch.scenario } })), (parts) => parts,
 );
 const run = workerRunner<JobRequest, unknown, JobProgress>(
 	() => new Worker(new URL('./recommend.worker.ts', import.meta.url), { type: 'module' }),

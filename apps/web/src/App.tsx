@@ -204,7 +204,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={!!course && isLeftHanded(course)} chips={chips} stale={stale} />}
 					{aceChart.loading && <p class="panel muted" data-testid="ace-chart-loading">Simulating the skills of {nameOf(data, acePick!.cardId)}...</p>}
 					{aceChart.error && <p class="panel" role="alert">Could not build the skills of {nameOf(data, acePick!.cardId)}: {aceChart.error}</p>}
-					{acePick && !aceChart.loading && <SkillPanel rows={aceChart.rows} track={result!.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} />}
+					{acePick && !aceChart.loading && <SkillPanel rows={aceChart.rows} track={result!.track} data={data} tab={skillTab} onTab={setSkillTab} stale={stale} aceScore />}
 					{showLoops && <>
 					<div class="picks">
 						{ownedVersions.length ? <>

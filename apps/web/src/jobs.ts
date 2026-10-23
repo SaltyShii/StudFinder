@@ -46,7 +46,7 @@ export type VeteranRunner = JobRunner<VeteranJob, AceVeteranScore[], VeteranProg
 export type AceRowsRunner = JobRunner<RecommendJob, AceSkillRow[], RecommendProgress>;
 
 /** What crosses to the worker: one entry file serves every job, told apart by `kind`. */
-export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'aceRows'; job: RecommendJob } | { kind: 'veteran'; task: VeteranTask } | { kind: 'skill'; task: SkillTask };
+export type JobRequest = { kind: 'recommend'; job: RecommendJob } | { kind: 'aceRows'; job: RecommendJob } | { kind: 'veteran'; task: VeteranTask } | { kind: 'sim'; task: SkillTask };
 
 /** One request (a skill, or the Whole-Ace runs of a pair) of a Recommend run's batch, simulated by a pool worker. */
 export interface SkillTask {
