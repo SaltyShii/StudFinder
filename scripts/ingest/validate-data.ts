@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const REQUIRED: Record<string, string[]> = {
-	'game-data.json': ['charas', 'cards', 'skills', 'factors', 'saddles', 'tracks', 'courses', 'races', 'careerGoals'],
+	'game-data.json': ['charas', 'cards', 'skills', 'factors', 'saddles', 'tracks', 'courses', 'races', 'careerGoals', 'supportCards'],
 	'race-extras.json': ['championsMeetings', 'courses'],
 };
 // A drop beyond this fraction of the committed count means the source changed shape, not content.
@@ -44,6 +44,29 @@ function skillCostErrors(skills: unknown): string[] {
 	return errors;
 }
 
+const CARD_TYPES = ['speed', 'stamina', 'power', 'guts', 'wit', 'friend'];
+// Limit break levels 0 to 4: one Hint Frequency and one Hint level bonus each.
+const LIMIT_BREAKS = 5;
+
+function nonNegInts(v: unknown, length?: number): boolean {
+	return Array.isArray(v) && (length === undefined || v.length === length) && v.every((n) => Number.isInteger(n) && (n as number) >= 0);
+}
+
+// An empty pool or missing frequency would make a card silently hint nothing in the Ace's roll.
+function supportCardErrors(cards: unknown): string[] {
+	if (!cards || typeof cards !== 'object') return [];
+	const errors: string[] = [];
+	for (const [key, v] of Object.entries(cards)) {
+		const c = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+		const bad = (field: string) => errors.push(`game-data.json: support card ${key}: ${field} missing or malformed`);
+		if (!CARD_TYPES.includes(c.type as string)) bad('type');
+		if (!nonNegInts(c.pool) || (c.pool as unknown[]).length === 0) bad('pool');
+		if (!nonNegInts(c.hintFrequency, LIMIT_BREAKS)) bad('hintFrequency');
+		if (!nonNegInts(c.hintLevelBonus, LIMIT_BREAKS)) bad('hintLevelBonus');
+	}
+	return errors;
+}
+
 export function validateData(candidateDir: string, committedDir: string): string[] {
 	const errors: string[] = [];
 	for (const [file, tables] of Object.entries(REQUIRED)) {
@@ -63,7 +86,10 @@ export function validateData(candidateDir: string, committedDir: string): string
 			const was = old ? count(old[t]) : 0;
 			if (was > 0 && n < was * (1 - MAX_DROP)) errors.push(`${file}: ${t} dropped ${was} -> ${n}`);
 		}
-		if (file === 'game-data.json') errors.push(...skillCostErrors(cand.skills));
+		if (file === 'game-data.json') {
+			errors.push(...skillCostErrors(cand.skills));
+			errors.push(...supportCardErrors(cand.supportCards));
+		}
 	}
 	return errors;
 }

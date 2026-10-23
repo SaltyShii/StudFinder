@@ -6,12 +6,14 @@ import { validateData } from './validate-data';
 
 type Tables = Record<string, number>;
 
+const card = { id: 1, type: 'speed', rarity: 3, pool: [200012, 200022], hintFrequency: [10, 15, 20, 20, 30], hintLevelBonus: [0, 1, 1, 1, 2] };
+
 // Synthetic fixtures: each table is an array of n placeholders.
 function dir(game: Tables | null, extras: Tables | null, meta = true): string {
 	const d = mkdtempSync(join(tmpdir(), 'val-'));
 	const fill = (t: Tables) => ({
 		...(meta ? { meta: { resourceVersion: 'x' } } : {}),
-		...Object.fromEntries(Object.entries(t).map(([k, n]) => [k, Array.from({ length: n }, (_, i) => i)])),
+		...Object.fromEntries(Object.entries(t).map(([k, n]) => [k, Array.from({ length: n }, (_, i) => (k === 'supportCards' ? { ...card, id: i } : i))])),
 	});
 	if (game) writeFileSync(join(d, 'game-data.json'), JSON.stringify(fill(game)));
 	if (extras) writeFileSync(join(d, 'race-extras.json'), JSON.stringify(fill(extras)));
@@ -27,7 +29,7 @@ function skillsDir(skills: Record<string, unknown>): string {
 	return d;
 }
 
-const game = { charas: 10, cards: 10, skills: 10, factors: 10, saddles: 10, tracks: 10, courses: 10, races: 10, careerGoals: 10 };
+const game = { charas: 10, cards: 10, skills: 10, factors: 10, saddles: 10, tracks: 10, courses: 10, races: 10, careerGoals: 10, supportCards: 10 };
 const extras = { championsMeetings: 10, courses: 10 };
 
 describe('validateData', () => {
@@ -91,5 +93,47 @@ describe('validateData', () => {
 			expect(run({ ...ok, 2: { ...gold, replacesId: 3 } })).toMatch(/skill 2: replacesId/);
 			expect(run({ ...ok, 2: { ...gold, replacesId: 99 } })).toMatch(/skill 2: replacesId/);
 		});
+	});
+
+	describe('support cards', () => {
+		const ok = { 1: card, 2: { ...card, id: 2, type: 'friend', pool: [200032] } };
+		function cardsDir(cards: Record<string, unknown>): string {
+			const d = dir(game, extras);
+			const file = join(d, 'game-data.json');
+			writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), supportCards: cards }));
+			return d;
+		}
+		const run = (cards: Record<string, unknown>) => validateData(cardsDir(cards), cardsDir(ok)).join('\n');
+
+		it('accepts cards with a type, pool and a value per limit break level', () => {
+			expect(run(ok)).toBe('');
+		});
+
+		it('rejects an empty or malformed pool', () => {
+			expect(run({ ...ok, 1: { ...card, pool: [] } })).toMatch(/support card 1: pool/);
+			expect(run({ ...ok, 1: { ...card, pool: undefined } })).toMatch(/support card 1: pool/);
+			expect(run({ ...ok, 1: { ...card, pool: [200012, 'x'] } })).toMatch(/support card 1: pool/);
+		});
+
+		it('rejects missing or malformed Hint Frequency', () => {
+			expect(run({ ...ok, 1: { ...card, hintFrequency: undefined } })).toMatch(/support card 1: hintFrequency/);
+			expect(run({ ...ok, 1: { ...card, hintFrequency: [10, 15, 20] } })).toMatch(/support card 1: hintFrequency/);
+			expect(run({ ...ok, 1: { ...card, hintFrequency: [10, 15, 20, 20, -1] } })).toMatch(/support card 1: hintFrequency/);
+			expect(run({ ...ok, 1: { ...card, hintFrequency: [10, 15, 20, 20, 'a'] } })).toMatch(/support card 1: hintFrequency/);
+		});
+
+		it('rejects missing or malformed Hint level bonus', () => {
+			expect(run({ ...ok, 1: { ...card, hintLevelBonus: undefined } })).toMatch(/support card 1: hintLevelBonus/);
+			expect(run({ ...ok, 1: { ...card, hintLevelBonus: [0, 1, 1, 1, 1.5] } })).toMatch(/support card 1: hintLevelBonus/);
+		});
+
+		it('rejects an unknown type', () => {
+			expect(run({ ...ok, 1: { ...card, type: 'group' } })).toMatch(/support card 1: type/);
+		});
+	});
+
+	it('the committed game data holds well-formed support cards', () => {
+		const dataDir = join(__dirname, '../../apps/web/public/data');
+		expect(validateData(dataDir, dataDir)).toEqual([]);
 	});
 });
