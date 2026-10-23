@@ -64,7 +64,7 @@ How far a skill's cost is discounted for an Ace, from 1 to 5 (10%, 20%, 30%, 35%
 _Avoid_: hint (alone), discount level
 
 **Skill point budget**:
-The total SP the Ace has to spend, one setting for every version (default about 2700, a typical Grand Concert run). The Ace then buys the affordable set with the most lengths gained per SP. Unset means unlimited: it buys every Buyable skill, as before.
+The total SP an Ace hero has to spend, one setting for every version (starts at about 2700, a typical Grand Concert run; the user can clear it). In each Whole-Ace run the Ace buys the affordable set with the most lengths gained per SP, with that run's Hint levels; a gold skill replaces its white version, never both. Cleared means unlimited: it buys every Buyable skill. Ace veterans and the loops ignore it.
 
 **Whole-Ace run**:
 One Monte Carlo sample of an Ace hero with a given pair of parents: the sparks that procced are rolled (aptitude upgrades, inherited skills), the full trained Ace is built from them and raced paired against the version's untrained base (its own aptitudes, no skills). The Ace score is the mean lengths gained over these runs, so overlapping skills and aptitude and skill combinations count once.
