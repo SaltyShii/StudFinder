@@ -7,7 +7,7 @@ import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { wholeAceRuns, wholeAceSeeds, type WholeAceInput, type WholeAceRuns } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
-import type { AceBudget, SkillCost } from './skillBudget';
+import { aceBudget, type AceBudget } from './skillBudget';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { GRADE_A } from '@stud-finder/lineage/src/inheritance';
@@ -400,32 +400,24 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		};
 		const shortlist = bestPairs(pairs, rank, bound, extraOf, partial, SHORTLIST);
 		// Whole-Ace runs choose among the shortlist; the additive score only decides who is on it. A pass still waiting for simulations is thrown away, so it skips the runs.
-		const buyable = skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface });
+		const meet = (ids: string[]) => skillsAceCanMeet(ids, { style, category, surface: course.surface });
+		const buyable = meet(v.learnableSkillIds ?? []);
 		// With a budget the run buys within it: it needs the cost and the simulated value (lengths gained) of every skill it may buy, the card list's and the pair's hinted ones.
 		const budgets = new Map<ScoredPair, AceBudget | undefined>();
 		const budgetOf = (p: ScoredPair): AceBudget | undefined => {
 			if (!skillPoints) return undefined;
-			if (!budgets.has(p)) {
-				const lineage = skillsAceCanMeet(lineageIdsOf(p.pair.flatMap((c) => c.horses)), { style, category, surface: course.surface });
-				const ids = [...new Set([...buyable, ...lineage])].filter((id) => id in skillPoints.costs);
-				const costs: Record<string, SkillCost> = {};
-				for (const id of ids) {
-					const c = skillPoints.costs[id];
-					costs[id] = c;
-					if (c.replacesId && c.replacesId in skillPoints.costs) costs[c.replacesId] = skillPoints.costs[c.replacesId];
-				}
-				budgets.set(p, { budget: skillPoints.budget, costs, values: Object.fromEntries(ids.map((id) => [id, detailerOf(h)(id).value])) });
-			}
-			return budgets.get(p);
+			let b = budgets.get(p);
+			if (!b) budgets.set(p, (b = aceBudget(skillPoints, [...new Set([...buyable, ...meet(lineageIdsOf(p.pair.flatMap((c) => c.horses)))])], (id) => detailerOf(h)(id).value)));
+			return b;
 		};
-		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: skillsAceCanMeet(uniqueIdsOf(p.pair.flatMap((c) => c.horses)), { style, category, surface: course.surface }), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}) });
+		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: meet(uniqueIdsOf(p.pair.flatMap((c) => c.horses))), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}) });
 		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}`;
 		// The values are screened or full, so the same pair reruns once its values change.
 		const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.budget}|${Object.values(b.values).join()}` : ''; };
 		const fullKey = (p: ScoredPair) => `full|${keyOf(p)}${budgetKey(p)}`;
 		const screenKey = (p: ScoredPair) => `screen|${keyOf(p)}${budgetKey(p)}`;
 		// Asked before the runs: a pass that still waits for those values is thrown away, so it skips them.
-		if (skillPoints && !partial()) for (const p of shortlist) budgetOf(p);
+		if (skillPoints && !partial()) for (const p of shortlist) budgetOf(p); // building the budget is what asks for the values
 		let win = shortlist[0];
 		let score = win.score;
 		let refine: AceRefine | undefined;
@@ -457,7 +449,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, skillsAceCanMeet(v.otherSkillIds ?? [], { style, category, surface: course.surface }), skillPoints ? runs.boughtOf(scoreKey) : undefined) });
+		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints ? runs.boughtOf(scoreKey) : undefined) });
 	}
 	return out;
 }

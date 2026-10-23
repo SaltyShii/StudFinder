@@ -14,6 +14,21 @@ export interface AceBudget {
 	values: Record<string, number>;
 }
 
+/**
+ * The budget a Whole-Ace request carries for the skills it may buy: the costs of those with a price (plus the white version a gold skill replaces, which the bundle needs) and their values.
+ * Skills the game data gives no cost are left out, so `buySet` never buys them.
+ */
+export function aceBudget({ budget, costs: priced }: { budget: number; costs: Record<string, SkillCost> }, skillIds: string[], valueOf: (id: string) => number): AceBudget {
+	const ids = skillIds.filter((id) => id in priced);
+	const costs: Record<string, SkillCost> = {};
+	for (const id of ids) {
+		const c = priced[id];
+		costs[id] = c;
+		if (c.replacesId && c.replacesId in priced) costs[c.replacesId] = priced[c.replacesId];
+	}
+	return { budget, costs, values: Object.fromEntries(ids.map((id) => [id, valueOf(id)])) };
+}
+
 /** Percent off the base cost per Hint level, 0 to 5. */
 const HINT_OFF = [0, 10, 20, 30, 35, 40];
 export const MAX_HINT_LEVEL = HINT_OFF.length - 1;
