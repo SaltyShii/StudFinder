@@ -5,7 +5,7 @@ import { gainOverId, skillDetail, unsimulated } from './skillDetail';
 import type { Scenario } from './pairedRace';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
-import { wholeAceMean, wholeAceSeeds } from './wholeAce';
+import { wholeAceMean, wholeAceSeeds, type WholeAceInput } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
@@ -108,15 +108,38 @@ interface AceRuns {
 	screenSeeds: number[];
 	/** Winners (version|parents) already re-run at full samples. */
 	full: Set<string>;
-	memo(key: string, compute: () => number, screen?: boolean): number;
+	/** The mean of a run already simulated; otherwise a stand-in, and the run is noted for the next batch. */
+	memo(key: string, input: WholeAceRequest): number;
+}
+
+/** A Whole-Ace run set: everything but the scenario, which the batch shares. */
+export type WholeAceRequest = Omit<WholeAceInput, 'scenario'>;
+
+/** A shown Ace still scored from screened runs: its winning pair rerun at full samples. */
+interface AceRefine {
+	pairKey: string;
+	fullKey: string;
+	input: WholeAceRequest;
 }
 
 /** One skill to simulate at full samples for one runner. */
-export interface SimRequest {
+export interface SkillRequest {
+	kind: 'skill';
 	horse: HorseDesc;
 	id: string;
 	samples: number;
 }
+
+/** The Whole-Ace runs of one pair (their mean over the request's seeds), simulated as one unit. */
+export interface WholeAceRunsRequest {
+	kind: 'wholeAce';
+	input: WholeAceRequest;
+}
+
+export type SimRequest = SkillRequest | WholeAceRunsRequest;
+
+/** What a request answers with: a skill detail, or a Whole-Ace mean. */
+export type SimResult = SkillDetail | number;
 
 /** Skills to simulate, each for one runner. They are independent, so a caller may simulate them in any order, in parallel. */
 export interface SimBatch {
@@ -127,18 +150,23 @@ export interface SimBatch {
 	progress(done: number): void;
 }
 
-export function simulateSkill({ horse, id, samples }: SimRequest, scenario: SimBatch['scenario']): SkillDetail {
+export function simulateSkill({ horse, id, samples }: SkillRequest, scenario: SimBatch['scenario']): SkillDetail {
 	return skillDetail(id, { ...scenario, horse, samples });
 }
 
+/** Simulates one request of either kind. */
+export function simulateRequest(request: SimRequest, scenario: SimBatch['scenario']): SimResult {
+	return request.kind === 'skill' ? simulateSkill(request, scenario) : wholeAceMean({ ...request.input, scenario });
+}
+
 /** Simulates a batch right here, one skill after the other. */
-function simulateBatch(batch: SimBatch): SkillDetail[] {
-	return batch.requests.map((r, i) => { const d = simulateSkill(r, batch.scenario); batch.progress(i + 1); return d; });
+function simulateBatch(batch: SimBatch): SimResult[] {
+	return batch.requests.map((r, i) => { const d = simulateRequest(r, batch.scenario); batch.progress(i + 1); return d; });
 }
 
 export function recommend(...args: Parameters<typeof recommendSteps>): Recommendation {
 	const steps = recommendSteps(...args);
-	let details: SkillDetail[] = []; // the first next() ignores its argument
+	let details: SimResult[] = []; // the first next() ignores its argument
 	for (;;) {
 		const step = steps.next(details);
 		if (step.done) return step.value;
@@ -147,9 +175,9 @@ export function recommend(...args: Parameters<typeof recommendSteps>): Recommend
 }
 
 /** `recommend` with its simulations handed to `runBatch`, so a pool can run them in parallel. Same result. */
-export async function recommendAsync(runBatch: (batch: SimBatch) => Promise<SkillDetail[]>, ...args: Parameters<typeof recommendSteps>): Promise<Recommendation> {
+export async function recommendAsync(runBatch: (batch: SimBatch) => Promise<SimResult[]>, ...args: Parameters<typeof recommendSteps>): Promise<Recommendation> {
 	const steps = recommendSteps(...args);
-	let details: SkillDetail[] = [];
+	let details: SimResult[] = [];
 	for (;;) {
 		const step = steps.next(details);
 		if (step.done) return step.value;
@@ -157,7 +185,7 @@ export async function recommendAsync(runBatch: (batch: SimBatch) => Promise<Skil
 	}
 }
 
-function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SkillDetail[]> {
+function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SimResult[]> {
 	// One cache per distinct runner, so Owned versions that run identically share simulations.
 	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
 	let simulated = 0;
@@ -195,21 +223,22 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	let extras: SkillDetail[] = [];
 	// One seed list for every version and pair.
 	const aceMemo = new Map<string, number>();
+	// Whole-Ace runs a pass asked for that no simulation has answered yet.
+	const aceMissing = new Map<string, WholeAceRequest>();
 	const aceRuns: AceRuns = {
 		seeds: wholeAceSeeds(seed, samples),
 		screenSeeds: wholeAceSeeds(seed, Math.min(samples, SCREEN_SAMPLES)),
 		full: new Set(),
-		memo: (key, compute, screen) => {
-			let m = aceMemo.get(key);
-			if (m === undefined) {
-				aceMemo.set(key, (m = compute()));
-				if (screen) onProgress?.({ phase: 'screen', done: ++simulated });
-			}
-			return m;
+		memo: (key, input) => {
+			const m = aceMemo.get(key);
+			if (m !== undefined) return m;
+			// Like a skill: the pass is run again once the batch is in, so the stand-in reaches no result.
+			aceMissing.set(key, input);
+			return 0;
 		},
 	};
 	// Shown Aces still scored from screened runs after the last pass.
-	let aceTodo: (() => number)[] = [];
+	let aceTodo: AceRefine[] = [];
 	const track = trackOverview({ ...cm, horse, seed });
 	const pass = (): Recommendation => {
 		const detailFor = detailerOf(horse);
@@ -236,15 +265,24 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		return { aceSlots, sideSlots, coreSlots, ace: rankAce(candidateList.candidates, TOP, horse, detailOf), core: tierList ? coreLoopPicks(coreCandidates, tierList, TOP, horse.skills, coreV?.aptitudes.dirt) : [], side: sideLoopPicks(candidateList.candidates, detailOf, TOP, horse.skills, mustHaves), skills: [...seen.values()].sort((a, b) => b.value - a.value), track };
 	};
 	// Runs the ranking until it asks for nothing new, simulating what each run asked for as one batch.
-	function* settle(): Generator<SimBatch, Recommendation, SkillDetail[]> {
+	function* settle(): Generator<SimBatch, Recommendation, SimResult[]> {
 		for (;;) {
 			missing.clear();
+			aceMissing.clear();
 			const rec = pass();
-			if (!missing.size) return rec;
-			const asks = [...missing].flatMap(([key, wanted]) => [...wanted].map(([id, n]) => ({ key, id, n })));
-			const details = yield { scenario: { ...cm, seed }, requests: asks.map(({ key, id, n }) => ({ horse: sims.get(key)!.horse, id, samples: n })), progress: (done) => onProgress?.({ phase: 'screen', done: simulated + done }) };
-			asks.forEach(({ key, id, n }, i) => sims.get(key)!.cache.set(id, { ...details[i], screened: n < samples, src: key }));
-			simulated += asks.length;
+			if (!missing.size && !aceMissing.size) return rec;
+			if (missing.size) {
+				// Skills first: until they are in, the shortlists may change, so Whole-Ace runs asked meanwhile could be wasted.
+				const asks = [...missing].flatMap(([key, wanted]) => [...wanted].map(([id, n]) => ({ key, id, n })));
+				const details = (yield { scenario: { ...cm, seed }, requests: asks.map(({ key, id, n }): SimRequest => ({ kind: 'skill', horse: sims.get(key)!.horse, id, samples: n })), progress: (done) => onProgress?.({ phase: 'screen', done: simulated + done }) }) as SimResult[] as SkillDetail[];
+				asks.forEach(({ key, id, n }, i) => sims.get(key)!.cache.set(id, { ...details[i], screened: n < samples, src: key }));
+				simulated += asks.length;
+			} else {
+				const asks = [...aceMissing];
+				const means = (yield { scenario: { ...cm, seed }, requests: asks.map(([, input]): SimRequest => ({ kind: 'wholeAce', input })), progress: (done) => onProgress?.({ phase: 'screen', done: simulated + done }) }) as SimResult[] as number[];
+				asks.forEach(([key], i) => aceMemo.set(key, means[i]));
+				simulated += asks.length;
+			}
 		}
 	}
 	// Rank on screened values, then re-simulate the skills the picks show at full samples and rank again from the cache, until every shown skill is full.
@@ -253,12 +291,15 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const todo = new Map<string, { key: string; id: string }>();
 		for (const d of [...shownDetails(rec), ...extras]) if (d.screened && d.src) todo.set(`${d.src}|${d.skillId}`, { key: d.src, id: d.skillId });
 		if (!todo.size && !aceTodo.length) return rec;
-		aceTodo.forEach((refine, i) => { refine(); onProgress?.({ phase: 'refine', done: simulated + i + 1, total: aceTodo.length }); });
 		const entries = [...todo.values()];
-		if (!entries.length) { rec = yield* settle(); continue; }
-		const details = yield { scenario: { ...cm, seed }, requests: entries.map(({ key, id }) => ({ horse: sims.get(key)!.horse, id, samples })), progress: (done) => onProgress?.({ phase: 'refine', done: simulated + done, total: entries.length }) };
-		entries.forEach(({ key, id }, i) => sims.get(key)!.cache.set(id, { ...details[i], screened: false, src: key }));
-		simulated += entries.length;
+		// The shown Aces' winners at full samples, once each, beside the skills in one batch.
+		const aceAsks = [...new Map(aceTodo.filter((r) => !aceMemo.has(r.fullKey)).map((r) => [r.fullKey, r.input])).entries()];
+		const total = entries.length + aceAsks.length;
+		const results = yield { scenario: { ...cm, seed }, requests: [...entries.map(({ key, id }): SimRequest => ({ kind: 'skill', horse: sims.get(key)!.horse, id, samples })), ...aceAsks.map(([, input]): SimRequest => ({ kind: 'wholeAce', input }))], progress: (done) => onProgress?.({ phase: 'refine', done: simulated + done, total }) };
+		entries.forEach(({ key, id }, i) => sims.get(key)!.cache.set(id, { ...(results[i] as SkillDetail), screened: false, src: key }));
+		aceAsks.forEach(([key], i) => aceMemo.set(key, results[entries.length + i] as number));
+		for (const r of aceTodo) aceRuns.full.add(r.pairKey);
+		simulated += total;
 		rec = yield* settle();
 	}
 }
@@ -270,7 +311,7 @@ function shownDetails(r: Recommendation): SkillDetail[] {
 }
 
 /** A version's best Ace pick; its chart rows are built on demand (the learnable pool is simulated skill by skill). */
-interface AceCandidate { v: OwnedVersion; /** Set while the pick is scored from screened Whole-Ace runs: reruns the winner at full samples, returns its mean. */ refine?: () => number; pick: AcePick; rows: () => AceSkillRow[]; /** Some pair of parents can lift the distance aptitude to A (or it starts there). */ reachable: boolean }
+interface AceCandidate { v: OwnedVersion; /** Set while the pick is scored from screened Whole-Ace runs: the winner to rerun at full samples. */ refine?: AceRefine; pick: AcePick; rows: () => AceSkillRow[]; /** Some pair of parents can lift the distance aptitude to A (or it starts there). */ reachable: boolean }
 
 /** The Ace at one pair of distance and surface grades. */
 interface Cell { key: string; chance: number; /** With the unique skill. */ h: HorseDesc; /** Without it: the baseline skills are measured on. */ bare: HorseDesc }
@@ -353,25 +394,25 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const shortlist = bestPairs(pairs, rank, bound, extraOf, partial, SHORTLIST);
 		// Whole-Ace runs choose among the shortlist; the additive score only decides who is on it. A pass still waiting for simulations is thrown away, so it skips the runs.
 		const buyable = skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface });
-		const meanAt = (p: ScoredPair, seeds: number[]) => wholeAceMean({ aptitudes: v.aptitudes, style, scenario, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: p.pair.flatMap((c) => c.horses), seeds });
+		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: p.pair.flatMap((c) => c.horses), seeds });
 		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}`;
 		let win = shortlist[0];
 		let score = win.score;
-		let refine: (() => number) | undefined;
+		let refine: AceRefine | undefined;
 		if (!partial()) {
 			if (shortlist.length === 1) {
 				// Nothing to choose: no screening, straight to full samples.
-				score = runs.memo(`full|${keyOf(win)}`, () => meanAt(win, runs.seeds));
+				score = runs.memo(`full|${keyOf(win)}`, requestOf(win, runs.seeds));
 			} else {
 				let top = -Infinity;
 				for (const p of shortlist) {
-					const m = runs.memo(`screen|${keyOf(p)}`, () => meanAt(p, runs.screenSeeds), true);
+					const m = runs.memo(`screen|${keyOf(p)}`, requestOf(p, runs.screenSeeds));
 					if (m > top) { top = m; win = p; }
 				}
 				const w = win;
-				const fullMean = () => runs.memo(`full|${keyOf(w)}`, () => meanAt(w, runs.seeds));
-				if (runs.full.has(keyOf(w))) score = fullMean();
-				else { score = top; refine = () => { const m = fullMean(); runs.full.add(keyOf(w)); return m; }; }
+				const full = requestOf(w, runs.seeds);
+				if (runs.full.has(keyOf(w))) score = runs.memo(`full|${keyOf(w)}`, full);
+				else { score = top; refine = { pairKey: keyOf(w), fullKey: `full|${keyOf(w)}`, input: full }; }
 			}
 		}
 		const winCells = cellsOf(win.pair);

@@ -1,7 +1,8 @@
 // Timing loop for recommend() on a synthetic roster (seeded, no personal data). Run: npx vite-node packages/scoring/bench/recommend.ts [versions] [candidates] [samples]
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { skillDetail } from '../src/skillDetail';
-import { recommend, type Candidate } from '../src/recommend';
+import { createHash } from 'node:crypto';
+import { recommend, recommendAsync, simulateRequest, type Candidate } from '../src/recommend';
 
 const [versions = 3, perVersion = 30, samples = 100] = process.argv.slice(2).map(Number);
 let s = 12345;
@@ -15,6 +16,12 @@ const horse = () => ({ affinity: 20 + Math.floor(rnd() * 60), pinkStars: rnd() <
 const cand = (i: number): Candidate => ({ id: String(i), name: `c${i}`, charaId: i, horses: [horse(), horse(), horse()] });
 const apt = { turf: 7, dirt: 5, short: 6, mile: 7, middle: 7, long: 6, nige: 3, senko: 7, sashi: 6, oikomi: 4 };
 const owned = Array.from({ length: versions }, (_, v) => ({ cardId: v + 1, aptitudes: apt, candidates: Array.from({ length: perVersion }, (_, i) => cand(v * 1000 + i)) }));
-const t = performance.now();
-recommend({ candidates: owned[0].candidates }, { courseId: 10101, runner, samples, seed: 1 }, undefined, owned, []);
-console.log(`${versions} versions x ${perVersion} candidates, ${samples} samples: ${((performance.now() - t) / 1000).toFixed(1)}s`);
+const args = [{ candidates: owned[0].candidates }, { courseId: 10101, runner, samples, seed: 1 }, undefined, owned, []] satisfies Parameters<typeof recommend>;
+const hash = (r: unknown) => createHash('sha1').update(JSON.stringify(r)).digest('hex').slice(0, 12);
+let t = performance.now();
+const sync = recommend(...args);
+console.log(`${versions} versions x ${perVersion} candidates, ${samples} samples: ${((performance.now() - t) / 1000).toFixed(1)}s sync, hash ${hash(sync)}`);
+// The batches a page would hand to its worker pool, simulated here one after the other: the result must be the sync one.
+t = performance.now();
+const viaBatches = await recommendAsync(async (batch) => batch.requests.map((r) => simulateRequest(r, batch.scenario)), ...args);
+console.log(`recommendAsync (batches run serially): ${((performance.now() - t) / 1000).toFixed(1)}s, hash ${hash(viaBatches)}`);
