@@ -79,7 +79,7 @@ The 6 support cards an Ace hero runs with: 5 of the player's own and exactly 1 B
 _Avoid_: deck (alone), team
 
 **Type mix**:
-How many support cards of each type the support deck holds across all 6 slots, borrowed card included (for example 3-2-1: 3 speed, 2 wit, 1 friend). Set per Champions Meeting, defaulting by distance, and the player can edit it to any mix. If the shortlist cannot fill it, the gaps are filled from other shortlisted cards and a note says so.
+How many support cards of each type the support deck holds across all 6 slots, borrowed card included (for example 3-2-1: 3 speed, 2 wit, 1 friend).  The catalogue has no friend cards (they carry no skill hints), so a friend slot no shortlisted card fills is a hintless filler: it counts toward the mix, gives no hints and needs no card. Set per Champions Meeting, defaulting by distance, and the player can edit it to any mix. If the shortlist cannot fill it, the gaps are filled from other shortlisted cards and a note says so.
 
 **Borrowed support card**:
 The one support card the player takes from a friend's list; the deck always has exactly 1. The player shortlists the friend cards they would consider, separately from their own.
