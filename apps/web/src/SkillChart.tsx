@@ -55,7 +55,7 @@ export function SkillChart({ rows, track, data, tab, onTab, stale }: Props) {
 		return (
 			<li data-testid="ace-skill-row" class={r.assumesPosition ? 'muted' : undefined} data-must-have={r.mustHave || undefined}>
 				<i class="rarity-dot" data-rarity={rarityOf(skill?.rarity)} title={r.other ? 'Other buyable skill: the Ace can buy it with skill points, but no parent carries it' : r.own ? 'Own skill: the Ace has it or can buy it with skill points' : `${(r.inherit * 100).toFixed(0)}% inherited`} />
-				<span class="skill-name" title={name}>{name}{r.assumesPosition && ' *'}{r.bought != null && <small class="skill-bought" data-testid="skill-bought">bought in {(r.bought * 100).toFixed(0)}% of runs</small>}</span>
+				<span class="skill-name" title={name}>{name}{r.assumesPosition && ' *'}{r.bought != null && <small class="skill-bought" data-testid="skill-bought">bought in {(r.bought * 100).toFixed(0)}% of runs</small>}{r.sources && <small class="skill-source" data-testid="skill-source">hinted by {r.sources.map((c) => `${c.name} (${c.type})`).join(', ')}</small>}</span>
 				<span class="skill-lengths num">{`${r.lengths.avg < 0 ? '-' : '+'}${Math.abs(r.lengths.avg).toFixed(2)} L`}</span>
 				<span class="skill-proc num">{r.proc.toFixed(0)}%</span>
 				<div class="bar-area" role="img" aria-label={`Activation spots of ${name}`}>

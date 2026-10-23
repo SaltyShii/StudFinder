@@ -16,6 +16,13 @@ function chartText(rows: AceSkillRow[]): string {
 	return root.querySelector('[data-testid=ace-skill-row] .skill-name')?.textContent ?? '';
 }
 
+it('names the source cards of a hinted skill with their type, next to its bought share', () => {
+	const text = chartText([row({ bought: 0.5, sources: [{ cardId: 1, name: 'Kitasan Black', type: 'speed' }, { cardId: 2, name: 'Fine Motion', type: 'wit' }] })]);
+	expect(text).toContain('bought in 50% of runs');
+	expect(text).toContain('Kitasan Black (speed)');
+	expect(text).toContain('Fine Motion (wit)');
+});
+
 it('shows the bought share of a budgeted Buyable skill, and nothing for the others', () => {
 	expect(chartText([row({ bought: 0.85 })])).toContain('bought in 85% of runs');
 	expect(chartText([row({ bought: 1 })])).toContain('bought in 100% of runs');

@@ -70,6 +70,21 @@ _Avoid_: hint (alone), discount level
 **Skill point budget**:
 The total SP an Ace hero has to spend, one setting for every version (starts at about 2700, a typical Grand Concert run; the user can clear it). In each Whole-Ace run the Ace buys the affordable set with the most lengths gained per SP, with that run's Hint levels; a gold skill replaces its white version, never both. Cleared means unlimited: it buys every Buyable skill. Ace veterans and the loops ignore it.
 
+**Support card**:
+A card in the support deck that gives hints during a run, with a type (speed, stamina, power, guts, wit or friend), a pool of hint skills, a Hint Frequency and a limit break level. The player shortlists the ones they would consider running, from the full catalogue.
+_Avoid_: card (alone, that is a version), support (alone)
+
+**Support deck**:
+The 6 support cards an Ace hero runs with: 5 of the player's own and exactly 1 Borrowed support card. Chosen once per Ace hero, from the shortlists, as the one that fits the CM's Type mix and adds the most to the Ace's buy list. In each Whole-Ace run every deck card rolls its hints from its Hint Frequency; each hint raises one skill from its pool by 1 plus the card's Hint level bonus (capped at 5 together with sparks), and makes it buyable if off the card list.
+_Avoid_: deck (alone), team
+
+**Type mix**:
+How many support cards of each type the support deck holds across all 6 slots, borrowed card included (for example 3-2-1: 3 speed, 2 wit, 1 friend).  The catalogue has no friend cards (they carry no skill hints), so a friend slot no shortlisted card fills is a hintless filler: it counts toward the mix, gives no hints and needs no card. Set per Champions Meeting by the player, to any mix over the 6 slots. Only sprint starts with one (3 speed, 2 wit, 1 friend); for other distances it starts empty, which is no constraint. If the shortlist cannot fill it, the gaps are filled from other shortlisted cards and a note says so.
+
+**Borrowed support card**:
+The one support card the player takes from a friend's list; the deck always has exactly 1. The player shortlists the friend cards they would consider, separately from their own.
+_Avoid_: friend card (that is a support card type)
+
 **Whole-Ace run**:
 One Monte Carlo sample of an Ace hero with a given pair of parents: the sparks that procced are rolled (aptitude upgrades, inherited skills), the full trained Ace is built from them and raced paired against the version's untrained base (its own aptitudes, no skills). The Ace score is the mean lengths gained over these runs, so overlapping skills and aptitude and skill combinations count once.
 _Avoid_: sample (alone; the sim also samples runs for a single skill)

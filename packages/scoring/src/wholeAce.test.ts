@@ -34,7 +34,7 @@ describe('rollSparks', () => {
 		expect(rollSparks([horse({ affinity: 1e6, skills: [{ skillId: '10071', name: 'a', stars: 3 }] })], apt, 'turf', 1).hints).toEqual({ '10071': 5 });
 	});
 	test('no sparks change nothing', () => {
-		for (let seed = 0; seed < 10; seed++) expect(rollSparks([horse()], apt, 'turf', seed)).toEqual({ distance: 4, surface: 7, skillIds: [], hints: {}, unlocked: [] });
+		for (let seed = 0; seed < 10; seed++) expect(rollSparks([horse()], apt, 'turf', seed)).toEqual({ distance: 4, surface: 7, skillIds: [], hints: {}, unlocked: [], hinted: [] });
 	});
 	test('certain pink sparks lift a grade to S mid-run', () => {
 		const sure = [horse({ affinity: 1e6, pinkStars: 3, turfStars: 3 }), horse({ affinity: 1e6, pinkStars: 3, turfStars: 3 })];

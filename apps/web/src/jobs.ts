@@ -4,7 +4,7 @@ import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers'
 import { DEFAULT_FIT_CUTOFF, FIT_OFF, aceForCourse, categoryOf, defaultTargetStats, gradeLabel, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
-import type { AceSkillRow, CandidateList, CmPreset, SkillCost, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
+import type { AceSkillRow, CandidateList, CmPreset, SkillCost, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest, SupportInput } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
 import { buyableSkillIds, poolSkillIds, whiteUniqueIds } from '../../../packages/scoring/src/learnable';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
@@ -144,6 +144,8 @@ export interface PlanOptions {
 	assumptions?: SimAssumptions;
 	/** Skill points the Ace may spend; null or absent is unlimited. */
 	skillPointBudget?: number | null;
+	/** The Support cards the Ace may run with; absent when nothing is shortlisted (the ranking is then unchanged). */
+	support?: SupportInput;
 }
 
 /** What each purchasable skill costs, keyed by skill id as the scorer reads it; skills that cannot be bought are left out. */
@@ -157,7 +159,7 @@ export function skillCostsOf(skills: Iterable<Skill>): Record<string, SkillCost>
 }
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
-	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions, skillPointBudget } = options;
+	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions, skillPointBudget, support } = options;
 	// Manual choice wins; otherwise the best-ranked style for this Sim runner on the CM course.
 	const base = card ?? GENERIC_RUNNER;
 	const style: Style = styleChoice ?? (course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
@@ -165,7 +167,7 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions, ...(skillPointBudget != null ? { skillPoints: { budget: skillPointBudget, costs: skillCostsOf(data.skills.values()) } } : {}) }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions, ...(skillPointBudget != null ? { skillPoints: { budget: skillPointBudget, costs: skillCostsOf(data.skills.values()) } } : {}), ...(support ? { support } : {}) }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
 }
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */

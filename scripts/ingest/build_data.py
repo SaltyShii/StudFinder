@@ -22,6 +22,8 @@ from pathlib import Path
 TXT_CHARA_NAME = 6
 TXT_CARD_FULL = 4
 TXT_CARD_TITLE = 5
+TXT_SUPPORT_TITLE = 76
+TXT_SUPPORT_CHARA = 77
 TXT_RACE_NAME = 32
 TXT_TRACK_SHORT = 35
 TXT_SKILL_NAME = 47
@@ -29,11 +31,82 @@ TXT_SKILL_DESC = 48
 TXT_SADDLE_NAME = 111
 TXT_FACTOR_NAME = 147
 
+# support_card_data.command_id of a stat card; confirmed against known cards (Kitasan Black speed, Super Creek stamina, Vodka power, Special Week guts, Fine Motion wit).
+SUPPORT_COMMAND_TYPES = {101: "speed", 105: "stamina", 102: "power", 103: "guts", 106: "wit"}
+SUPPORT_FRIEND = 2  # support_card_type; 1 = stat card, 3 = group card (left out)
+# support_card_effect_table / support_card_unique_effect types
+EFFECT_HINT_LEVEL = 17
+EFFECT_HINT_FREQUENCY = 18
+EFFECT_LEVELS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+HINT_GAIN_SKILL = 0  # single_mode_hint_gain.hint_gain_type; 1 = stat or skill point reward
+
 RACE_GRADES = {100: "G1", 200: "G2", 300: "G3"}
 
 
 def texts(con: sqlite3.Connection, category: int) -> dict[int, str]:
     return {i: t for i, t in con.execute('select "index", text from text_data where category=?', (category,))}
+
+
+def effect_at(row: list[int], level: int) -> int:
+    """A card effect at a card level. The table lists values at some levels (-1 = none); between listed levels
+    the value is interpolated linearly (inferred from the repeated plateau values, not confirmed in game), rounded down.
+    Below the first listed level the effect is not unlocked yet."""
+    pts = [(lv, v) for lv, v in zip(EFFECT_LEVELS, row) if v >= 0]
+    if not pts or level < pts[0][0]:
+        return 0
+    for (l0, v0), (l1, v1) in zip(pts, pts[1:]):
+        if l0 <= level <= l1:
+            return v0 + (v1 - v0) * (level - l0) // (l1 - l0)
+    return pts[-1][1]
+
+
+def build_support_cards(q, titles: dict[int, str], names: dict[int, str]) -> dict:
+    """Every stat or friend support card that has a skill hint pool, with Hint Frequency and Hint level bonus per limit break level (0-4)."""
+    pools = defaultdict(list)
+    for card_id, skill_id in q(
+        "select support_card_id, hint_value_1 from single_mode_hint_gain where hint_gain_type = ? order by hint_group, id", (HINT_GAIN_SKILL,)
+    ):
+        if skill_id not in pools[card_id]:
+            pools[card_id].append(skill_id)
+    limits = {r[0]: r[1:] for r in q("select rarity, limit_0, limit_1, limit_2, limit_3, limit_4 from support_card_limit")}
+    effects = defaultdict(dict)
+    for table_id, etype, *row in q(
+        "select id, type, init, limit_lv5, limit_lv10, limit_lv15, limit_lv20, limit_lv25, limit_lv30, limit_lv35, limit_lv40, limit_lv45, limit_lv50"
+        " from support_card_effect_table where type in (?, ?)", (EFFECT_HINT_LEVEL, EFFECT_HINT_FREQUENCY)
+    ):
+        effects[table_id][etype] = row
+    # Unique effects add the same effect types from a card level on (value_0 / value_1 paired with type_0 / type_1).
+    unique = defaultdict(list)
+    for uid, lv, t0, v0, t1, v1 in q("select id, lv, type_0, value_0, type_1, value_1 from support_card_unique_effect"):
+        for etype, value in ((t0, v0), (t1, v1)):
+            if etype in (EFFECT_HINT_LEVEL, EFFECT_HINT_FREQUENCY):
+                unique[uid].append((etype, lv, value))
+    cards = {}
+    for cid, chara_id, rarity, table_id, unique_id, ctype, command_id in q(
+        "select id, chara_id, rarity, effect_table_id, unique_effect_id, support_card_type, command_id from support_card_data order by id"
+    ):
+        kind = "friend" if ctype == SUPPORT_FRIEND else SUPPORT_COMMAND_TYPES.get(command_id) if ctype == 1 else None
+        # Friend cards and a few stat cards only hand out stats or skill points, no skill hints.
+        if kind is None or not pools.get(cid) or rarity not in limits:
+            continue
+
+        def at(etype: int, level: int) -> int:
+            row = effects[table_id].get(etype)
+            base = effect_at(row, level) if row else 0
+            return base + sum(v for t, lv, v in unique[unique_id] if t == etype and level >= lv)
+
+        cards[cid] = {
+            "id": cid,
+            "charaId": chara_id,
+            "name": names.get(cid, str(cid)),
+            "title": titles.get(cid, ""),
+            "rarity": rarity,
+            "type": kind,
+            "pool": pools[cid],
+            "hintFrequency": [at(EFFECT_HINT_FREQUENCY, lv) for lv in limits[rarity]],
+            "hintLevelBonus": [at(EFFECT_HINT_LEVEL, lv) for lv in limits[rarity]],
+        }
+    return cards
 
 
 def build(mdb: Path, meta_extra: dict) -> dict:
@@ -220,6 +293,7 @@ def build(mdb: Path, meta_extra: dict) -> dict:
         "courses": courses,
         "races": races,
         "careerGoals": career_goals,
+        "supportCards": build_support_cards(q, texts(con, TXT_SUPPORT_TITLE), texts(con, TXT_SUPPORT_CHARA)),
     }
 
 

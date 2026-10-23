@@ -272,4 +272,13 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .skill-chart li.skill-section { display: block; height: auto; padding: 12px 8px 4px; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; background: none; }
 
+.skill-chart .skill-source { display: block; font-size: 0.7rem; color: var(--muted); line-height: 1.1; }
 .skill-chart .skill-bought { display: block; font-size: 0.7rem; color: var(--muted); line-height: 1.1; }
+
+.support-list { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; }
+.support-list li { display: flex; gap: 8px; align-items: center; }
+.support-list li > span { flex: 1; }
+.support-deck { margin-top: 12px; }
+.support-deck h4 { margin: 0 0 4px; }
+.support-deck .deck-cards { margin: 0; padding-left: 18px; }
+.support-deck p { margin: 4px 0 0; }

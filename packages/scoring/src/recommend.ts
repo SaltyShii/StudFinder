@@ -8,12 +8,15 @@ import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { wholeAceRuns, wholeAceSeeds, type WholeAceInput, type WholeAceRuns } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
 import { aceBudget, type AceBudget } from './skillBudget';
+import { atLimitBreak, deckPicks, hintLevelOf, pickDeck, trainingsPerCardOf, type SupportDeck, type SupportType, type SupportInput } from './support';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { GRADE_A } from '@stud-finder/lineage/src/inheritance';
 import { aceSupply, aptitudeOutcomes, surfaceStarsOf, dirtAChance, greedyRank, mustHaveChance, skillChance, maxStars, newShare, type Candidate, type LineageHorse, type CmPreset, type SkillPoints, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
 export type { SkillCost, AceBudget } from './skillBudget';
+export { defaultTypeMix } from './support';
+export type { SupportCard, SupportDeck, SupportInput, SupportPick, SupportType, TypeMix } from './support';
 export type { Candidate, CmPreset, SkillPoints, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
 /** A version the player can train as the Ace; candidates are measured against it (affinity, own-version exclusion). */
@@ -43,6 +46,8 @@ export interface AcePick {
 	/** Chance the 2 parents and 4 grandparents lift the distance aptitude to A through pink sparks (1 when it starts at A). */
 	distanceAChance: number;
 	parents: CandidatePick[];
+	/** The Support deck this Ace was ranked with; absent without a shortlist. */
+	deck?: SupportDeck;
 	/** The combined chart: the Ace's own skills plus everything either parent lineage can pass on, best avg lengths first. Built for the first Ace slot only; empty for the others. */
 	skills: AceSkillRow[];
 }
@@ -58,6 +63,15 @@ export interface AceSkillRow extends SkillDetail {
 	other?: boolean;
 	/** With a Skill point budget, the share of Whole-Ace runs (0 to 1) in which the Ace bought this Buyable skill; absent without a budget, and for a skill that is not Buyable. */
 	bought?: number;
+	/** The Support deck cards that hint this skill (the Ace can use it), for the chart to name; absent without a deck or when none does. */
+	sources?: SupportSource[];
+}
+
+/** A Support card as the chart names it. */
+export interface SupportSource {
+	cardId: number;
+	name: string;
+	type: SupportType;
 }
 
 /** A Side loop or Core loop lineage: the version to train with the 2 parents (and their grandparents) to run it with. */
@@ -189,7 +203,7 @@ export async function recommendAsync(runBatch: (batch: SimBatch) => Promise<SimR
 	}
 }
 
-function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, skillPoints, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SimResult[]> {
+function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, skillPoints, support, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SimResult[]> {
 	// One cache per distinct runner, so Owned versions that run identically share simulations.
 	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
 	let simulated = 0;
@@ -249,7 +263,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const seen = new Map<string, SkillDetail>();
 		const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
 			extras = [];
-			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceRuns, skillPoints);
+			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceRuns, skillPoints, support);
 		const ranked = rankAceSlots(versions, categoryOf(courseFacts(cm.courseId).distance)).slice(0, ACE_SLOTS);
 		// The chart simulates the whole buyable pool, so only the first Ace's rows are built.
 		aceTodo = ranked.flatMap((x) => (x.refine ? [x.refine] : []));
@@ -325,7 +339,7 @@ interface Cell { key: string; chance: number; /** With the unique skill. */ h: H
 // The additive score (the Ace simulated at every distance and surface grade the pair's pink sparks can reach, weighted by the chance of that grade) only shortlists pairs;
 // the score a pick shows comes from racing the whole Ace with the pair's parents (Whole-Ace runs). Style pink sparks and Must-haves play no part.
 // A version with no roster candidates still scores by its unique alone.
-function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns, skillPoints?: SkillPoints): AceCandidate[] {
+function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns, skillPoints?: SkillPoints, support?: SupportInput): AceCandidate[] {
 	const out: AceCandidate[] = [];
 	for (const [vi, v] of owned.entries()) {
 		const units = v.candidates;
@@ -400,15 +414,21 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const meet = (ids: string[]) => skillsAceCanMeet(ids, { style, category, surface: course.surface });
 		const buyable = meet(v.learnableSkillIds ?? []);
 		// With a budget the run buys within it: it needs the cost and the simulated value (lengths gained) of every skill it may buy, the card list's and the pair's hinted ones.
+		// One deck per Ace hero, whatever the parents: its cards' hinted skills at their simulated value. Asked before the runs, like the budget's values.
+		const deck = pickDeck(support, { onList: new Set(buyable), usable: meet, value: (id) => detailerOf(h)(id).value });
+		const picks = deck ? deckPicks(deck) : [];
+		const deckSkills = deck ? meet([...new Set(picks.flatMap((p) => p.card.pool))]) : [];
+		const supportRolls = deck ? { cards: picks.map((p) => ({ pool: p.card.pool, frequency: atLimitBreak(p.card.hintFrequency, p.limitBreak), bonus: hintLevelOf(p) - 1 })), trainings: trainingsPerCardOf(support!), usable: deckSkills } : undefined;
 		const budgets = new Map<ScoredPair, AceBudget | undefined>();
 		const budgetOf = (p: ScoredPair): AceBudget | undefined => {
 			if (!skillPoints) return undefined;
 			let b = budgets.get(p);
-			if (!b) budgets.set(p, (b = aceBudget(skillPoints, [...new Set([...buyable, ...meet(lineageIdsOf(p.pair.flatMap((c) => c.horses)))])], (id) => detailerOf(h)(id).value)));
+			if (!b) budgets.set(p, (b = aceBudget(skillPoints, [...new Set([...buyable, ...meet(lineageIdsOf(p.pair.flatMap((c) => c.horses))), ...deckSkills])], (id) => detailerOf(h)(id).value)));
 			return b;
 		};
-		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: meet(uniqueIdsOf(p.pair.flatMap((c) => c.horses))), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}) });
-		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}`;
+		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: meet(uniqueIdsOf(p.pair.flatMap((c) => c.horses))), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}), ...(supportRolls ? { support: supportRolls } : {}) });
+		const deckKey = deck ? `|${picks.map((p) => `${p.card.id}:${p.limitBreak}`).join()}` : '';
+		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}${deckKey}`;
 		// The values are screened or full, so the same pair reruns once its values change.
 		const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.budget}|${Object.values(b.values).join()}` : ''; };
 		const fullKey = (p: ScoredPair) => `full|${keyOf(p)}${budgetKey(p)}`;
@@ -449,7 +469,17 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined) });
+		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, ...(deck ? { deck } : {}), skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined, sourcesOf(deck, deckSkills)) });
+	}
+	return out;
+}
+
+/** Per skill the Ace can use, the deck cards whose hint pool holds it, in roll order. */
+function sourcesOf(deck: SupportDeck | undefined, usable: string[]): Record<string, SupportSource[]> {
+	const out: Record<string, SupportSource[]> = {};
+	if (!deck) return out;
+	for (const { card } of deckPicks(deck)) {
+		for (const id of new Set(card.pool)) if (usable.includes(id)) (out[id] ??= []).push({ cardId: card.id, name: card.name, type: card.type });
 	}
 	return out;
 }
@@ -497,7 +527,7 @@ function lineageIdsOf(horses: LineageHorse[]): string[] {
 }
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
-function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = [], bought?: { shares: Record<string, number>; priced: Record<string, unknown> }): AceSkillRow[] {
+function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = [], bought?: { shares: Record<string, number>; priced: Record<string, unknown> }, sources: Record<string, SupportSource[]> = {}): AceSkillRow[] {
 	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
 	const ids = new Set(parents.flatMap((p) => lineageIdsOf(p.horses)));
 	// A buyable skill is certain, so it is an own row, unless a parent lineage can pass it on: that one shows its inherit chance (the skill points it may save), not a claim that it is bought. The unique skill is not shown twice.
@@ -510,10 +540,13 @@ function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses:
 	}
 	const listed = new Set([...rows.map((r) => r.skillId), ...own]);
 	for (const id of new Set(otherSkillIds)) if (!listed.has(id) && id in skillData) rows.push({ ...rowOf(detailOf(id), 0, mustHaves), other: true });
+	// A skill the deck hints that is on neither the card list nor a parent is buyable through the hint: an Other buyable row.
+	for (const id of Object.keys(sources)) if (!listed.has(id) && id in skillData) { rows.push({ ...rowOf(detailOf(id), 0, mustHaves), other: true }); listed.add(id); }
 	// Only the card list's Buyable skills are bought, so a skill that is only inherited stays unmarked. A skill with no cost in the data is one the budget cannot price: it shows no share rather than a 0 the data caused.
 	// The white unique variants a parent makes buyable are bought too.
-	const buyable = new Set([...learnableSkillIds, ...parents.flatMap((p) => uniqueIdsOf(p.horses))]);
-	return chartRows(bought ? rows.map((r) => (buyable.has(r.skillId) && r.skillId in bought.priced ? { ...r, bought: bought.shares[r.skillId] ?? 0 } : r)) : rows);
+	const buyable = new Set([...learnableSkillIds, ...parents.flatMap((p) => uniqueIdsOf(p.horses)), ...Object.keys(sources)]);
+	const marked = bought ? rows.map((r) => (buyable.has(r.skillId) && r.skillId in bought.priced ? { ...r, bought: bought.shares[r.skillId] ?? 0 } : r)) : rows;
+	return chartRows(marked.map((r) => (r.skillId in sources ? { ...r, sources: sources[r.skillId] } : r)));
 }
 
 function rowOf(detail: SkillDetail, inherit: number, mustHaves: string[], own = false): AceSkillRow {

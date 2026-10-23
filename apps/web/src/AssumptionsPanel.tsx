@@ -15,10 +15,13 @@ const RATE_LABEL: Record<keyof DuelingRates, string> = { runaway: 'Runaway', fro
 interface Props {
 	value: SimAssumptions;
 	onChange: (next: SimAssumptions) => void;
+	/** Trainings each support card appears in over a run; only the Ace slot reads it. */
+	trainingsPerCard: number;
+	onTrainingsPerCard: (n: number) => void;
 }
 
 /** The race conditions every simulated race assumes, switchable one by one. Only options the sim can honour are listed. */
-export function AssumptionsPanel({ value, onChange }: Props) {
+export function AssumptionsPanel({ value, onChange, trainingsPerCard, onTrainingsPerCard }: Props) {
 	const changed = JSON.stringify(value) !== JSON.stringify(DEFAULT_ASSUMPTIONS);
 	return (
 		<section class="panel sim-assumptions">
@@ -38,6 +41,10 @@ export function AssumptionsPanel({ value, onChange }: Props) {
 					))}
 				</fieldset>
 			)}
+			<label>Trainings per support card <input type="number" name="trainings-per-card" min={1} step={1} value={trainingsPerCard} onInput={(e) => {
+				const n = Number(e.currentTarget.value);
+				if (Number.isInteger(n) && n >= 1) onTrainingsPerCard(n);
+			}} /></label>
 			<button type="button" name="reset-assumptions" disabled={!changed} onClick={() => onChange(DEFAULT_ASSUMPTIONS)}>Reset to defaults</button>
 		</section>
 	);
