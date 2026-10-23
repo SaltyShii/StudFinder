@@ -51,7 +51,9 @@ export function setTypeCount(mix: TypeMix, type: SupportType, count: number): Ty
 	return n > 0 ? { ...rest, [type]: n } : rest;
 }
 
-const clampLevel = (level: number) => Math.min(MAX_LIMIT_BREAK, Math.max(0, Math.round(level)));
+function clampLevel(level: number): number {
+	return Math.min(MAX_LIMIT_BREAK, Math.max(0, Math.round(level)));
+}
 
 export function isLimitBreak(v: unknown): v is number {
 	return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= MAX_LIMIT_BREAK;

@@ -46,11 +46,11 @@ function Shortlist({ title, slug, hint, data, list, onChange }: ListProps) {
 			<p class="muted">{hint}</p>
 			<ul class="support-list">{list.map((e) => {
 				const card = data.supportCards.get(e.id);
-				const name = card ? label(card) : `Card ${e.id}`;
+				const name = card ? label(card) : `Support card ${e.id}`;
 				return (
 					<li data-testid="support-card">
 						<span>{name}{card && <span class="muted"> ({card.type})</span>}</span>
-						<label>LB <select name={`${slug}-limit-break`} aria-label={`Limit break of ${name}`} value={e.limitBreak} onChange={(ev) => onChange(setLimitBreak(list, e.id, Number(ev.currentTarget.value)))}>
+						<label>Limit break <select name={`${slug}-limit-break`} aria-label={`Limit break of ${name}`} value={e.limitBreak} onChange={(ev) => onChange(setLimitBreak(list, e.id, Number(ev.currentTarget.value)))}>
 							{LEVELS.map((l) => <option value={l}>{l === MAX_LIMIT_BREAK ? `${l} (max)` : l}</option>)}
 						</select></label>
 						<button type="button" aria-label={`Remove ${name}`} onClick={() => onChange(removeCard(list, e.id))}>×</button>
@@ -65,17 +65,17 @@ function Shortlist({ title, slug, hint, data, list, onChange }: ListProps) {
 
 const RARITY: Record<number, string> = { 1: 'R', 2: 'SR', 3: 'SSR' };
 
-/** The Support cards the player would consider running (own) and the friend cards they would consider borrowing, each at a limit break level. Only the Ace slot reads them. */
+/** The Support cards the player would consider running (own) and the Borrowed support cards they would consider, each at a limit break level. Only the Ace slot reads them. */
 export function SupportSettings({ data, value, onChange, cm, typeMix }: Props) {
 	if (!data.supportCards.size) return null;
 	return (
 		<section class="panel" data-testid="support-settings">
 			<h2>Support cards</h2>
-			<Shortlist title="Own support cards" slug="own" hint="Cards you would consider running. The Ace slot picks the best deck from them; with none, nothing changes." data={data} list={value.own} onChange={(own) => onChange({ ...value, own })} />
-			<Shortlist title="Borrowed support cards" slug="borrowed" hint="Friend cards you would consider borrowing; the deck takes one." data={data} list={value.borrowed} onChange={(borrowed) => onChange({ ...value, borrowed })} />
+			<Shortlist title="Own support cards" slug="own" hint="Support cards you would consider running. The Ace slot picks the best Support deck from them; with none, nothing changes." data={data} list={value.own} onChange={(own) => onChange({ ...value, own })} />
+			<Shortlist title="Borrowed support cards" slug="borrowed" hint="The support cards you would consider borrowing from a friend; the Support deck takes one." data={data} list={value.borrowed} onChange={(borrowed) => onChange({ ...value, borrowed })} />
 			<fieldset data-testid="type-mix">
 				<legend>Type mix for {cm.name}</legend>
-				<p class="muted">Cards per type over the 6 deck slots, the borrowed card included. Friend slots are hintless fillers. Empty is no constraint.</p>
+				<p class="muted">Support cards per type over the 6 Support deck slots, the Borrowed support card included. Friend slots are hintless fillers. Empty is no constraint.</p>
 				{SUPPORT_TYPES.map((t) => (
 					<label>{t} <input type="number" name={`mix-${t}`} min={0} max={DECK_SLOTS} step={1} value={typeMix[t] ?? 0} onInput={(e) => {
 						const n = Number(e.currentTarget.value);
@@ -83,7 +83,7 @@ export function SupportSettings({ data, value, onChange, cm, typeMix }: Props) {
 					}} /></label>
 				))}
 				<span data-testid="type-mix-total" class={typeMixTotal(typeMix) > DECK_SLOTS ? 'error' : 'muted'}> {typeMixTotal(typeMix)} / {DECK_SLOTS}</span>
-				{typeMixTotal(typeMix) > 0 && typeMixTotal(typeMix) < DECK_SLOTS && <span class="muted"> (the other slots take the best remaining cards)</span>}
+				{typeMixTotal(typeMix) > 0 && typeMixTotal(typeMix) < DECK_SLOTS && <span class="muted"> (the other slots take the best remaining support cards)</span>}
 			</fieldset>
 		</section>
 	);

@@ -120,7 +120,7 @@ function mixNote(mix: TypeMix, held: SupportPick[], fillers: number): string | u
 	const short = TYPES.filter((t) => (mix[t] ?? 0) > held.filter((p) => p.card.type === t).length + (t === 'friend' ? fillers : 0));
 	if (!short.length) return undefined;
 	const label = short.map((t) => `${mix[t]} ${t}`).join(', ');
-	return `Type mix not met (wanted ${label}): the shortlist cannot fill it, so the gaps are filled from other shortlisted cards.`;
+	return `Type mix not met (wanted ${label}): the shortlist cannot fill it, so the gaps are filled from other shortlisted support cards.`;
 }
 
 /**
@@ -161,8 +161,8 @@ export function pickDeck(support: SupportInput | undefined, ctx: DeckContext): S
 		fillers = best!.fillers;
 	}
 	const notes: string[] = [];
-	if (own.length + fillers < OWN_SLOTS) notes.push(`Only ${own.length} own support cards shortlisted: the deck has fewer than ${OWN_SLOTS}.`);
-	if (!borrowed) notes.push('No Borrowed support card shortlisted: the deck is own cards only.');
+	if (own.length + fillers < OWN_SLOTS) notes.push(`Only ${own.length} own support cards shortlisted: the Support deck has fewer than ${OWN_SLOTS}.`);
+	if (!borrowed) notes.push('No Borrowed support card shortlisted: the Support deck is own support cards only.');
 	if (constrained) {
 		const note = mixNote(mix!, [...own, ...(borrowed ? [borrowed] : [])], fillers);
 		if (note) notes.push(note);
