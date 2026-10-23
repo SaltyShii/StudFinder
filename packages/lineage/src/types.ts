@@ -58,6 +58,12 @@ export interface Skill {
   gradeValue: number;
   category: number;
   conditions: SkillCondition[];
+  /** Base Skill point cost of a white or gold skill; absent when it cannot be bought. */
+  spCost?: number;
+  /** A gold skill: the white skill just below it in its group. */
+  replacesId?: number;
+  /** False for a skill that cannot be bought. */
+  purchasable?: boolean;
 }
 
 /** succession_factor.factor_type */

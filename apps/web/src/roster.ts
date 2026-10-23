@@ -16,6 +16,7 @@ const FORCED_KEY = 'stud-finder:forced-versions';
 const MUST_HAVES_KEY = 'stud-finder:must-haves';
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
 const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
+const SKILL_POINT_BUDGET_KEY = 'stud-finder:skill-point-budget';
 // Bump when a stored shape changes; older saves are then rejected.
 const VERSION = 1;
 
@@ -157,6 +158,25 @@ export function loadAssumptions(storage: Storage): SimAssumptions {
 		for (const k of RATE_STYLES) out.duelingRates[k] = rates[k] as number;
 		return out;
 	}) ?? DEFAULT_ASSUMPTIONS;
+}
+
+export const DEFAULT_SKILL_POINT_BUDGET = 2700;
+
+/** null is unlimited (a cleared field). Stored apart from the other settings: a saved Skill point budget never existed before, so an older save simply has none and gets the default. */
+export function saveSkillPointBudget(storage: Storage, budget: number | null): void {
+	saveVersioned(storage, SKILL_POINT_BUDGET_KEY, 'budget', budget);
+}
+
+/** The stored Skill point budget (null for unlimited); 2700 when absent, stale-versioned or malformed. */
+export function loadSkillPointBudget(storage: Storage): number | null {
+	try {
+		const body = JSON.parse(storage.getItem(SKILL_POINT_BUDGET_KEY) ?? 'null');
+		if (body?.version !== VERSION) return DEFAULT_SKILL_POINT_BUDGET;
+		if (body.budget === null) return null;
+		return typeof body.budget === 'number' && Number.isInteger(body.budget) && body.budget >= 0 ? body.budget : DEFAULT_SKILL_POINT_BUDGET;
+	} catch {
+		return DEFAULT_SKILL_POINT_BUDGET;
+	}
 }
 
 export function clearRoster(storage: Storage): void {

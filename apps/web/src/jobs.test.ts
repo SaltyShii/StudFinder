@@ -1,12 +1,12 @@
 import { expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
-import type { Course, RawGameData } from '../../../packages/lineage/src/types';
+import type { Course, RawGameData, Skill } from '../../../packages/lineage/src/types';
 import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import type { Style } from '../../../packages/scoring/src/ace';
 import type { AceSkillRow, Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { aceRowsJob, cardIdsOf, planCandidates, planFit, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
+import { aceRowsJob, cardIdsOf, skillCostsOf, planCandidates, planFit, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
 import { rankVeterans } from '../../../packages/scoring/src/rankVeterans';
 import { scoreVeterans, type AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import { runJob } from './runJob';
@@ -217,4 +217,23 @@ it('an Unfit version stays out of the Ace slots unless forced, then competes wit
 	};
 	expect(slots(new Set())).toEqual([100101]);
 	expect(slots(new Set([100201])).sort()).toEqual([100101, 100201]);
+});
+
+it('builds Skill point costs from the game data for purchasable skills only, ids as strings', () => {
+	const skills = new Map([
+		[1, { id: 1, groupId: 10, rarity: 1, spCost: 90 }],
+		[2, { id: 2, groupId: 10, rarity: 2, spCost: 180, replacesId: 1 }],
+		[3, { id: 3, groupId: 11, rarity: 1, purchasable: false }],
+		[4, { id: 4, groupId: 12, rarity: 3 }],
+	] as [number, Skill][]);
+	expect(skillCostsOf(skills.values())).toEqual({ '1': { cost: 90, group: 10 }, '2': { cost: 180, group: 10, replacesId: '1' } });
+});
+
+it('passes the Skill point budget into the preset; no budget means unlimited', () => {
+	const candidates = planCandidates(data, roster, ace, course, false);
+	const plan = (skillPointBudget?: number | null) => planRecommend(data, candidates, cm, { card: ace, course, styleChoice: 'senko', skillPointBudget }).job!.preset.skillPoints;
+	expect(plan(null)).toBeUndefined();
+	expect(plan()).toBeUndefined();
+	expect(plan(2700)?.budget).toBe(2700);
+	expect(plan(2700)?.costs).toEqual(skillCostsOf(data.skills.values()));
 });
