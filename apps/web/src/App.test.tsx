@@ -465,6 +465,30 @@ it('shows the Sim assumptions with umalator defaults, re-runs every slot on a ch
 	expect(root.querySelector('.sim-assumptions input[name=rate-frontRunner]')).toBeNull();
 });
 
+it('shows the Skill point budget as 2700, passes it to the job, re-runs on a change, treats a cleared field as unlimited and persists it', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };
+	const mount = () => render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root);
+	mount();
+	await importFile();
+	const field = () => root.querySelector<HTMLInputElement>('input[name=skill-point-budget]')!;
+	const set = async (value: string) => { field().value = value; await act(() => { field().dispatchEvent(new Event('change')); }); };
+	expect(field().value).toBe('2700');
+	await run();
+	expect(jobs[0].preset.skillPoints?.budget).toBe(2700);
+	await set('1500'); // results exist, so the change runs by itself
+	expect(jobs).toHaveLength(2);
+	expect(jobs[1].preset.skillPoints?.budget).toBe(1500);
+	await set('');
+	expect(jobs).toHaveLength(3);
+	expect(jobs[2].preset.skillPoints).toBeUndefined();
+	render(null, root);
+	mount();
+	await flush();
+	await flush();
+	expect(field().value).toBe('');
+});
+
 it('shows it is recomputing after an assumption change, and runs nothing before the first Run', async () => {
 	const jobs: RecommendJob[] = [];
 	const manual: RecommendRunner = (job) => { jobs.push(job); return () => {}; };
