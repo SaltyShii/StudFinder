@@ -4,6 +4,7 @@ import { DISTANCES, STYLES, SURFACES } from '@stud-finder/lineage/src/config';
 import { FactorType, type Skill } from '@stud-finder/lineage/src/types';
 import type { Category, Style } from './ace';
 
+// Mirrored in scripts/ingest/validate-data.ts, which cannot import from packages.
 const WHITE = 1;
 const GOLD = 2;
 

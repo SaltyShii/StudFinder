@@ -21,6 +21,7 @@ function load(path: string): Record<string, unknown> | null {
 	return v && typeof v === 'object' ? (v as Record<string, unknown>) : null;
 }
 
+// Same values as packages/scoring/src/learnable.ts: this gate is a standalone ingest script (node builtins only, run by the refresh workflow), so it does not import from the workspace packages.
 const WHITE = 1;
 const GOLD = 2;
 
