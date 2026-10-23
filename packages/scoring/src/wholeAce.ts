@@ -124,12 +124,15 @@ export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
 		const ace = buildAce({ aptitudes: { ...aptitudes, [category]: rolled.distance, [surface]: rolled.surface }, style, category, surface, target });
 		// No hint of its own: the green spark only unlocks the white version, at the base cost.
 		const unlocked = rolled.unlocked.filter((id) => uniqueSkillIds.includes(id));
-		let bought = [...buyableSkillIds, ...unlocked.filter((id) => !buyableSkillIds.includes(id))];
+		const unlockedBeyond = (known: string[]) => unlocked.filter((id) => !known.includes(id));
+		let bought: string[];
 		if (budget) {
 			const key = `${rolled.skillIds.map((id) => `${id}:${rolled.hints[id]}`).join()}|${unlocked.join()}`;
 			let set = sets.get(key);
-			if (!set) sets.set(key, (set = buySet(budget, buyableSkillIds, { skillIds: [...rolled.skillIds, ...unlocked.filter((id) => !rolled.skillIds.includes(id))], hints: rolled.hints })));
+			if (!set) sets.set(key, (set = buySet(budget, buyableSkillIds, { skillIds: [...rolled.skillIds, ...unlockedBeyond(rolled.skillIds)], hints: rolled.hints })));
 			bought = set;
+		} else {
+			bought = [...buyableSkillIds, ...unlockedBeyond(buyableSkillIds)];
 		}
 		for (const id of bought) counts[id] = (counts[id] ?? 0) + 1;
 		const skills = [...new Set([...(uniqueSkillId ? [uniqueSkillId] : []), ...bought, ...rolled.skillIds])];
@@ -137,11 +140,6 @@ export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
 		total += run.lengths;
 	}
 	return { mean: total / seeds.length, bought: Object.fromEntries(Object.entries(counts).map(([id, n]) => [id, n / seeds.length])) };
-}
-
-/** Mean lengths gained over the Whole-Ace runs. */
-export function wholeAceMean(input: WholeAceInput): number {
-	return wholeAceRuns(input).mean;
 }
 
 /** The one seed list every version and pair is scored on (common random numbers): one seed per Whole-Ace run. */

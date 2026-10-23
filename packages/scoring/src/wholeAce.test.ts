@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { rollSparks, rolls, wholeAceMean, wholeAceRuns, type WholeAceInput } from './wholeAce';
+import { rollSparks, rolls, wholeAceRuns, type WholeAceInput } from './wholeAce';
 import type { LineageHorse } from './shared';
 
 function horse(over: Partial<LineageHorse> = {}): LineageHorse {
@@ -49,7 +49,7 @@ describe('rollSparks', () => {
 	});
 });
 
-describe('wholeAceMean', () => {
+describe('wholeAceRuns mean', () => {
 	const input: WholeAceInput = {
 		aptitudes: { turf: 7, dirt: 1, short: 1, mile: 1, middle: 7, long: 1, nige: 1, senko: 7, sashi: 1, oikomi: 1 },
 		style: 'senko',
@@ -62,24 +62,24 @@ describe('wholeAceMean', () => {
 
 	test('same inputs give the same mean', () => {
 		const i = { ...input, uniqueSkillId: '10071' };
-		expect(wholeAceMean(i)).toBe(wholeAceMean(i));
+		expect(wholeAceRuns(i).mean).toBe(wholeAceRuns(i).mean);
 	});
 	test('a skill the Ace buys gains lengths; none gains nothing', () => {
-		expect(wholeAceMean(input)).toBe(0);
-		expect(wholeAceMean({ ...input, buyableSkillIds: ['10071'] })).toBeGreaterThan(0);
+		expect(wholeAceRuns(input).mean).toBe(0);
+		expect(wholeAceRuns({ ...input, buyableSkillIds: ['10071'] }).mean).toBeGreaterThan(0);
 	});
 	test('a skill carried by both lineages, or also bought, counts once', () => {
-		const once = wholeAceMean({ ...input, horses: [sure('10071')] });
+		const once = wholeAceRuns({ ...input, horses: [sure('10071')] }).mean;
 		expect(once).toBeGreaterThan(0);
-		expect(wholeAceMean({ ...input, horses: [sure('10071'), sure('10071')] })).toBe(once);
-		expect(wholeAceMean({ ...input, buyableSkillIds: ['10071'], horses: [sure('10071')] })).toBe(once);
+		expect(wholeAceRuns({ ...input, horses: [sure('10071'), sure('10071')] }).mean).toBe(once);
+		expect(wholeAceRuns({ ...input, buyableSkillIds: ['10071'], horses: [sure('10071')] }).mean).toBe(once);
 	});
 	test('an aptitude upgrade is worth lengths and changes what a skill is worth', () => {
 		const weak = { ...input, aptitudes: { ...input.aptitudes, middle: 5 } }; // C in the distance
 		const up = [horse({ affinity: 1e6, pinkStars: 3 }), horse({ affinity: 1e6, pinkStars: 3 })];
-		expect(wholeAceMean({ ...weak, horses: up })).toBeGreaterThan(0);
+		expect(wholeAceRuns({ ...weak, horses: up }).mean).toBeGreaterThan(0);
 		const skilled = { ...weak, buyableSkillIds: ['10071'] };
-		expect(wholeAceMean({ ...skilled, horses: up })).not.toBe(wholeAceMean(skilled));
+		expect(wholeAceRuns({ ...skilled, horses: up }).mean).not.toBe(wholeAceRuns(skilled).mean);
 	});
 });
 
