@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { recommend, recommendAsync, simulateRequest, type Candidate, type CandidateList, type LineageHorse, type OwnedVersion, type SkillCost, type SupportCard, type SupportInput } from './recommend';
+import { defaultTypeMix, recommend, recommendAsync, simulateRequest, type Candidate, type CandidateList, type LineageHorse, type OwnedVersion, type SkillCost, type SupportCard, type SupportInput } from './recommend';
 import { rollSparks } from './wholeAce';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
@@ -111,6 +111,32 @@ describe('Support deck', () => {
 		expect(rolled.hints['10091']).toBe(5);
 		expect(run([version(['10091'], [spark])], sup, 150).aceSlots[0].skills.find((r) => r.skillId === '10091')?.bought).toBe(1);
 	});
+	test('chart rows carry the source cards of a hinted skill, an off-list one included as a row', () => {
+		const rows = run([version([])], support([card(1, ['10071'], { type: 'wit' })], [card(41, ['10071'])]), 1000).aceSlots[0].skills;
+		const row = rows.find((r) => r.skillId === '10071')!;
+		expect(row.sources).toEqual([{ cardId: 1, name: 'card 1', type: 'wit' }, { cardId: 41, name: 'card 41', type: 'speed' }]);
+		expect(row.other).toBe(true);
+		expect(row.bought).toBe(1);
+	});
+	test('a hinted skill on the card list or a parent keeps its inherit chance and bought share', () => {
+		const spark: Candidate = { id: 's', name: 's', horses: [horseOf(['10091'], 3), horseOf([]), horseOf([])] };
+		const v = [version(['10071'], [spark])];
+		const rows = run(v, support([card(1, ['10071', '10091'])]), 1000, { candidates: [spark] }).aceSlots[0].skills;
+		const plain = run(v, undefined, 1000, { candidates: [spark] }).aceSlots[0].skills;
+		for (const id of ['10071', '10091']) {
+			const row = rows.find((r) => r.skillId === id)!;
+			const before = plain.find((r) => r.skillId === id)!;
+			expect(row.sources?.map((s) => s.cardId)).toEqual([1]);
+			expect(row.inherit).toBe(before.inherit);
+			expect(row.own).toBe(before.own);
+			expect(row.bought).toBeDefined();
+		}
+		expect(plain.every((r) => r.sources === undefined)).toBe(true);
+	});
+	test('a skill no deck card hints has no source', () => {
+		const rows = run([version(['10071', '10091'])], support([card(1, ['10071'])]), 1000).aceSlots[0].skills;
+		expect(rows.find((r) => r.skillId === '10091')!.sources).toBeUndefined();
+	});
 	test('deterministic for a seed, shortlist and budget, also through the worker batches', async () => {
 		const sup = support([card(1, ['10071', '10091']), ...fillers], [card(41, ['10081'])], { trainingsPerCard: 30 });
 		const v = [version(['10071', '10081'], [{ id: 'p', name: 'p', horses: [horseOf(['10091'], 1), horseOf([]), horseOf([])] }])];
@@ -126,5 +152,51 @@ describe('Support deck', () => {
 		const free = recommend(list, preset, { S10071: 'T0' }, v);
 		const decked = recommend(list, { ...preset, support: support([card(1, ['10091']), ...fillers]) }, { S10071: 'T0' }, v);
 		expect({ ...decked, aceSlots: 0 }).toEqual({ ...free, aceSlots: 0 });
+	});
+});
+
+describe('Type mix', () => {
+	const strong = [card(1, ['10071']), card(2, ['10091']), card(3, ['200011']), card(4, ['10081']), card(5, ['10111'])];
+	const ids = (deck: { own: { card: SupportCard }[] }) => deck.own.map((p) => p.card.id).sort((a, b) => a - b);
+	const deckOf = (sup: SupportInput) => run([version([])], sup).aceSlots[0].deck!;
+
+	test('the mix counts the borrowed card and wins over a higher score', () => {
+		const own = [...strong, card(6, ['99999'], { type: 'wit' })];
+		const deck = deckOf(support(own, [card(40, ['10071'], { type: 'power' })], { typeMix: { speed: 4, wit: 1, power: 1 } }));
+		expect(ids(deck)).toContain(6);
+		expect(deck.own.filter((p) => p.card.type === 'speed')).toHaveLength(4);
+		expect(deck.borrowed?.card.id).toBe(40);
+		expect(deck.notes).toEqual([]);
+	});
+	test('the borrowed card is chosen so the mix can be met', () => {
+		const deck = deckOf(support(strong, [card(41, ['10071']), card(42, ['99999'], { type: 'wit' })], { typeMix: { speed: 5, wit: 1 } }));
+		expect(deck.borrowed?.card.id).toBe(42);
+		expect(ids(deck)).toEqual([1, 2, 3, 4, 5]);
+		expect(deck.notes).toEqual([]);
+	});
+	test('a friend slot no card fills is a hintless filler, with no note', () => {
+		const own = [card(1, ['10071']), card(2, ['10091']), card(6, ['200011'], { type: 'wit' }), card(7, ['10081'], { type: 'wit' })];
+		const deck = deckOf(support(own, [card(40, ['10111'])], { typeMix: { speed: 3, wit: 2, friend: 1 } }));
+		expect(ids(deck)).toEqual([1, 2, 6, 7]);
+		expect(deck.friendFillers).toBe(1);
+		expect(deck.notes).toEqual([]);
+	});
+	test('a shortlist that cannot fill the mix fills gaps from other types and says so', () => {
+		const deck = deckOf(support(strong, [card(40, ['10071'])], { typeMix: { speed: 3, wit: 2, friend: 1 } }));
+		expect(deck.own.length + (deck.friendFillers ?? 0)).toBe(5);
+		expect(deck.friendFillers).toBe(1);
+		expect(deck.notes).toHaveLength(1);
+		expect(deck.notes[0]).toMatch(/wit/);
+		expect(deck.notes[0]).not.toMatch(/friend/);
+	});
+	test('an absent mix picks as before', () => {
+		const own = [...strong, card(6, ['99999'], { type: 'wit' })];
+		const sup = support(own, [card(40, ['10071'], { type: 'power' })]);
+		expect(deckOf({ ...sup, typeMix: {} })).toEqual(deckOf(sup));
+		expect(ids(deckOf(sup))).toEqual([1, 2, 3, 4, 5]);
+	});
+	test('the default mix by distance fills 6 slots, sprint is 3 speed, 2 wit, 1 friend', () => {
+		expect(defaultTypeMix(1200)).toEqual({ speed: 3, wit: 2, friend: 1 });
+		for (const d of [1200, 1600, 2000, 3000]) expect(Object.values(defaultTypeMix(d)).reduce((a, b) => a + b, 0)).toBe(6);
 	});
 });

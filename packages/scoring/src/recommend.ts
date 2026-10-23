@@ -8,14 +8,15 @@ import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
 import { wholeAceRuns, wholeAceSeeds, type WholeAceInput, type WholeAceRuns } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
 import { aceBudget, type AceBudget } from './skillBudget';
-import { atLimitBreak, DEFAULT_TRAININGS_PER_CARD, hintLevelOf, pickDeck, type SupportDeck, type SupportInput, type SupportPick } from './support';
+import { atLimitBreak, DEFAULT_TRAININGS_PER_CARD, hintLevelOf, pickDeck, type SupportDeck, type SupportType, type SupportInput, type SupportPick } from './support';
 import { buildAce, categoryOf, styleOfStrategy, type Category, courseFacts, rankStyles, type CourseFacts, type Style } from './ace';
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { GRADE_A } from '@stud-finder/lineage/src/inheritance';
 import { aceSupply, aptitudeOutcomes, surfaceStarsOf, dirtAChance, greedyRank, mustHaveChance, skillChance, maxStars, newShare, type Candidate, type LineageHorse, type CmPreset, type SkillPoints, type CandidatePick, type CandidateList, type SkillDetail, type TierList } from './shared';
 
 export type { SkillCost, AceBudget } from './skillBudget';
-export type { SupportCard, SupportDeck, SupportInput, SupportPick, SupportType } from './support';
+export { defaultTypeMix } from './support';
+export type { SupportCard, SupportDeck, SupportInput, SupportPick, SupportType, TypeMix } from './support';
 export type { Candidate, CmPreset, SkillPoints, LineageHorse, CandidatePick, CandidateList, SkillDetail, SkillSpark, TierList } from './shared';
 
 /** A version the player can train as the Ace; candidates are measured against it (affinity, own-version exclusion). */
@@ -62,6 +63,15 @@ export interface AceSkillRow extends SkillDetail {
 	other?: boolean;
 	/** With a Skill point budget, the share of Whole-Ace runs (0 to 1) in which the Ace bought this Buyable skill; absent without a budget, and for a skill that is not Buyable. */
 	bought?: number;
+	/** The Support deck cards that hint this skill (the Ace can use it), for the chart to name; absent without a deck or when none does. */
+	sources?: SupportSource[];
+}
+
+/** A Support card as the chart names it. */
+export interface SupportSource {
+	cardId: number;
+	name: string;
+	type: SupportType;
 }
 
 /** A Side loop or Core loop lineage: the version to train with the 2 parents (and their grandparents) to run it with. */
@@ -458,7 +468,17 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, ...(deck ? { deck } : {}), skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined) });
+		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, ...(deck ? { deck } : {}), skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined, sourcesOf(deck, deckSkills)) });
+	}
+	return out;
+}
+
+/** Per skill the Ace can use, the deck cards whose hint pool holds it, in roll order. */
+function sourcesOf(deck: SupportDeck | undefined, usable: string[]): Record<string, SupportSource[]> {
+	const out: Record<string, SupportSource[]> = {};
+	if (!deck) return out;
+	for (const { card } of deckPicks(deck)) {
+		for (const id of new Set(card.pool)) if (usable.includes(id)) (out[id] ??= []).push({ cardId: card.id, name: card.name, type: card.type });
 	}
 	return out;
 }
@@ -511,7 +531,7 @@ function lineageIdsOf(horses: LineageHorse[]): string[] {
 }
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
-function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = [], bought?: { shares: Record<string, number>; priced: Record<string, unknown> }): AceSkillRow[] {
+function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = [], bought?: { shares: Record<string, number>; priced: Record<string, unknown> }, sources: Record<string, SupportSource[]> = {}): AceSkillRow[] {
 	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
 	const ids = new Set(parents.flatMap((p) => lineageIdsOf(p.horses)));
 	// A buyable skill is certain, so it is an own row, unless a parent lineage can pass it on: that one shows its inherit chance (the skill points it may save), not a claim that it is bought. The unique skill is not shown twice.
@@ -524,10 +544,13 @@ function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses:
 	}
 	const listed = new Set([...rows.map((r) => r.skillId), ...own]);
 	for (const id of new Set(otherSkillIds)) if (!listed.has(id) && id in skillData) rows.push({ ...rowOf(detailOf(id), 0, mustHaves), other: true });
+	// A skill the deck hints that is on neither the card list nor a parent is buyable through the hint: an Other buyable row.
+	for (const id of Object.keys(sources)) if (!listed.has(id) && id in skillData) { rows.push({ ...rowOf(detailOf(id), 0, mustHaves), other: true }); listed.add(id); }
 	// Only the card list's Buyable skills are bought, so a skill that is only inherited stays unmarked. A skill with no cost in the data is one the budget cannot price: it shows no share rather than a 0 the data caused.
 	// The white unique variants a parent makes buyable are bought too.
-	const buyable = new Set([...learnableSkillIds, ...parents.flatMap((p) => uniqueIdsOf(p.horses))]);
-	return chartRows(bought ? rows.map((r) => (buyable.has(r.skillId) && r.skillId in bought.priced ? { ...r, bought: bought.shares[r.skillId] ?? 0 } : r)) : rows);
+	const buyable = new Set([...learnableSkillIds, ...parents.flatMap((p) => uniqueIdsOf(p.horses)), ...Object.keys(sources)]);
+	const marked = bought ? rows.map((r) => (buyable.has(r.skillId) && r.skillId in bought.priced ? { ...r, bought: bought.shares[r.skillId] ?? 0 } : r)) : rows;
+	return chartRows(marked.map((r) => (r.skillId in sources ? { ...r, sources: sources[r.skillId] } : r)));
 }
 
 function rowOf(detail: SkillDetail, inherit: number, mustHaves: string[], own = false): AceSkillRow {
