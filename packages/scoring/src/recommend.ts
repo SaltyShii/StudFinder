@@ -99,6 +99,17 @@ export interface RecommendProgress {
 
 // Skills are first simulated at this many samples to rank cheaply; only the ones a pick shows are re-simulated at full samples.
 const SCREEN_SAMPLES = 20;
+// Parent pairs per Owned version that Whole-Ace runs choose between; the additive ranking only decides who makes the list.
+const SHORTLIST = 10;
+
+/** The Whole-Ace runs of one recommendation: shared seeds, and a memo so a repeated pass never reruns a pair. */
+interface AceRuns {
+	seeds: number[];
+	screenSeeds: number[];
+	/** Winners (version|parents) already re-run at full samples. */
+	full: Set<string>;
+	memo(key: string, compute: () => number, screen?: boolean): number;
+}
 
 /** One skill to simulate at full samples for one runner. */
 export interface SimRequest {
@@ -183,16 +194,32 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	// Details the Ace ranking scored with at aptitudes other than the Ace's own, for the picks that won: they are re-simulated at full samples like every shown skill.
 	let extras: SkillDetail[] = [];
 	// One seed list for every version and pair.
-	const aceSeeds = wholeAceSeeds(seed, samples);
+	const aceMemo = new Map<string, number>();
+	const aceRuns: AceRuns = {
+		seeds: wholeAceSeeds(seed, samples),
+		screenSeeds: wholeAceSeeds(seed, Math.min(samples, SCREEN_SAMPLES)),
+		full: new Set(),
+		memo: (key, compute, screen) => {
+			let m = aceMemo.get(key);
+			if (m === undefined) {
+				aceMemo.set(key, (m = compute()));
+				if (screen) onProgress?.({ phase: 'screen', done: ++simulated });
+			}
+			return m;
+		},
+	};
+	// Shown Aces still scored from screened runs after the last pass.
+	let aceTodo: (() => number)[] = [];
 	const track = trackOverview({ ...cm, horse, seed });
 	const pass = (): Recommendation => {
 		const detailFor = detailerOf(horse);
 		const seen = new Map<string, SkillDetail>();
 		const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
 			extras = [];
-			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceSeeds);
+			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceRuns);
 		const ranked = rankAceSlots(versions, categoryOf(courseFacts(cm.courseId).distance)).slice(0, ACE_SLOTS);
 		// The chart simulates the whole buyable pool, so only the first Ace's rows are built.
+		aceTodo = ranked.flatMap((x) => (x.refine ? [x.refine] : []));
 		const aceSlots = ranked.map((x, i) => ({ ...x.pick, skills: i === 0 ? x.rows() : [] }));
 		const coreV = coreVersion(loopVersions);
 		// The Core loop's dirt A chance uses the core version's affinities, not the Sim runner's.
@@ -225,8 +252,10 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	for (;;) {
 		const todo = new Map<string, { key: string; id: string }>();
 		for (const d of [...shownDetails(rec), ...extras]) if (d.screened && d.src) todo.set(`${d.src}|${d.skillId}`, { key: d.src, id: d.skillId });
-		if (!todo.size) return rec;
+		if (!todo.size && !aceTodo.length) return rec;
+		aceTodo.forEach((refine, i) => { refine(); onProgress?.({ phase: 'refine', done: simulated + i + 1, total: aceTodo.length }); });
 		const entries = [...todo.values()];
+		if (!entries.length) { rec = yield* settle(); continue; }
 		const details = yield { scenario: { ...cm, seed }, requests: entries.map(({ key, id }) => ({ horse: sims.get(key)!.horse, id, samples })), progress: (done) => onProgress?.({ phase: 'refine', done: simulated + done, total: entries.length }) };
 		entries.forEach(({ key, id }, i) => sims.get(key)!.cache.set(id, { ...details[i], screened: false, src: key }));
 		simulated += entries.length;
@@ -241,7 +270,7 @@ function shownDetails(r: Recommendation): SkillDetail[] {
 }
 
 /** A version's best Ace pick; its chart rows are built on demand (the learnable pool is simulated skill by skill). */
-interface AceCandidate { v: OwnedVersion; pick: AcePick; rows: () => AceSkillRow[]; /** Some pair of parents can lift the distance aptitude to A (or it starts there). */ reachable: boolean }
+interface AceCandidate { v: OwnedVersion; /** Set while the pick is scored from screened Whole-Ace runs: reruns the winner at full samples, returns its mean. */ refine?: () => number; pick: AcePick; rows: () => AceSkillRow[]; /** Some pair of parents can lift the distance aptitude to A (or it starts there). */ reachable: boolean }
 
 /** The Ace at one pair of distance and surface grades. */
 interface Cell { key: string; chance: number; /** With the unique skill. */ h: HorseDesc; /** Without it: the baseline skills are measured on. */ bare: HorseDesc }
@@ -251,9 +280,9 @@ interface Cell { key: string; chance: number; /** With the unique skill. */ h: H
 // A pair scores expected lengths: the Ace is simulated at every distance and surface grade the pair's pink sparks can reach, weighted by the chance of that grade;
 // at each it counts the lengths the higher aptitude gains, the unique skill and the parents' inheritable skills (weighted by inherit chance). Style pink sparks and Must-haves play no part.
 // A version with no roster candidates still scores by its unique alone.
-function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, seeds: number[]): AceCandidate[] {
+function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns): AceCandidate[] {
 	const out: AceCandidate[] = [];
-	for (const v of owned) {
+	for (const [vi, v] of owned.entries()) {
 		const units = v.candidates;
 		const pairs: Candidate[][] = [];
 		for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) if (units[i].charaId == null || units[i].charaId !== units[j].charaId) pairs.push([units[i], units[j]]);
@@ -321,21 +350,43 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 			}
 			return total;
 		};
-		const win = bestPair(pairs, rank, bound, extraOf, partial);
+		const shortlist = bestPairs(pairs, rank, bound, extraOf, partial, SHORTLIST);
+		// Whole-Ace runs choose among the shortlist; the additive score only decides who is on it. A pass still waiting for simulations is thrown away, so it skips the runs.
+		const buyable = skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface });
+		const meanAt = (p: ScoredPair, seeds: number[]) => wholeAceMean({ aptitudes: v.aptitudes, style, scenario, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: p.pair.flatMap((c) => c.horses), seeds });
+		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}`;
+		let win = shortlist[0];
+		let score = win.score;
+		let refine: (() => number) | undefined;
+		if (!partial()) {
+			if (shortlist.length === 1) {
+				// Nothing to choose: no screening, straight to full samples.
+				score = runs.memo(`full|${keyOf(win)}`, () => meanAt(win, runs.seeds));
+			} else {
+				let top = -Infinity;
+				for (const p of shortlist) {
+					const m = runs.memo(`screen|${keyOf(p)}`, () => meanAt(p, runs.screenSeeds), true);
+					if (m > top) { top = m; win = p; }
+				}
+				const w = win;
+				const fullMean = () => runs.memo(`full|${keyOf(w)}`, () => meanAt(w, runs.seeds));
+				if (runs.full.has(keyOf(w))) score = fullMean();
+				else { score = top; refine = () => { const m = fullMean(); runs.full.add(keyOf(w)); return m; }; }
+			}
+		}
 		const winCells = cellsOf(win.pair);
 		const winHorses = win.pair.flatMap((c) => c.horses);
 		// The scores read these at every reached grade, so they are refined like the details a pick shows.
 		for (const cell of winCells) for (const p of win.pair) for (const id of maxStars(p.horses.flatMap((x) => x.skills)).keys()) extras.push(detailerOf(cell.h)(id));
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
-		// The additive score only picks the pair; the version's score is the Whole-Ace run mean of that pair. A pass still waiting for simulations is thrown away, so it skips the runs.
-		const buyable = skillsAceCanMeet(v.learnableSkillIds ?? [], { style, category, surface: course.surface });
-		const score = partial() ? win.score : wholeAceMean({ aptitudes: v.aptitudes, style, scenario, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: winHorses, seeds });
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-		out.push({ v, reachable, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, skillsAceCanMeet(v.otherSkillIds ?? [], { style, category, surface: course.surface })) });
+		out.push({ v, reachable, refine, pick: { cardId: v.cardId, style, fallback: !!chosen && style !== chosen, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, skillsAceCanMeet(v.otherSkillIds ?? [], { style, category, surface: course.surface })) });
 	}
 	return out;
 }
+
+interface ScoredPair { parents: CandidatePick[]; score: number; pair: Candidate[] }
 
 /**
  * The pair with the best score (`extraOf` its own lengths, plus its parents' ranked scores); the earliest of equal ones.
@@ -343,23 +394,29 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
  * the same winner as ranking every pair, without ranking them all.
  * While a pass still waits for simulations its values are stand-ins and its result is thrown away, so it only needs to ask for the skills.
  */
-export function bestPair(pairs: Candidate[][], rank: (cs: Candidate[]) => CandidatePick[], boundOf: (c: Candidate) => number, extraOf: number | ((pair: Candidate[]) => number), partial: () => boolean): { parents: CandidatePick[]; score: number; pair: Candidate[] } {
+export function bestPair(pairs: Candidate[][], rank: (cs: Candidate[]) => CandidatePick[], boundOf: (c: Candidate) => number, extraOf: number | ((pair: Candidate[]) => number), partial: () => boolean): ScoredPair {
+	return bestPairs(pairs, rank, boundOf, extraOf, partial, 1)[0];
+}
+
+/** The `top` best pairs, best first (equal scores: the earliest first). Pruning compares against the `top`-th best found, so the list is the one ranking every pair would give. */
+export function bestPairs(pairs: Candidate[][], rank: (cs: Candidate[]) => CandidatePick[], boundOf: (c: Candidate) => number, extraOf: number | ((pair: Candidate[]) => number), partial: () => boolean, top: number): ScoredPair[] {
 	const bounds = new Map<Candidate, number>();
 	const bound = (c: Candidate) => { let v = bounds.get(c); if (v === undefined) bounds.set(c, (v = boundOf(c))); return v; };
 	const extras = pairs.map((p) => (typeof extraOf === 'function' ? extraOf(p) : extraOf));
 	const scoreOf = (i: number) => { const parents = rank(pairs[i]); return { parents, pair: pairs[i], score: extras[i] + parents.reduce((s, x) => s + x.score, 0) }; };
 	const pairBound = pairs.map((p, i) => extras[i] + p.reduce((s, c) => s + bound(c), 0));
-	if (partial()) return scoreOf(0);
+	if (partial()) return [scoreOf(0)];
 	const order = pairs.map((_, i) => i).sort((a, b) => pairBound[b] - pairBound[a] || a - b);
-	let win: { parents: CandidatePick[]; score: number; pair: Candidate[] } | undefined;
-	let winAt = Infinity;
+	const best: { x: ScoredPair; at: number }[] = [];
 	for (const i of order) {
 		// Slack for the float noise of adding the same numbers in another order.
-		if (win && pairBound[i] + 1e-9 * (Math.abs(win.score) + 1) < win.score) break;
+		if (best.length >= top && pairBound[i] + 1e-9 * (Math.abs(best[top - 1].x.score) + 1) < best[top - 1].x.score) break;
 		const x = scoreOf(i);
-		if (!win || x.score > win.score || (x.score === win.score && i < winAt)) { win = x; winAt = i; }
+		const at = best.findIndex((b) => x.score > b.x.score || (x.score === b.x.score && i < b.at));
+		best.splice(at < 0 ? best.length : at, 0, { x, at: i });
+		if (best.length > top) best.pop();
 	}
-	return win;
+	return best.map((b) => b.x);
 }
 
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
