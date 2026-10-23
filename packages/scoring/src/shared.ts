@@ -5,6 +5,7 @@ import type { Tier } from '@stud-finder/lineage/src/tiers';
 import type { SimAssumptions } from './assumptions';
 import type { RaceConditions } from './pairedRace';
 import type { SkillValue } from './skillValue';
+import type { SkillCost } from './skillBudget';
 
 /** Spark name (as in the tier list) to tier. */
 export type TierList = Record<string, Tier>;
@@ -14,6 +15,11 @@ export interface SkillSpark {
 	skillId: string;
 	name: string;
 	stars: number;
+}
+/** The white (inherited) variant of a horse's own unique skill, which its green spark makes buyable for the Ace. */
+export interface UniqueSpark extends SkillSpark {
+	/** A parent always makes it buyable; a grandparent only when its green spark procs in an inheritance. */
+	certain: boolean;
 }
 /** One horse a veteran brings into the Ace's lineage: itself as a parent, or one of its two parents as a grandparent. */
 export interface LineageHorse {
@@ -28,6 +34,8 @@ export interface LineageHorse {
 	/** Total stars of its turf pink sparks (0 when unset). */
 	turfStars?: number;
 	skills: SkillSpark[];
+	/** Absent for the Ace's own character (unique leveling covers it) and when the game data has no unique for the horse. */
+	unique?: UniqueSpark;
 }
 /** A veteran considered as a parent: itself first, then its own two parents (the Ace's grandparents). */
 export interface Candidate {
@@ -41,12 +49,19 @@ export interface Candidate {
 export interface CandidateList {
 	candidates: Candidate[];
 }
+/** A Skill point budget and what the skills in play cost (skills missing from `costs` are not for sale). */
+export interface SkillPoints {
+	budget: number;
+	costs: Record<string, SkillCost>;
+}
 export interface CmPreset extends RaceConditions {
 	courseId: number;
 	/** The runner the CM is simulated for (a stand-in for the Ace). */
 	runner: HorseDesc;
 	samples?: number;
 	seed?: number;
+	/** The Skill point budget the Ace slot buys within; absent means unlimited (every Buyable skill is bought). Ace heroes only. */
+	skillPoints?: SkillPoints;
 	/** Race conditions every paired race assumes; umalator's defaults when unset. */
 	assumptions?: SimAssumptions;
 }
@@ -122,11 +137,12 @@ function missFactors(h: LineageHorse): Map<string, number[]> {
 	let bySkill = MISS_FACTORS.get(h);
 	if (!bySkill) {
 		MISS_FACTORS.set(h, (bySkill = new Map()));
-		for (const s of h.skills) {
-			const factor = (1 - procChance(FactorType.Skill, s.stars, h.affinity)) ** INSPIRATIONS;
-			const factors = bySkill.get(s.skillId);
-			if (factors) factors.push(factor); else bySkill.set(s.skillId, [factor]);
-		}
+		const add = (skillId: string, factor: number) => {
+			const factors = bySkill.get(skillId);
+			if (factors) factors.push(factor); else bySkill.set(skillId, [factor]);
+		};
+		for (const s of h.skills) add(s.skillId, (1 - procChance(FactorType.Skill, s.stars, h.affinity)) ** INSPIRATIONS);
+		if (h.unique) add(h.unique.skillId, h.unique.certain ? 0 : (1 - procChance(FactorType.Unique, h.unique.stars, h.affinity)) ** INSPIRATIONS);
 	}
 	return bySkill;
 }

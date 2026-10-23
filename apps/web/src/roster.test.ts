@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { DEFAULT_ASSUMPTIONS } from '../../../packages/scoring/src/assumptions';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -88,4 +88,19 @@ it('clearing data also drops Must-haves and Tier edits', () => {
 	clearRoster(s);
 	expect(loadMustHaves(s)).toEqual([]);
 	expect(loadTierEdits(s)).toEqual({});
+});
+
+it('persists the Skill point budget: 2700 by default, a cleared field is unlimited, stale or malformed saves get 2700', () => {
+	const s = fakeStorage();
+	expect(loadSkillPointBudget(s)).toBe(2700);
+	saveSkillPointBudget(s, 1500);
+	expect(loadSkillPointBudget(s)).toBe(1500);
+	saveSkillPointBudget(s, null);
+	expect(loadSkillPointBudget(s)).toBeNull();
+	for (const body of [{ version: 99, budget: 1500 }, { version: 1, budget: -5 }, { version: 1, budget: 'lots' }, { version: 1 }]) {
+		s.setItem('stud-finder:skill-point-budget', JSON.stringify(body));
+		expect(loadSkillPointBudget(s)).toBe(2700);
+	}
+	s.setItem('stud-finder:skill-point-budget', 'garbage');
+	expect(loadSkillPointBudget(s)).toBe(2700);
 });

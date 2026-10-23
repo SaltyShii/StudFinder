@@ -1,12 +1,12 @@
 import type { GameData } from '../../../packages/lineage/src/gameData';
-import type { Card, Course, ImportResult, Veteran } from '../../../packages/lineage/src/types';
+import type { Card, Course, ImportResult, Skill, Veteran } from '../../../packages/lineage/src/types';
 import { resolveTierList, type Tier } from '../../../packages/lineage/src/tiers';
 import { DEFAULT_FIT_CUTOFF, FIT_OFF, aceForCourse, categoryOf, defaultTargetStats, gradeLabel, rankStyles, surfaceOf, type Style, type TargetStats } from '../../../packages/scoring/src/ace';
 import { candidatesOf, pinkGroupOf } from '../../../packages/scoring/src/candidates';
 import { cmPreset, type Cm } from '../../../packages/scoring/src/cm';
-import type { AceSkillRow, CandidateList, CmPreset, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
+import type { AceSkillRow, CandidateList, CmPreset, SkillCost, OwnedVersion, Recommendation, RecommendProgress, SimBatch, SimRequest } from '../../../packages/scoring/src/recommend';
 import type { Candidate, TierList } from '../../../packages/scoring/src/shared';
-import { buyableSkillIds, poolSkillIds } from '../../../packages/scoring/src/learnable';
+import { buyableSkillIds, poolSkillIds, whiteUniqueIds } from '../../../packages/scoring/src/learnable';
 import type { AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import type { SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { JobRunner } from './jobRunner';
@@ -142,10 +142,22 @@ export interface PlanOptions {
 	tierEdits?: TierEdits;
 	mustHaves?: string[];
 	assumptions?: SimAssumptions;
+	/** Skill points the Ace may spend; null or absent is unlimited. */
+	skillPointBudget?: number | null;
+}
+
+/** What each purchasable skill costs, keyed by skill id as the scorer reads it; skills that cannot be bought are left out. */
+export function skillCostsOf(skills: Iterable<Skill>): Record<string, SkillCost> {
+	const costs: Record<string, SkillCost> = {};
+	for (const s of skills) {
+		if (s.purchasable === false || s.spCost == null) continue;
+		costs[String(s.id)] = { cost: s.spCost, group: s.groupId, ...(s.replacesId != null ? { replacesId: String(s.replacesId) } : {}) };
+	}
+	return costs;
 }
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
-	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions } = options;
+	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions, skillPointBudget } = options;
 	// Manual choice wins; otherwise the best-ranked style for this Sim runner on the CM course.
 	const base = card ?? GENERIC_RUNNER;
 	const style: Style = styleChoice ?? (course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
@@ -153,12 +165,12 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions, ...(skillPointBudget != null ? { skillPoints: { budget: skillPointBudget, costs: skillCostsOf(data.skills.values()) } } : {}) }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
 }
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */
 export function planOwned(data: GameData, roster: ImportResult, ownedIds: Iterable<number>, course: Course | undefined, useBorrowed: boolean): OwnedVersion[] {
-	const pool = poolSkillIds(data.skills.values());
+	const pool = poolSkillIds(data.skills.values(), whiteUniqueIds(data.factors.values()));
 	return [...ownedIds].flatMap((id) => {
 		const card = data.cards.get(id);
 		return card ? [{ cardId: id, aptitudes: card.aptitudes, uniqueSkillId: card.uniqueSkillId == null ? undefined : String(card.uniqueSkillId), learnableSkillIds: buyableSkillIds(card.skillIds ?? [], data.skills), otherSkillIds: pool, candidates: planCandidates(data, roster, card, course, useBorrowed) }] : [];

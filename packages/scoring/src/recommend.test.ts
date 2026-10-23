@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { wholeAceMean, wholeAceSeeds } from './wholeAce';
+import { wholeAceRuns, wholeAceSeeds } from './wholeAce';
 import { skillDetail } from './skillDetail';
 import { DEFAULT_ASSUMPTIONS } from './assumptions';
 import { skillChance } from './shared';
@@ -425,9 +425,9 @@ test('an Ace slot marks a fall-back when its style differs from the selected one
 describe('Ace slot scored by Whole-Ace runs', () => {
 	const sure = (skills: string[], id = skills.join() || 'none') => cand(id, horseOf(skills, { affinity: 1e6 }), horseOf([], { affinity: 1e6 }), horseOf([], { affinity: 1e6 }));
 	const target = { speed: horse.speed, stamina: horse.stamina, power: horse.power, guts: horse.guts, wisdom: horse.wisdom };
-	const meanOf = (aptitudes: typeof apt, uniqueSkillId: string | undefined, horses: LineageHorse[]) => wholeAceMean({
+	const meanOf = (aptitudes: typeof apt, uniqueSkillId: string | undefined, horses: LineageHorse[]) => wholeAceRuns({
 		aptitudes, style: 'senko', scenario: { courseId: preset.courseId }, target, uniqueSkillId, buyableSkillIds: [], horses, seeds: wholeAceSeeds(preset.seed, preset.samples),
-	});
+	}).mean;
 	test('a version without candidates scores its Whole-Ace run mean', () => {
 		const slot = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: apt, uniqueSkillId: '10071', candidates: [] }]).aceSlots[0];
 		expect(slot.score).toBe(meanOf(apt, '10071', []));
@@ -453,7 +453,7 @@ describe('Ace slot scored by Whole-Ace runs', () => {
 		const skillIds = ['10071', '10081', '10091', '10101', '10111'];
 		const units = skillIds.map((id, i) => sure([id], 'u' + i)); // 10 pairs: all are shortlisted
 		const screenSeeds = wholeAceSeeds(preset.seed, 20);
-		const pairMean = (pair: Candidate[], seeds: number[]) => wholeAceMean({ aptitudes: apt, style: 'senko', scenario: { courseId: preset.courseId }, target, buyableSkillIds: [], horses: pair.flatMap((c) => c.horses), seeds });
+		const pairMean = (pair: Candidate[], seeds: number[]) => wholeAceRuns({ aptitudes: apt, style: 'senko', scenario: { courseId: preset.courseId }, target, buyableSkillIds: [], horses: pair.flatMap((c) => c.horses), seeds }).mean;
 		test('fewer than 10 pairs are all scored: the shown pair wins the screen by Whole-Ace mean, and is shown at full samples', () => {
 			const pairs: Candidate[][] = [];
 			for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) pairs.push([units[i], units[j]]);

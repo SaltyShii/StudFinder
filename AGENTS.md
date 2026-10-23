@@ -62,7 +62,7 @@ Read during review.
 - `apps/web/public/data/*.json` is copied from lineageplanner-salty `public/data` (pipeline in its `docs/DATA.md`). Regenerate locally with the commands in `scripts/ingest/NOTICE.md` (vendored lineageplanner-salty scripts; also writes `apps/web/public/img/{cards,cm,races}`); scheduled refresh is #18
 - Git over SSH to GitHub hangs intermittently (port 22). Wrap network git in `timeout 60`; on a hang, fetch over HTTPS: `git -c credential.helper='!gh auth git-credential' fetch https://github.com/SaltyShii/StudFinder.git main:refs/remotes/origin/main`
 - Stopping a process: `pkill -f "[v]ite --port"` (the bracket keeps the pattern from matching the shell's own command line, which kills the Bash tool with exit 144), or kill by PID
-- Profiling: `node --cpu-prof --cpu-prof-dir=<dir> node_modules/vite-node/vite-node.mjs <script>` with the script outside the repo; `packages/scoring/bench/recommend.ts` is the synthetic-roster loop. Read a real export from its own path, never copy it in. A perf change must give the same `recommend()` result as `main` (compare a hash of the JSON)
+- Profiling: `node --cpu-prof --cpu-prof-dir=<dir> node_modules/vite-node/vite-node.mjs <script>` with the script outside the repo; `packages/scoring/bench/recommend.ts` is the synthetic-roster loop (run it with `2 8 30` for the reference hash; other args give other hashes). Read a real export from its own path, never copy it in. A perf change must give the same `recommend()` result as `main` (compare a hash of the JSON)
 - `playwright-cli`: refs change after a reload, and `upload` only works right after clicking the file chooser
 
 ## Preferences

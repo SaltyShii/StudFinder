@@ -51,6 +51,10 @@ _Avoid_: equipped skills (that is the Ace veteran's term), ace (for the finished
 A general skill (white or gold) on the Ace card's own skill list that the Ace can buy with skill points after its run, when it meets the skill's running style, distance and surface conditions. The chart lists them as the Ace's own skills (certain), except one a parent can pass on, which shows its inherit chance instead. Skills off the card list appear only through a parent, or under **Other buyable skill** below.
 _Avoid_: learnable skill, equipped skill
 
+**Inherited unique**:
+The white version of a character's unique skill (for example Triumphant Pulse, white, from Oguri Cap). A parent of that character always makes it a Buyable skill for the Ace; a grandparent only when it procs in an inheritance. The green unique skill itself is never inherited: it is handled by unique leveling, and a parent of the Ace's own character adds nothing.
+_Avoid_: unique spark (that is the green spark), inherited skill (alone)
+
 **Other buyable skill**:
 A white or gold skill (the strongest of its group) the Ace meets the conditions of but that is on neither its card list nor a parent lineage. The chart lists these in their own section below the Ace's own and inheritable skills; they never feed the Track overview chips or the Ace ranking.
 _Avoid_: extra skill
@@ -64,7 +68,7 @@ How far a skill's cost is discounted for an Ace, from 1 to 5 (10%, 20%, 30%, 35%
 _Avoid_: hint (alone), discount level
 
 **Skill point budget**:
-The total SP the Ace has to spend, one setting for every version (default about 2700, a typical Grand Concert run). The Ace then buys the affordable set with the most lengths gained per SP. Unset means unlimited: it buys every Buyable skill, as before.
+The total SP an Ace hero has to spend, one setting for every version (starts at about 2700, a typical Grand Concert run; the user can clear it). In each Whole-Ace run the Ace buys the affordable set with the most lengths gained per SP, with that run's Hint levels; a gold skill replaces its white version, never both. Cleared means unlimited: it buys every Buyable skill. Ace veterans and the loops ignore it.
 
 **Whole-Ace run**:
 One Monte Carlo sample of an Ace hero with a given pair of parents: the sparks that procced are rolled (aptitude upgrades, inherited skills), the full trained Ace is built from them and raced paired against the version's untrained base (its own aptitudes, no skills). The Ace score is the mean lengths gained over these runs, so overlapping skills and aptitude and skill combinations count once.
