@@ -406,7 +406,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const budgetOf = (p: ScoredPair): AceBudget | undefined => {
 			if (!skillPoints) return undefined;
 			if (!budgets.has(p)) {
-				const lineage = skillsAceCanMeet([...new Set(p.pair.flatMap((c) => c.horses.flatMap((x) => x.skills.map((s) => s.skillId))))], { style, category, surface: course.surface });
+				const lineage = skillsAceCanMeet(lineageIdsOf(p.pair.flatMap((c) => c.horses)), { style, category, surface: course.surface });
 				const ids = [...new Set([...buyable, ...lineage])].filter((id) => id in skillPoints.costs);
 				const costs: Record<string, SkillCost> = {};
 				for (const id of ids) {
@@ -418,7 +418,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 			}
 			return budgets.get(p);
 		};
-		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}) });
+		const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: skillsAceCanMeet(uniqueIdsOf(p.pair.flatMap((c) => c.horses)), { style, category, surface: course.surface }), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}) });
 		const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}`;
 		// The values are screened or full, so the same pair reruns once its values change.
 		const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.points}|${Object.values(b.values).join()}` : ''; };
@@ -453,7 +453,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const winCells = cellsOf(win.pair);
 		const winHorses = win.pair.flatMap((c) => c.horses);
 		// The scores read these at every reached grade, so they are refined like the details a pick shows.
-		for (const cell of winCells) for (const p of win.pair) for (const id of maxStars(p.horses.flatMap((x) => x.skills)).keys()) extras.push(detailerOf(cell.h)(id));
+		for (const cell of winCells) for (const p of win.pair) for (const id of lineageIdsOf(p.horses)) extras.push(detailerOf(cell.h)(id));
 		const reachable = pairs.some((p) => distOutcomes(p.flatMap((c) => c.horses)).some((o) => o.grade >= GRADE_A));
 		const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 		const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
@@ -495,10 +495,19 @@ export function bestPairs(pairs: Candidate[][], rank: (cs: Candidate[]) => Candi
 	return best.map((b) => b.x);
 }
 
+/** White unique variants these horses make buyable (the Ace's own character excluded when the lineage was built). */
+function uniqueIdsOf(horses: LineageHorse[]): string[] {
+	return horses.flatMap((h) => (h.unique ? [h.unique.skillId] : []));
+}
+/** Every skill these horses can pass on or make buyable: white sparks first, then white unique variants. */
+function lineageIdsOf(horses: LineageHorse[]): string[] {
+	return [...new Set([...horses.flatMap((h) => h.skills.map((s) => s.skillId)), ...uniqueIdsOf(horses)])];
+}
+
 // The Ace's own skills, learnable skills and everything either parent lineage can pass on.
 function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses: LineageHorse[] }[], detailOf: (id: string) => SkillDetail, own: string[], mustHaves: string[], learnableSkillIds: string[], otherSkillIds: string[] = [], bought?: Record<string, number>): AceSkillRow[] {
 	const rows: AceSkillRow[] = unique ? [rowOf(unique, 1, mustHaves, true)] : [];
-	const ids = new Set(parents.flatMap((p) => p.horses.flatMap((h) => h.skills.map((s) => s.skillId))));
+	const ids = new Set(parents.flatMap((p) => lineageIdsOf(p.horses)));
 	// A buyable skill is certain, so it is an own row, unless a parent lineage can pass it on: that one shows its inherit chance (the skill points it may save), not a claim that it is bought. The unique skill is not shown twice.
 	for (const id of new Set(learnableSkillIds)) if (id !== unique?.skillId && !ids.has(id) && id in skillData) rows.push(rowOf(detailOf(id), 1, mustHaves, true));
 	for (const id of ids) {
@@ -510,7 +519,8 @@ function aceRows(unique: SkillDetail | undefined, parents: { id: string; horses:
 	const listed = new Set([...rows.map((r) => r.skillId), ...own]);
 	for (const id of new Set(otherSkillIds)) if (!listed.has(id) && id in skillData) rows.push({ ...rowOf(detailOf(id), 0, mustHaves), other: true });
 	// Only the card list's Buyable skills are bought, so a skill that is only inherited stays unmarked.
-	const buyable = new Set(learnableSkillIds);
+	// The white unique variants a parent makes buyable are bought too.
+	const buyable = new Set([...learnableSkillIds, ...parents.flatMap((p) => uniqueIdsOf(p.horses))]);
 	return chartRows(bought ? rows.map((r) => (buyable.has(r.skillId) ? { ...r, bought: bought[r.skillId] ?? 0 } : r)) : rows);
 }
 

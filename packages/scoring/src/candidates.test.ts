@@ -60,3 +60,16 @@ test('a borrowed veteran is a candidate labelled with its owner, not a rank scor
 test('pinkGroupOf maps a course distance to its distance pink group', () => {
 	expect(pinkGroupOf(2000)).toBe(33);
 });
+
+test('a parent makes its white unique variant buyable with certainty; a grandparent only at its green spark proc chance; the Ace\'s own character adds nothing', () => {
+	const uq = new GameData({
+		meta: {}, charas: {}, skills: {}, saddles: {}, tracks: {}, courses: {}, races: [],
+		cards: { 1: card(1), 2: card(2), 100: card(100) },
+		factors: { 1: fx(1, 1, 3, 1, 'Unique One', 900001), 2: fx(2, 2, 3, 2, 'Unique Two', 900002), 3: fx(3, 100, 3, 3, 'Ace Unique', 900100), 4: fx(4, 1, 3, 2, 'Unique One', 900001) },
+		relations: { points: {}, members: {}, ranks: [] },
+	} as unknown as RawGameData);
+	const [c] = candidatesOf(uq, [vet(10, 1, [4], [gp(2, [2]), gp(100, [3])])], opts);
+	expect(c.horses[0].unique).toEqual({ skillId: '900001', name: 'Unique One', stars: 2, certain: true });
+	expect(c.horses[1].unique).toEqual({ skillId: '900002', name: 'Unique Two', stars: 2, certain: false });
+	expect(c.horses[2].unique).toBeUndefined();
+});

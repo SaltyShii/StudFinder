@@ -136,4 +136,32 @@ describe('Skill point budget', () => {
 			expect(batched.aceSlots[0].skills.find((r) => r.skillId === '10071')?.bought).toBe(1);
 		});
 	});
+	describe('white unique skills from a parent', () => {
+		const PULSE = '900061';
+		const withPulse: Record<string, SkillCost> = { ...costs, [PULSE]: { cost: 200, group: 90006 } };
+		const unique = (certain: boolean, stars = 3) => ({ skillId: PULSE, name: 'Triumphant Pulse', stars, certain });
+		const rowsOf = (horses: LineageHorse[], budget?: number, v = version(['10071'], [{ id: 'o', name: 'o', horses }])) =>
+			recommend(none, { ...preset, skillPoints: budget === undefined ? undefined : { budget, costs: withPulse } }, undefined, [v]).aceSlots[0].skills.find((r) => r.skillId === PULSE);
+		test('a parent makes it buyable with certainty: an inherited row, not an Other buyable skill', () => {
+			const row = rowsOf([{ ...horseOf([]), unique: unique(true) }, horseOf([]), horseOf([])], 1e6);
+			expect(row?.inherit).toBe(1);
+			expect(row?.other).toBeUndefined();
+			expect(row?.bought).toBe(1);
+		});
+		// The pink spark draws first, so consecutive run seeds roll the green spark independently.
+		test('a grandparent gives it only at the inheritance proc chance, per run', () => {
+			const row = rowsOf([horseOf([]), { ...horseOf([], 50), pinkStars: 3, unique: unique(false, 2) }, horseOf([])], 1e6);
+			expect(row?.inherit).toBeGreaterThan(0);
+			expect(row?.inherit).toBeLessThan(1);
+			expect(row?.bought).toBeGreaterThan(0);
+			expect(row?.bought).toBeLessThan(1);
+		});
+		test('with no parent carrying it, the Ace cannot buy it', () => {
+			expect(rowsOf([horseOf([]), horseOf([]), horseOf([])], 1e6)).toBeUndefined();
+		});
+		test('without a budget the parent-granted one is bought like every Buyable skill', () => {
+			const withIt = scoreOf(version(['10071'], [{ id: 'o', name: 'o', horses: [{ ...horseOf([]), unique: unique(true) }, horseOf([]), horseOf([])] }]));
+			expect(withIt).toBeGreaterThan(scoreOf(version(['10071'], [sure('o')])));
+		});
+	});
 });

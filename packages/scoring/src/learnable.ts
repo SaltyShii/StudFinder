@@ -1,7 +1,7 @@
 import skillData from '@stud-finder/sim/src/data/skill_data.json';
 import { evaluateSkill } from '@stud-finder/lineage/src/conditions';
 import { DISTANCES, STYLES, SURFACES } from '@stud-finder/lineage/src/config';
-import type { Skill } from '@stud-finder/lineage/src/types';
+import { FactorType, type Skill } from '@stud-finder/lineage/src/types';
 import type { Category, Style } from './ace';
 
 const WHITE = 1;
@@ -15,11 +15,21 @@ export function buyableSkillIds(cardSkillIds: Iterable<number>, skills: Readonly
 	}).map(String);
 }
 
+/**
+ * The white unique variants: the skill a green (unique) spark carries (rarity 1, with a spCost in the data, so they would look like any buyable white skill).
+ * Only a parent of the character makes one buyable (see candidates.ts), so they are neither in the Other buyable pool nor a purchasable extra.
+ */
+export function whiteUniqueIds(factors: Iterable<{ type: number; skillId: number | null }>): Set<number> {
+	const ids = new Set<number>();
+	for (const f of factors) if (f.type === FactorType.Unique && f.skillId != null) ids.add(f.skillId);
+	return ids;
+}
+
 /** The white and gold skills any Ace could buy, the strongest of each skill group (the circle tiers and the gold version share one), never a penalty skill. The card list is a part of it; the rest are the Other buyable skills. */
-export function poolSkillIds(skills: Iterable<{ id: number; rarity: number; groupId: number; gradeValue: number }>): string[] {
+export function poolSkillIds(skills: Iterable<{ id: number; rarity: number; groupId: number; gradeValue: number }>, exclude: ReadonlySet<number> = new Set()): string[] {
 	const best = new Map<number, { id: number; gradeValue: number }>();
 	for (const s of skills) {
-		if (s.rarity !== WHITE && s.rarity !== GOLD) continue;
+		if (exclude.has(s.id) || s.rarity !== WHITE && s.rarity !== GOLD) continue;
 		const cur = best.get(s.groupId);
 		if (!cur || s.gradeValue > cur.gradeValue) best.set(s.groupId, s);
 	}

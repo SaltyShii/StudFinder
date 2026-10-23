@@ -19,6 +19,8 @@ export interface SparkRoll extends RolledAptitudes {
 	skillIds: string[];
 	/** The Hint level of each skill a spark procced for: the stars of its procs added up, at most 5. */
 	hints: Record<string, number>;
+	/** White unique variants a parent made buyable (a parent always, a grandparent when its green spark procced); not skills the Ace has, so they carry no hint. */
+	unlocked: string[];
 }
 
 /** Whether a spark of this chance procs: a 0 chance never does, a certain one always does (the draw is in [0, 1)). */
@@ -62,7 +64,16 @@ export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surfac
 			}
 		}
 	}
-	return { distance, surface: surfaceGrade, skillIds, hints };
+	// After the skill sparks, so a lineage without a unique draws the very same numbers as before.
+	const unlocked: string[] = [];
+	for (const h of horses) {
+		const u = h.unique;
+		if (!u || unlocked.includes(u.skillId)) continue;
+		let procced = u.certain;
+		for (let i = 0; !procced && i < INSPIRATIONS; i++) procced = rolls(procChance(FactorType.Unique, u.stars, h.affinity), rng);
+		if (procced) unlocked.push(u.skillId);
+	}
+	return { distance, surface: surfaceGrade, skillIds, hints, unlocked };
 }
 
 export interface WholeAceInput {
@@ -76,6 +87,8 @@ export interface WholeAceInput {
 	uniqueSkillId?: string;
 	/** Buyable skills the Ace meets (the caller has dropped those whose conditions it cannot meet); all are bought, or the best set within the budget. */
 	buyableSkillIds: string[];
+	/** White unique variants the Ace meets the conditions of (a subset of the lineage's); the ones a parent makes buyable in a run are bought like Buyable skills. */
+	uniqueSkillIds?: string[];
 	/** The pair's lineage: both parents and their parents. Empty for a version without candidates. */
 	horses: LineageHorse[];
 	/** The Skill point budget the Ace buys within; absent means unlimited: every Buyable skill is bought. */
@@ -97,7 +110,7 @@ export interface WholeAceRuns {
  * Pure and deterministic.
  */
 export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
-	const { aptitudes, style, scenario, target, uniqueSkillId, buyableSkillIds, horses, seeds, budget } = input;
+	const { aptitudes, style, scenario, target, uniqueSkillId, buyableSkillIds, uniqueSkillIds = [], horses, seeds, budget } = input;
 	if (!seeds.length) return { mean: 0, bought: {} };
 	const { distance, surface } = courseFacts(scenario.courseId);
 	const category = categoryOf(distance);
@@ -109,11 +122,13 @@ export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
 	for (const seed of seeds) {
 		const rolled = rollSparks(horses, { distance: aptitudes[category], surface: aptitudes[surface] }, surface, seed);
 		const ace = buildAce({ aptitudes: { ...aptitudes, [category]: rolled.distance, [surface]: rolled.surface }, style, category, surface, target });
-		let bought = buyableSkillIds;
+		// No hint of its own: the green spark only unlocks the white version, at the base cost.
+		const unlocked = rolled.unlocked.filter((id) => uniqueSkillIds.includes(id));
+		let bought = [...buyableSkillIds, ...unlocked.filter((id) => !buyableSkillIds.includes(id))];
 		if (budget) {
-			const key = rolled.skillIds.map((id) => `${id}:${rolled.hints[id]}`).join();
+			const key = `${rolled.skillIds.map((id) => `${id}:${rolled.hints[id]}`).join()}|${unlocked.join()}`;
 			let set = sets.get(key);
-			if (!set) sets.set(key, (set = buySet(budget, buyableSkillIds, rolled)));
+			if (!set) sets.set(key, (set = buySet(budget, buyableSkillIds, { skillIds: [...rolled.skillIds, ...unlocked.filter((id) => !rolled.skillIds.includes(id))], hints: rolled.hints })));
 			bought = set;
 		}
 		for (const id of bought) counts[id] = (counts[id] ?? 0) + 1;
