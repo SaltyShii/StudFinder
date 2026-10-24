@@ -52,6 +52,12 @@ async function importFile() {
 
 const click = (el: Element | null) => act(() => { (el as HTMLElement).click(); });
 const run = () => click(root.querySelector('button[name=run]'));
+// Any input change marks the results outdated; the CM is the one left in the top bar that does.
+const changeInput = async () => {
+	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
+	cm.value = String(CMS.find((c) => c.id !== Number(cm.value))!.id);
+	await act(() => { cm.dispatchEvent(new Event('change')); });
+};
 const closeModal = () => click(root.querySelector('.modal-close'));
 
 // Picks a real version in the Sim runner popup (the popup closes on pick); the default is the Generic runner.
@@ -122,9 +128,7 @@ it('recomputes when an input changes and cancel stops the running job', async ()
 	await importFile();
 	await pickAce();
 	expect(jobs).toHaveLength(1);
-	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
-	style.value = 'nige';
-	await act(() => { style.dispatchEvent(new Event('change')); });
+	await changeInput();
 	expect(jobs).toHaveLength(1); // nothing recomputes until Run
 	expect(root.textContent).toContain('outdated');
 	await run();
@@ -204,11 +208,6 @@ it('keeps the veteran scores on Run when nothing they depend on changed', async 
 	expect(jobs).toHaveLength(1);
 	await run(); // same CM, roster and assumptions: the scores on screen are current
 	expect(jobs).toHaveLength(1);
-	const style = root.querySelector('select[name=style]') as HTMLSelectElement; // the Sim runner does not enter the veterans' scores
-	style.value = 'oikomi';
-	await act(() => { style.dispatchEvent(new Event('change')); });
-	await run();
-	expect(jobs).toHaveLength(1);
 	await click(root.querySelector('.sim-assumptions input[name=rushed]')); // a new assumption changes every score
 	expect(jobs).toHaveLength(2);
 });
@@ -279,7 +278,7 @@ it('shows the Ace hero first, then Side and Core loops, with the Ace veteran lis
 	expect(root.querySelector('.results > details')!.hasAttribute('open')).toBe(false);
 });
 
-it('lists every fit Ace hero as a card, marking the ones that run in a fall-back style', async () => {
+it('lists every fit Ace hero as a card with its style and no fall-back text', async () => {
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
@@ -287,12 +286,10 @@ it('lists every fit Ace hero as a card, marking the ones that run in a fall-back
 	expect(cards().map((c) => c.textContent)).toEqual([expect.stringContaining('Dud'), expect.stringContaining('Stud')]);
 	expect(cards().every((c) => c.querySelector('.headline') && !c.textContent!.includes('fall-back'))).toBe(true);
 	expect(cards().map((c) => c.getAttribute('data-testid'))).toEqual(['ace-pick-100301', 'ace-pick-100201']); // one id per hero
-	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
-	style.value = 'nige'; // D for every version: each falls back to Pace Chaser
-	await act(() => { style.dispatchEvent(new Event('change')); });
+	await changeInput();
 	await run();
 	expect(cards()).toHaveLength(2);
-	expect(cards().every((c) => c.textContent!.includes('fall-back style'))).toBe(true);
+	expect(cards().every((c) => !c.textContent!.includes('fall-back'))).toBe(true);
 });
 
 it('marks every Ace hero card outdated when an input changes, and current again after Run', async () => {
@@ -303,9 +300,7 @@ it('marks every Ace hero card outdated when an input changes, and current again 
 	const cardLists = () => [...section().querySelectorAll('ol.hero-list')] as HTMLElement[];
 	expect(section().getAttribute('aria-busy')).toBe('false');
 	expect(cardLists().every((l) => l.style.opacity === '')).toBe(true);
-	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
-	style.value = 'nige';
-	await act(() => { style.dispatchEvent(new Event('change')); });
+	await changeInput();
 	expect(section().getAttribute('aria-busy')).toBe('true');
 	expect(section().querySelector('h3')!.textContent).toContain('outdated');
 	expect(cardLists()).toHaveLength(1);
@@ -343,39 +338,24 @@ it('shows a worker error, stops the busy state, drops the old result and clears 
 	await pickAce();
 	const before = root.querySelectorAll('[data-testid=ace-card]').length;
 	fail = true;
-	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
-	style.value = 'nige';
-	await act(() => { style.dispatchEvent(new Event('change')); });
+	await changeInput();
 	await run();
 	expect(root.querySelector('[role=alert]')?.textContent).toBe('worker crashed');
 	expect(root.textContent).not.toContain('Computing');
 	expect(root.querySelectorAll('[data-testid=ace-card]').length).toBe(0);
 	expect(before).toBeGreaterThan(0);
 	fail = false;
-	style.value = 'oikomi';
-	await act(() => { style.dispatchEvent(new Event('change')); });
+	await changeInput();
 	await run();
 	expect(root.querySelector('[role=alert]')).toBeNull();
 });
 
-it('returns the Style to the best-ranked one when the Ace or CM changes', async () => {
+it('has no Style dropdown and no style badge in the header', async () => {
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
-	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
-	expect(style.value).toBe('senko'); // best aptitude on a middle-distance course
-	const change = async (name: string, value: string) => {
-		const sel = root.querySelector(`select[name=${name}]`) as HTMLSelectElement;
-		sel.value = value;
-		await act(() => { sel.dispatchEvent(new Event('change')); });
-	};
-	await change('style', 'nige');
-	expect(style.value).toBe('nige');
-	await pickAce('100301');
-	expect(style.value).toBe('senko');
-	await change('style', 'nige');
-	await change('cm', String(CMS[1].id));
-	expect(style.value).toBe('senko');
+	expect(root.querySelector('select[name=style]')).toBeNull();
+	expect(root.querySelector('[data-testid=style-badge]')).toBeNull();
 });
 
 it('labels the Sim runner, not Ace, and shows the chosen one', async () => {
@@ -412,7 +392,7 @@ it('popups are labelled dialogs that take focus and close on X, Esc and backdrop
 	expect(root.querySelector('[role=dialog]')).not.toBeNull();
 });
 
-it('Core loop style follows the Sim runner style until overridden', async () => {
+it('Core loop style keeps its override when an input changes', async () => {
 	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
 	await importFile();
 	await pickAce();
@@ -423,10 +403,7 @@ it('Core loop style follows the Sim runner style until overridden', async () => 
 	};
 	const core = root.querySelector('select[name=core-style]') as HTMLSelectElement;
 	expect(core.value).toBe('senko');
-	await change('style', 'sashi');
-	expect(core.value).toBe('sashi');
 	await change('core-style', 'oikomi');
-	await change('style', 'nige');
 	expect(core.value).toBe('oikomi');
 });
 
@@ -945,10 +922,6 @@ it('shows the app title, the selected CM with its course and the Ace running sty
 	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain('2000m');
 	await pick('cm', String(CMS[0].id));
 	expect(header().querySelector('[data-testid=header-cm]')!.textContent).toContain(CMS[0].name);
-	await pick('style', 'nige');
-	expect(header().querySelector('[data-testid=style-badge]')!.textContent).toBe('Front Runner');
-	await pick('style', 'oikomi');
-	expect(header().querySelector('[data-testid=style-badge]')!.textContent).toBe('End Closer');
 });
 
 it('charts the selected Side loop pick with the same tabs, table and footnote as the Ace, and follows the selection', async () => {
@@ -999,9 +972,7 @@ it('opens any Ace hero on click, building its chart rows once, until the inputs 
 	expect(asked).toHaveLength(1); // opened once, kept
 	expect(loading()).toBeNull();
 	// New inputs: the next result opens the first hero again and forgets the rows.
-	const style = root.querySelector('select[name=style]') as HTMLSelectElement;
-	style.value = 'nige';
-	await act(() => { style.dispatchEvent(new Event('change')); });
+	await changeInput();
 	await run();
 	expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
 	expect(asked).toHaveLength(1); // the old selection asks nothing of the new result
@@ -1055,7 +1026,7 @@ it('puts the main actions in a top bar and the other options in a collapsed Sett
 	await importFile();
 	const bar = root.querySelector('[data-testid=top-bar]')!;
 	expect(bar.querySelector('h1')!.textContent).toBe('Stud Finder');
-	for (const sel of ['input[type=file]', 'select[name=cm]', 'button[name=choose-sim-runner]', 'select[name=style]', 'button[name=run]']) expect(bar.querySelector(sel)).not.toBeNull();
+	for (const sel of ['input[type=file]', 'select[name=cm]', 'button[name=choose-sim-runner]', 'button[name=run]']) expect(bar.querySelector(sel)).not.toBeNull();
 	const settings = root.querySelector('details[data-testid=settings]')!;
 	expect(settings.hasAttribute('open')).toBe(false);
 	expect(settings.querySelector('summary')!.textContent).toBe('Settings');

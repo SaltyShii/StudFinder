@@ -6,7 +6,7 @@ import type { AcePick } from '../../../packages/scoring/src/recommend';
 import { AceHero } from './AceHero';
 
 const data = { cards: new Map() } as unknown as GameData;
-const pick = (over: Partial<AcePick>): AcePick => ({ cardId: 1, style: 'Senkou', fallback: false, score: 1, expectedLengths: 1, horses: [], mustHaveChance: 0, distanceAChance: 1, parents: [], skills: [], ...over }) as AcePick;
+const pick = (over: Partial<AcePick>): AcePick => ({ cardId: 1, style: 'senko', score: 1, expectedLengths: 1, horses: [], mustHaveChance: 0, distanceAChance: 1, parents: [], skills: [], ...over }) as AcePick;
 const deck = { own: [{ card: { id: 7, name: 'Own seven', type: 'speed', pool: [], hintFrequency: [], hintLevelBonus: [] }, limitBreak: 4 }], notes: [] } as AcePick['deck'];
 
 function shown(p: AcePick): HTMLElement {
@@ -18,4 +18,10 @@ function shown(p: AcePick): HTMLElement {
 it('shows the deck under the selected hero, and nothing without a shortlist', () => {
 	expect(shown(pick({ deck })).querySelector('[data-testid=support-deck]')?.textContent).toContain('Own seven (speed)');
 	expect(shown(pick({})).querySelector('[data-testid=support-deck]')).toBeNull();
+});
+
+it('shows the hero\'s style and no fall-back text', () => {
+	const text = shown(pick({ style: 'oikomi' })).textContent!;
+	expect(text).toContain('End Closer');
+	expect(text).not.toContain('fall-back');
 });

@@ -78,11 +78,10 @@ test('a fresh Owned version with no candidates is still eligible, scored by its 
 	expect(slot.score).toBeGreaterThan(0);
 });
 
-test('the Ace slot keeps the selected style when the version has A in it, else its best style by aptitude, with 2 parents', () => {
+test('the Ace slot runs in a style the version has A in, with 2 parents, whatever the Sim runner runs', () => {
 	const versions = [owned(1, undefined, { ...apt, oikomi: 8 })];
-	expect(recommend(candidateList, preset, undefined, versions).aceSlots[0].style).toBe('senko');
 	const slot = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, versions).aceSlots[0];
-	expect(slot.style).toBe('oikomi');
+	expect(['senko', 'oikomi']).toContain(slot.style); // Nige is C, never picked
 	expect(slot.parents.map((p) => p.candidateId).sort()).toEqual(['p', 'q']);
 });
 
@@ -417,14 +416,24 @@ test('fewer versions than 5 give fewer rows, with no padding', () => {
 	expect(recommend(candidateList, preset, undefined, versions).aceSlots).toHaveLength(3);
 });
 
-test('an Ace slot marks a fall-back when its style differs from the selected one', () => {
-	const versions = [owned(1, undefined, { ...apt, oikomi: 8 }), owned(2)];
-	const rec = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, versions);
-	const byCard = (id: number) => rec.aceSlots.find((s) => s.cardId === id)!;
-	expect(byCard(1)).toMatchObject({ style: 'oikomi', fallback: true });
-	expect(byCard(2)).toMatchObject({ style: 'senko', fallback: true }); // Nige is E for it, so it falls back too
-	const same = recommend(candidateList, preset, undefined, versions);
-	expect(same.aceSlots.every((s) => s.style === 'senko' && !s.fallback)).toBe(true);
+describe('Best style', () => {
+	const only = (apts: typeof apt) => recommend(candidateList, preset, undefined, [owned(1, undefined, apts)]).aceSlots[0];
+	test('a version with A in two styles shows the one with the higher score, whatever the Sim runner runs', () => {
+		const both = { ...apt, senko: 7, oikomi: 7, nige: 1, sashi: 1 };
+		const senko = only({ ...both, oikomi: 1 });
+		const oikomi = only({ ...both, senko: 1 });
+		expect(senko.score).not.toBe(oikomi.score); // else the pick below proves nothing
+		const better = senko.score > oikomi.score ? senko : oikomi;
+		const pick = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, [owned(1, undefined, both)]).aceSlots[0];
+		expect(pick.style).toBe(better.style);
+	});
+	test('a version with A in no style keeps its best aptitude-ranked style', () => {
+		const none = { ...apt, nige: 1, senko: 4, sashi: 3, oikomi: 2 };
+		expect(only(none).style).toBe('senko');
+	});
+	test('the pick has no fall-back flag', () => {
+		expect('fallback' in only(apt)).toBe(false);
+	});
 });
 
 describe('Ace slot scored by Whole-Ace runs', () => {
