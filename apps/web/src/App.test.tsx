@@ -1093,6 +1093,25 @@ it('draws the selected Ace hero as a lineage tree with spark chips and redraws o
 	expect(tree().textContent).not.toContain('Distance 3'); // the other hero keeps its own horses
 });
 
+it('shows a parent\'s rating and every blue, pink and green spark on the lineage tree', async () => {
+	const rated: RecommendRunner = (job, _p, done) => {
+		const rec = computeRecommend(job);
+		const horse = (cardId: number, extra = {}) => ({ cardId, affinity: 0, pinkStars: 0, dirtStars: 0, skills: [], ...extra });
+		const sparks = [{ kind: 'blue', name: 'Speed', stars: 3 }, { kind: 'pink', name: 'Front Runner', stars: 2 }, { kind: 'green', name: 'Unique', stars: 1 }] as const;
+		rec.aceSlots[0].horses = [[horse(100201, { rankScore: 12345, sparks }), horse(100301), horse(100201)], [horse(100301), horse(100301), horse(100201)]];
+		done(rec);
+		return () => {};
+	};
+	render(<App loadData={async () => data} run={rated} runVeterans={noV} runRows={() => () => {}} />, root);
+	await importFile();
+	await pickAce();
+	const parents = [...root.querySelectorAll('[data-testid=tree-parent]')];
+	expect(parents[0].querySelector('[data-testid=tree-rating]')!.textContent).toBe('Rating 12,345');
+	expect([...parents[0].querySelectorAll('.chip')].map((c) => `${c.className}|${c.textContent}`)).toEqual(['chip chip-blue|Speed 3', 'chip chip-pink|Front Runner 2', 'chip chip-green|Unique 1']);
+	expect(parents[1].querySelector('[data-testid=tree-rating]')).toBeNull();
+	expect(root.querySelectorAll('[data-testid=tree-grandparent] [data-testid=tree-rating]').length).toBe(0);
+});
+
 it('labels a row below A with its chance of A and leaves a row at A with the style name only', async () => {
 	const lowA: RecommendRunner = (job, _p, done) => {
 		const rec = computeRecommend(job);

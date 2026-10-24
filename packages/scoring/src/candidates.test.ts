@@ -36,7 +36,7 @@ test('a veteran brings itself and its parents, each with its own sparks and affi
 
 test('a veteran with no parents or sparks is still a candidate with one empty horse', () => {
 	const [c] = candidatesOf(data, [vet(10, 1, [])], opts);
-	expect(c.horses).toEqual([{ cardId: 1, affinity: 9, pinkStars: 0, dirtStars: 0, turfStars: 0, skills: [] }]);
+	expect(c.horses).toEqual([{ cardId: 1, rankScore: 110, affinity: 9, pinkStars: 0, dirtStars: 0, turfStars: 0, skills: [] }]);
 });
 
 test('core and side loop score a veteran from its own and its parents sparks', () => {
@@ -89,4 +89,18 @@ test('a horse has one pink spark: its most stars count for the distance, a surfa
 	expect(only(3, 4)).toMatchObject({ pinkStars: 0, dirtStars: 0, styleStars: { sashi: 2 } });
 	expect(only(5, 2)).toMatchObject({ pinkStars: 0, dirtStars: 0, styleStars: { senko: 3 } });
 	expect(only(6).turfStars).toBe(1);
+});
+
+test('a parent carries its rank score and every blue, pink and green spark for display; a grandparent has no score', () => {
+	const shown = new GameData({
+		meta: {}, charas: {}, skills: {}, saddles: {}, tracks: {}, courses: {}, races: [],
+		cards: { 1: card(1), 3: card(3), 100: card(100) },
+		factors: { 1: fx(1, 1, 1, 3, 'Speed'), 2: fx(2, 33, 2, 2, 'Middle'), 3: fx(3, 12, 2, 1, 'Dirt'), 4: fx(4, 1, 3, 1, 'Unique'), 5: fx(5, 4001, 4, 1, 'White', 200012) },
+		relations: { points: {}, members: {}, ranks: [] },
+	} as unknown as RawGameData);
+	const [c] = candidatesOf(shown, [vet(10, 1, [1, 2, 3, 4, 5], [gp(3, [1]), null])], { aceCardId: 100, pinkGroupId: 33 });
+	expect(c.horses[0].rankScore).toBe(110);
+	expect(c.horses[0].sparks).toEqual([{ kind: 'blue', name: 'Speed', stars: 3 }, { kind: 'pink', name: 'Middle', stars: 2 }, { kind: 'pink', name: 'Dirt', stars: 1 }, { kind: 'green', name: 'Unique', stars: 1 }]); // white skills are not listed
+	expect(c.horses[1].rankScore).toBeUndefined();
+	expect(c.horses[1].sparks).toEqual([{ kind: 'blue', name: 'Speed', stars: 3 }]);
 });
