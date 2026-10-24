@@ -1093,6 +1093,22 @@ it('draws the selected Ace hero as a lineage tree with spark chips and redraws o
 	expect(tree().textContent).not.toContain('Distance 3'); // the other hero keeps its own horses
 });
 
+it('labels a row below A with its chance of A and leaves a row at A with the style name only', async () => {
+	const lowA: RecommendRunner = (job, _p, done) => {
+		const rec = computeRecommend(job);
+		rec.aceSlots[0].style = 'sashi';
+		rec.aceSlots[0].styleAChance = 0.74;
+		done(rec);
+		return () => {};
+	};
+	render(<App loadData={async () => data} run={lowA} runVeterans={noV} runRows={() => () => {}} />, root);
+	await importFile();
+	await pickAce();
+	const labels = [...root.querySelectorAll('[data-testid=hero-style]')].map((e) => e.textContent);
+	expect(labels[0]).toBe('Late Surger, A in 74% of runs');
+	expect(labels[1]).not.toContain('A in');
+});
+
 it('shows no chips on the hero list rows or the Ace node', async () => {
 	render(<App loadData={async () => data} run={withSparks} runVeterans={noV} runRows={() => () => {}} />, root);
 	await importFile();

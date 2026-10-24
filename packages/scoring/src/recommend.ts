@@ -334,9 +334,9 @@ interface AceCandidate { v: OwnedVersion; /** Set while the pick is scored from 
 /** The Ace at one pair of distance and surface grades. */
 interface Cell { key: string; chance: number; /** With the unique skill. */ h: HorseDesc; /** Without it: the baseline skills are measured on. */ bare: HorseDesc }
 
-// Every version runs the sim runner's Target stats, as the user set them, in its Best style among those it has A in, so only aptitudes and the unique skill differ.
+// Every version runs the sim runner's Target stats, as the user set them, in its Best style among those it has or can reach A in, so only aptitudes and the unique skill differ.
 // A parent and its own 2 grandparents are permanently linked, so each candidate is one unit and the slot takes the best PAIR of units (never grandparents alone).
-// The additive score (the Ace simulated at every distance and surface grade the pair's pink sparks can reach, weighted by the chance of that grade) only shortlists pairs;
+// The additive score (the Ace simulated at every distance, surface and style grade the pair's pink sparks can reach, weighted by the chance of that grade) only shortlists pairs;
 // the score a pick shows comes from racing the whole Ace with the pair's parents (Whole-Ace runs). Must-haves play no part.
 // A version with no roster candidates still scores by its unique alone.
 function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns, skillPoints?: SkillPoints, support?: SupportInput): AceCandidate[] {
@@ -348,8 +348,10 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		if (units.length === 1) pairs.push(units);
 		if (!pairs.length) pairs.push([]);
 		const category = categoryOf(course.distance);
-		// Each style the version already has A in runs on its own and the best score wins; with none at A, the best aptitude-ranked style. The style's own pink sparks are rolled in the runs (and its chance of A shown), but a style only reachable through them is not tried yet.
-		const withA = rankStyles(v.aptitudes, category).filter((st) => v.aptitudes[st] >= GRADE_A);
+		// Each style the version has A in, or that some candidate pair's style pinks can lift to A, runs on its own and the best score wins; a style with no way to A is not simulated.
+		// With none, the best aptitude-ranked style.
+		const reachable = (st: Style) => v.aptitudes[st] >= GRADE_A || (units.some((u) => u.horses.some((x) => (x.styleStars?.[st] ?? 0) > 0)) && pairs.some((p) => aptitudeOutcomes(v.aptitudes[st], p.flatMap((c) => c.horses), (x) => x.styleStars?.[st] ?? 0).some((o) => o.grade >= GRADE_A)));
+		const withA = rankStyles(v.aptitudes, category).filter(reachable);
 		const styles = withA.length ? withA : [rankStyles(v.aptitudes, category)[0]];
 		const tries: { cand: AceCandidate; shown: SkillDetail[] }[] = [];
 		for (const style of styles) {
@@ -362,11 +364,11 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 			const base = v.aptitudes[category];
 			const distOutcomes = (hs: LineageHorse[]) => aptitudeOutcomes(base, hs, (x) => x.pinkStars);
 			const cellRunners = new Map<string, Cell>();
-			const cellAt = (d: number, s: number, chance: number): Cell => {
-				const key = `${d}/${s}`;
+			const cellAt = (d: number, s: number, st: number, chance: number): Cell => {
+				const key = `${d}/${s}/${st}`;
 				let c = cellRunners.get(key);
 				if (!c) {
-					const aptitudes = { ...v.aptitudes, [category]: d, [course.surface]: s };
+					const aptitudes = { ...v.aptitudes, [category]: d, [course.surface]: s, [style]: st };
 					cellRunners.set(key, (c = { key, chance, h: buildAce({ ...input, aptitudes, uniqueSkillId: v.uniqueSkillId }), bare: buildAce({ ...input, aptitudes }) }));
 				}
 				return { ...c, chance };
@@ -378,11 +380,13 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 					const hs = p.flatMap((c) => c.horses);
 					const ds = distOutcomes(hs);
 					const ss = aptitudeOutcomes(v.aptitudes[course.surface], hs, (x) => surfaceStarsOf(x, course.surface));
-					cellMemo.set(p, (cells = ds.flatMap((d) => ss.map((s) => cellAt(d.grade, s.grade, d.chance * s.chance)))));
+					// The style grade is rolled from this style's pinks only, so the pair search counts them for the style under search.
+					const ts = aptitudeOutcomes(v.aptitudes[style], hs, (x) => x.styleStars?.[style] ?? 0);
+					cellMemo.set(p, (cells = ds.flatMap((d) => ss.flatMap((s) => ts.map((t) => cellAt(d.grade, s.grade, t.grade, d.chance * s.chance * t.chance))))));
 				}
 				return cells;
 			};
-			const baseKey = `${base}/${v.aptitudes[course.surface]}`;
+			const baseKey = `${base}/${v.aptitudes[course.surface]}/${v.aptitudes[style]}`;
 			const gainVsBase = (c: Cell) => (c.key === baseKey ? 0 : detailerOf(c.bare, true)(gainOverId(bareBase)).value);
 			const uniqueAt = (c: Cell) => (uniqueId ? detailerOf(c.bare, true)(uniqueId).value : 0);
 			// Lengths the pair gains besides its parents' skills: higher aptitudes and the unique skill, by chance of each grade.

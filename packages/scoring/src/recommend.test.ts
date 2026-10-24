@@ -468,6 +468,33 @@ describe('Style pink sparks', () => {
 	});
 });
 
+describe('Styles reachable through style pink sparks', () => {
+	const sure = (id: string, styleStars: LineageHorse['styleStars'], skills: string[] = []) => cand(id, horseOf(skills, { affinity: 1e6, dirtStars: 0, styleStars }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }));
+	// Senko is the best-ranked style (B), nothing is at A; only the sashi pinks lift a style to A.
+	const bs = { ...apt, nige: 1, senko: 6, sashi: 5, oikomi: 1 };
+	const slot = (cs: Candidate[], aptitudes = bs) => recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes, candidates: cs }]).aceSlots[0];
+	test('a style that is B on the card but A through the pair wins with that style', () => {
+		const pick = slot([sure('a', { sashi: 3 }), sure('b', { sashi: 3 })]);
+		expect(pick.style).toBe('sashi');
+		expect(pick.styleAChance).toBe(1);
+	});
+	test('a style with no way to A is not simulated', async () => {
+		const styles = new Set<string>();
+		await recommendAsync(async (batch) => { for (const r of batch.requests) if (r.kind === 'wholeAce') styles.add(r.input.style); return batch.requests.map((r) => simulateRequest(r, batch.scenario)); }, candidateList, preset, undefined, [{ cardId: 1, aptitudes: { ...bs, senko: 7 }, candidates: [sure('a', { sashi: 3 }), sure('b', { sashi: 3 })] }]);
+		expect([...styles].sort()).toEqual(['sashi', 'senko']);
+	});
+	test('the pair differs per style when the style pinks differ', () => {
+		const both = { ...bs, sashi: 4, oikomi: 4, senko: 1 };
+		const pick = slot([sure('s1', { sashi: 3 }), sure('s2', { sashi: 3 }), sure('o1', { oikomi: 3 }), sure('o2', { oikomi: 3 })], both);
+		expect(['sashi', 'oikomi']).toContain(pick.style);
+		for (const parent of pick.horses) expect(parent[0].styleStars?.[pick.style]).toBe(3);
+	});
+	test('recommendAsync gives the same result', async () => {
+		const v = [{ cardId: 1, aptitudes: bs, candidates: [sure('a', { sashi: 3 }), sure('b', { sashi: 3 }), sure('c', { senko: 3 })] }];
+		expect(await recommendAsync(async (batch) => batch.requests.map((r) => simulateRequest(r, batch.scenario)), candidateList, preset, undefined, v)).toEqual(recommend(candidateList, preset, undefined, v));
+	});
+});
+
 describe('Ace slot scored by Whole-Ace runs', () => {
 	const sure = (skills: string[], id = skills.join() || 'none') => cand(id, horseOf(skills, { affinity: 1e6 }), horseOf([], { affinity: 1e6 }), horseOf([], { affinity: 1e6 }));
 	const target = { speed: horse.speed, stamina: horse.stamina, power: horse.power, guts: horse.guts, wisdom: horse.wisdom };
