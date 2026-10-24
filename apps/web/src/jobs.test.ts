@@ -159,7 +159,7 @@ it('splits the Owned versions into fit and Unfit versions by surface and distanc
 	const dirtCourse = { ...course!, ground: 2, distance: 1600 };
 	const fit = planFit(versions, dirtCourse, 4);
 	expect(fit.fit.map((v) => v.cardId)).toEqual([]);
-	expect(fit.unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt G'], [100201, 'Dirt F, Mile E']]);
+	expect(fit.notSimulated.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt G'], [100201, 'Dirt F, Mile E']]);
 	// The default course is turf over Middle, which both versions run at A.
 	expect(planFit(versions, course, 4).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
 	// A grade at the cutoff is fit; below is not.
@@ -170,7 +170,7 @@ it('switches the fit filter off at grade G', () => {
 	const versions = planOwned(data, roster, [100101], course, false);
 	const dirtCourse = { ...course!, ground: 2 };
 	expect(planFit(versions, dirtCourse, 1).fit.map((v) => v.cardId)).toEqual([100101]);
-	expect(planFit(versions, dirtCourse, 1).unfit).toEqual([]);
+	expect(planFit(versions, dirtCourse, 1).notSimulated).toEqual([]);
 });
 
 it('simulates a forced Unfit version in the Ace slot, keeps it listed, and keeps the Owned order', () => {
@@ -180,7 +180,7 @@ it('simulates a forced Unfit version in the Ace slot, keeps it listed, and keeps
 	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 7 } };
 	const split = planFit(versions, dirtCourse, 4, new Set([100101]));
 	expect(split.fit.map((v) => v.cardId)).toEqual([100101, 100201]);
-	expect(split.unfit.map((u) => u.version.cardId)).toEqual([100101]);
+	expect(split.notSimulated.map((u) => u.version.cardId)).toEqual([100101]);
 	// Forcing a version that is not unfit changes nothing; with every version unfit, forcing one leaves the Ace list non-empty.
 	expect(planFit(versions, course, 4, new Set([100201])).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
 	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 2 } };
@@ -204,7 +204,7 @@ it('still leaves out a Viable version that is Unfit, with the Unfit reason', () 
 	const dirtCourse = { ...course!, ground: 2 };
 	const split = planFit(versions, dirtCourse, 4, new Set(), new Set([100101, 100201]));
 	expect(split.fit.map((v) => v.cardId)).toEqual([100201]);
-	expect(split.unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt F']]);
+	expect(split.notSimulated.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt F']]);
 });
 
 it('lists non-Viable versions apart as "not Viable", over the Unfit reason, and force-enabling one simulates it', () => {
@@ -215,12 +215,12 @@ it('lists non-Viable versions apart as "not Viable", over the Unfit reason, and 
 	const viable = new Set([100201]);
 	const split = planFit(versions, dirtCourse, 4, new Set(), viable);
 	expect(split.fit.map((v) => v.cardId)).toEqual([100201]);
-	expect(split.unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'not Viable']]);
+	expect(split.notSimulated.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'not Viable']]);
 	expect(planFit(versions, dirtCourse, 4, new Set([100101]), viable).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
 	// Viable but Unfit keeps the Unfit reason; no pick lists nothing apart for this reason.
-	expect(planFit(versions, dirtCourse, 4, new Set(), new Set([100101])).unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt F'], [100201, 'not Viable']]);
-	expect(planFit(versions, course, 4).unfit).toEqual([]);
-	expect(planFit(versions, course, 4, new Set(), new Set([999999])).unfit).toEqual([]);
+	expect(planFit(versions, dirtCourse, 4, new Set(), new Set([100101])).notSimulated.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt F'], [100201, 'not Viable']]);
+	expect(planFit(versions, course, 4).notSimulated).toEqual([]);
+	expect(planFit(versions, course, 4, new Set(), new Set([999999])).notSimulated).toEqual([]);
 });
 
 it('builds the chart rows of one Ace hero on request, the same as the ranking builds them when it is the top hero', () => {

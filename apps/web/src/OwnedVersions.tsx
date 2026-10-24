@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { versionName, type GameData } from '../../../packages/lineage/src/gameData';
 import { CardPicker } from './CardPicker';
 import { FIT_OFF, GRADE_NUMBERS, gradeLabel } from '../../../packages/scoring/src/ace';
-import type { UnfitVersion } from './jobs';
+import type { NotSimulatedVersion } from './jobs';
 import { Modal } from './Modal';
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
 	viable: number[];
 	onViable: (ids: number[]) => void;
 	/** Owned versions the Ace slot does not simulate for this CM, with the reason. */
-	unfit: UnfitVersion[];
+	notSimulated: NotSimulatedVersion[];
 	/** Card ids force-enabled for the Ace despite being unfit. */
 	forced: number[];
 	onForce: (ids: number[]) => void;
@@ -29,7 +29,7 @@ function toggleIn(list: number[], id: number): number[] {
 }
 
 /** Sidebar summary of the Owned versions; the button opens the picker popup. */
-export function OwnedVersions({ data, owned, viable, onViable, unfit, forced, onForce, cutoff, onCutoff, onChange }: Props) {
+export function OwnedVersions({ data, owned, viable, onViable, notSimulated, forced, onForce, cutoff, onCutoff, onChange }: Props) {
 	const [open, setOpen] = useState(false);
 	const nameOf = (id: number) => { const card = data.cards.get(id); return card ? versionName(card) : ''; };
 	const toggleForced = (id: number) => onForce(toggleIn(forced, id));
@@ -48,7 +48,7 @@ export function OwnedVersions({ data, owned, viable, onViable, unfit, forced, on
 			<button type="button" name="edit-owned" onClick={() => setOpen(true)}>Edit owned versions</button>
 			{open && <Modal title="Owned versions" onClose={() => setOpen(false)}><CardPicker data={data} selected={owned} onPick={toggle} count={`${owned.size} selected`} />
 				{owned.size > 0 && <div data-testid="viable-versions"><h3>Viable for this CM</h3><p class="muted">With any marked, the Ace slot simulates only the marked versions and lists the rest below; with none, every owned version.</p><ul>{[...owned].map((id) => <li><label><input type="checkbox" name="viable" value={id} checked={viable.includes(id)} onChange={() => toggleViable(id)} /> {nameOf(id) || id}</label></li>)}</ul></div>}
-				{unfit.length > 0 && <div data-testid="unfit-versions"><h3>Not simulated for this CM</h3><p class="muted">Tick a version to simulate it in the Ace slot anyway.</p><ul>{unfit.map(({ version, reason }) => <li><label><input type="checkbox" name="force-unfit" value={version.cardId} checked={forced.includes(version.cardId)} onChange={() => toggleForced(version.cardId)} /> {nameOf(version.cardId) || version.cardId}: {reason}</label></li>)}</ul></div>}
+				{notSimulated.length > 0 && <div data-testid="unfit-versions"><h3>Not simulated for this CM</h3><p class="muted">Tick a version to simulate it in the Ace slot anyway.</p><ul>{notSimulated.map(({ version, reason }) => <li><label><input type="checkbox" name="force-unfit" value={version.cardId} checked={forced.includes(version.cardId)} onChange={() => toggleForced(version.cardId)} /> {nameOf(version.cardId) || version.cardId}: {reason}</label></li>)}</ul></div>}
 			</Modal>}
 		</section>
 	);

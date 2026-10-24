@@ -98,7 +98,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const candidates = useMemo(() => (data && roster ? planCandidates(data, roster, card, course, useBorrowed) : []), [data, roster, card, course, useBorrowed]);
 	const ownedVersions = useMemo(() => (data && roster ? planOwned(data, roster, owned, course, useBorrowed) : []), [data, roster, owned, course, useBorrowed]);
 	// The Ace slot simulates the fit versions only; the loops rank the Loop versions whatever their Aptitude.
-	const { fit: aceVersions, unfit } = useMemo(() => planFit(ownedVersions, course, cutoff, new Set(forced), new Set(viablePicks[cmId])), [ownedVersions, course, cutoff, forced, viablePicks, cmId]);
+	const { fit: aceVersions, notSimulated } = useMemo(() => planFit(ownedVersions, course, cutoff, new Set(forced), new Set(viablePicks[cmId])), [ownedVersions, course, cutoff, forced, viablePicks, cmId]);
 	const loopVersions = useMemo(() => ownedVersions.filter((v) => loopPicked.has(v.cardId)), [ownedVersions, loopPicked]);
 	// The hidden loops must not steer the ranking; the stored Must-haves stay untouched.
 	const activeMustHaves = useMemo(() => (showLoops ? mustHaves : []), [showLoops, mustHaves]);
@@ -206,7 +206,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 							else if (Number.isInteger(n) && n >= 0) changeSkillPointBudget(n);
 						}} /><span class="muted"> Skill points the Ace may spend on skills; empty is unlimited.</span></label>
 						<SupportSettings data={data} value={supportSettings} onChange={changeSupportSettings} cm={cm} typeMix={typeMix} />
-						<OwnedVersions data={data} owned={owned} viable={viablePicks[cmId] ?? []} onViable={(ids) => { const next = { ...viablePicks, [cmId]: ids }; saveViableVersions(localStorage, next); setViablePicks(next); }} unfit={unfit} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />
+						<OwnedVersions data={data} owned={owned} viable={viablePicks[cmId] ?? []} onViable={(ids) => { const next = { ...viablePicks, [cmId]: ids }; saveViableVersions(localStorage, next); setViablePicks(next); }} notSimulated={notSimulated} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); }} />
 						{showLoops && <>
 							<LoopVersions data={data} owned={owned} picked={loopPicked} onChange={(ids) => { saveLoopVersions(localStorage, ids); setLoopChoice(ids); }} />
 							<MustHaves data={data} tiers={applyTierEdit(baseTierList, tierEdits[coreStyle])} mustHaves={mustHaves} suggestions={suggestions} onChange={(ids) => { saveMustHaves(localStorage, ids); setMustHaves(ids); }} />
