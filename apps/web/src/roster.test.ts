@@ -149,7 +149,7 @@ it('persists the Viable versions per Champions Meeting; a new CM, absent, stale 
 	expect(loadViableVersions(s)[9]).toBeUndefined();
 	s.setItem('stud-finder:viable-versions', JSON.stringify({ version: 99, picks: { 3: [100101] } }));
 	expect(loadViableVersions(s)).toEqual({});
-	for (const picks of [[1], { 3: 'x' }, { 3: [1.5] }, { a: [1] }, null]) {
+	for (const picks of [[1], { 3: 'x' }, { 3: [1.5] }, { a: [1] }, { '': [1] }, { '1.0': [1] }, { '01': [1] }, null]) {
 		s.setItem('stud-finder:viable-versions', JSON.stringify({ version: 1, picks }));
 		expect(loadViableVersions(s)).toEqual({});
 	}

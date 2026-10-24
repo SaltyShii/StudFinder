@@ -215,7 +215,7 @@ export function saveViableVersions(storage: Storage, picks: Record<number, numbe
 export function loadViableVersions(storage: Storage): Record<number, number[]> {
 	return loadVersioned(storage, VIABLE_KEY, 'picks', (v) => {
 		if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-		const ok = Object.entries(v).every(([cm, ids]) => Number.isInteger(Number(cm)) && Array.isArray(ids) && ids.every((i) => Number.isInteger(i)));
+		const ok = Object.entries(v).every(([cm, ids]) => /^(0|[1-9]\d*)$/.test(cm) && Array.isArray(ids) && ids.every((i) => Number.isInteger(i)));
 		return ok ? (v as Record<number, number[]>) : null;
 	}) ?? {};
 }

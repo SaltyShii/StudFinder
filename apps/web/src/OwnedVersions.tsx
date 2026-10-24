@@ -24,13 +24,17 @@ interface Props {
 
 const PREVIEW = 6;
 
+function toggleIn(list: number[], id: number): number[] {
+	return list.includes(id) ? list.filter((i) => i !== id) : [...list, id];
+}
+
 /** Sidebar summary of the Owned versions; the button opens the picker popup. */
 export function OwnedVersions({ data, owned, viable, onViable, unfit, forced, onForce, cutoff, onCutoff, onChange }: Props) {
 	const [open, setOpen] = useState(false);
 	const nameOf = (id: number) => { const card = data.cards.get(id); return card ? versionName(card) : ''; };
-	const toggleForced = (id: number) => onForce(forced.includes(id) ? forced.filter((i) => i !== id) : [...forced, id]);
-	const toggle = (id: number) => onChange(owned.has(id) ? [...owned].filter((i) => i !== id) : [...owned, id]);
-	const toggleViable = (id: number) => onViable(viable.includes(id) ? viable.filter((i) => i !== id) : [...viable, id]);
+	const toggleForced = (id: number) => onForce(toggleIn(forced, id));
+	const toggle = (id: number) => onChange(toggleIn([...owned], id));
+	const toggleViable = (id: number) => onViable(toggleIn(viable, id));
 	const viableCount = viable.filter((id) => owned.has(id)).length;
 	return (
 		<section class="panel">

@@ -212,14 +212,11 @@ export function planFit(versions: OwnedVersion[], course: Course | undefined, cu
 	// Picks naming a version that is not Owned do not count, so they cannot empty the Ace list.
 	const picks = versions.filter((v) => viable.has(v.cardId));
 	for (const version of versions) {
-		if (picks.length && !viable.has(version.cardId)) {
-			unfit.push({ version, reason: 'not Viable' });
-			if (forced.has(version.cardId)) fit.push(version);
-			continue;
-		}
-		const failing = course ? [surfaceOf(course.ground), categoryOf(course.distance)].filter((k) => version.aptitudes[k] < cutoff) : [];
-		if (failing.length) unfit.push({ version, reason: failing.map((k) => `${capitalize(k)} ${gradeLabel(version.aptitudes[k])}`).join(', ') });
-		if (!failing.length || forced.has(version.cardId)) fit.push(version);
+		const notViable = picks.length > 0 && !viable.has(version.cardId);
+		const failing = notViable || !course ? [] : [surfaceOf(course.ground), categoryOf(course.distance)].filter((k) => version.aptitudes[k] < cutoff);
+		if (notViable) unfit.push({ version, reason: 'not Viable' });
+		else if (failing.length) unfit.push({ version, reason: failing.map((k) => `${capitalize(k)} ${gradeLabel(version.aptitudes[k])}`).join(', ') });
+		if ((!notViable && !failing.length) || forced.has(version.cardId)) fit.push(version);
 	}
 	return { fit, unfit };
 }
