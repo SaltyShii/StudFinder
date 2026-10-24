@@ -136,7 +136,7 @@ function mixNote(mix: TypeMix, held: SupportPick[], fillers: number): string | u
 
 /**
  * The deck for one Ace hero: its best 5 own cards and its best borrowed card, by the additive score. Ties keep the earlier card.
- * With a Type mix the borrowed card counts in it; every borrowed candidate is tried and the deck with the fewest unmet slots wins, then the highest score.
+ * Every borrowed candidate is tried, and it is never a card the own slots hold (it leaves them). With a Type mix the borrowed card counts in it and the deck with the fewest unmet slots wins; then the highest score.
  * A friend slot no shortlisted card fills is a hintless filler (see `friendFillers`), not a gap. A mix the shortlists cannot fill is filled from other shortlisted cards, with a note.
  * Undefined without a shortlist.
  */
@@ -150,27 +150,21 @@ export function pickDeck(support: SupportInput | undefined, ctx: DeckContext): S
 	const borrowedRanked = rank(support.borrowed);
 	const mix = support.typeMix;
 	const constrained = !!mix && SUPPORT_TYPES.some((t) => (mix[t] ?? 0) > 0);
-	let own: SupportPick[];
-	let borrowed: SupportPick | undefined;
-	let fillers = 0;
-	if (!constrained) {
-		own = ownRanked.slice(0, OWN_SLOTS).map((x) => x.p);
-		borrowed = borrowedRanked[0]?.p;
-	} else {
-		let best: { own: Scored[]; fillers: number; b?: Scored; unmet: number; score: number } | undefined;
-		for (const b of borrowedRanked.length ? borrowedRanked : [undefined]) {
-			const quota = { ...mix };
-			if (b && (quota[b.p.card.type] ?? 0) > 0) quota[b.p.card.type]! -= 1;
-			const { picks, fillers: f } = ownForMix(ownRanked, quota);
-			const held = [...picks.map((x) => x.p), ...(b ? [b.p] : [])];
-			const unmet = SUPPORT_TYPES.reduce((n, t) => n + Math.max(0, (mix[t] ?? 0) - held.filter((p) => p.card.type === t).length - (t === 'friend' ? f : 0)), 0);
-			const score = picks.reduce((n, x) => n + x.s, 0) + (b?.s ?? 0);
-			if (!best || unmet < best.unmet || (unmet === best.unmet && score > best.score)) best = { own: picks, fillers: f, b, unmet, score };
-		}
-		own = best!.own.map((x) => x.p);
-		borrowed = best!.b?.p;
-		fillers = best!.fillers;
+	// A card cannot be both run and borrowed, so each borrowed candidate takes its card out of the own pool.
+	let best: { own: Scored[]; fillers: number; b?: Scored; unmet: number; score: number } | undefined;
+	for (const b of borrowedRanked.length ? borrowedRanked : [undefined]) {
+		const pool = b ? ownRanked.filter((x) => x.p.card.id !== b.p.card.id) : ownRanked;
+		const quota = { ...mix };
+		if (b && (quota[b.p.card.type] ?? 0) > 0) quota[b.p.card.type]! -= 1;
+		const { picks, fillers: f } = constrained ? ownForMix(pool, quota) : { picks: pool.slice(0, OWN_SLOTS), fillers: 0 };
+		const held = [...picks.map((x) => x.p), ...(b ? [b.p] : [])];
+		const unmet = constrained ? SUPPORT_TYPES.reduce((n, t) => n + Math.max(0, (mix![t] ?? 0) - held.filter((p) => p.card.type === t).length - (t === 'friend' ? f : 0)), 0) : 0;
+		const score = picks.reduce((n, x) => n + x.s, 0) + (b?.s ?? 0);
+		if (!best || unmet < best.unmet || (unmet === best.unmet && score > best.score)) best = { own: picks, fillers: f, b, unmet, score };
 	}
+	const own = best!.own.map((x) => x.p);
+	const borrowed = best!.b?.p;
+	const fillers = best!.fillers;
 	const notes: string[] = [];
 	if (own.length + fillers < OWN_SLOTS) notes.push(`Only ${own.length} own support cards shortlisted: the Support deck has fewer than ${OWN_SLOTS}.`);
 	if (!borrowed) notes.push('No Borrowed support card shortlisted: the Support deck is own support cards only.');
