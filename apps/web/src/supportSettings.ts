@@ -70,8 +70,8 @@ export function setLimitBreak(list: ShortlistEntry[], id: number, level: number)
 }
 
 /** The scorer keys skills by string id; the game data lists the hint pool as numbers. */
-function cardOf({ id, name, type, pool, hintFrequency, hintLevelBonus }: SupportCardData): SupportCard {
-	return { id, name, type, pool: pool.map(String), hintFrequency, hintLevelBonus };
+function cardOf({ id, charaId, name, type, pool, hintFrequency, hintLevelBonus }: SupportCardData): SupportCard {
+	return { id, charaId, name, type, pool: pool.map(String), hintFrequency, hintLevelBonus };
 }
 
 /** The `recommend()` input (with the Type mix of the current Champions Meeting): ids resolved against the catalogue (cards it no longer has are dropped). Undefined with nothing shortlisted, so the preset is the one the ranking had before Support cards. */

@@ -5,7 +5,7 @@ import { addCard, isTypeMix, removeCard, setLimitBreak, setTypeCount, supportInp
 
 const raw = (id: number): SupportCardData => ({ id, charaId: 1, name: `Card ${id}`, title: '[T]', rarity: 3, type: 'speed', pool: [200162], hintFrequency: [0, 0, 0, 0, 0], hintLevelBonus: [0, 0, 0, 0, 0] });
 // The scorer keys skills by string id.
-const card = (id: number): SupportCard => ({ id, name: `Card ${id}`, type: 'speed', pool: ['200162'], hintFrequency: [0, 0, 0, 0, 0], hintLevelBonus: [0, 0, 0, 0, 0] });
+const card = (id: number): SupportCard => ({ id, charaId: 1, name: `Card ${id}`, type: 'speed', pool: ['200162'], hintFrequency: [0, 0, 0, 0, 0], hintLevelBonus: [0, 0, 0, 0, 0] });
 const catalogue = new Map([1, 2, 3].map((id) => [id, raw(id)]));
 
 describe('supportSettings', () => {

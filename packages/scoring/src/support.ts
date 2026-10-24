@@ -7,6 +7,8 @@ export type SupportType = (typeof SUPPORT_TYPES)[number];
 /** A Support card as the catalogue lists it (`supportCards` in the game data). The two arrays hold one value per limit break level, 0 to 4. */
 export interface SupportCard {
 	id: number;
+	/** The character on the card. The game allows one card per character in a deck; absent: only the same card counts as a duplicate. */
+	charaId?: number;
 	name: string;
 	type: SupportType;
 	/** Skill ids the card hints, 1 Hint level each. */
@@ -107,6 +109,11 @@ function cardScore(pick: SupportPick, trainings: number, { onList, usable, value
 	return total;
 }
 
+/** A card or another card of its character: the game lets a deck hold only one of them. */
+function sameCharacter(a: SupportCard, b: SupportCard): boolean {
+	return a.id === b.id || (a.charaId != null && a.charaId === b.charaId);
+}
+
 interface Scored { p: SupportPick; i: number; s: number }
 
 /** Own cards for the slots a borrowed card leaves in the mix: best per type up to its quota (friend quota with no card becomes a filler), then the best of the rest. */
@@ -136,7 +143,7 @@ function mixNote(mix: TypeMix, held: SupportPick[], fillers: number): string | u
 
 /**
  * The deck for one Ace hero: its best 5 own cards and its best borrowed card, by the additive score. Ties keep the earlier card.
- * Every borrowed candidate is tried, and it is never a card the own slots hold (it leaves them). With a Type mix the borrowed card counts in it and the deck with the fewest unmet slots wins; then the highest score.
+ * Every borrowed candidate is tried, and it never shares a character with an own card (those leave the own slots). With a Type mix the borrowed card counts in it and the deck with the fewest unmet slots wins; then the highest score.
  * A friend slot no shortlisted card fills is a hintless filler (see `friendFillers`), not a gap. A mix the shortlists cannot fill is filled from other shortlisted cards, with a note.
  * Undefined without a shortlist.
  */
@@ -146,14 +153,15 @@ export function pickDeck(support: SupportInput | undefined, ctx: DeckContext): S
 	const rank = (picks: SupportPick[]): Scored[] => picks
 		.map((p, i) => ({ p, i, s: cardScore(p, trainings, ctx) }))
 		.sort((a, b) => b.s - a.s || a.i - b.i);
-	const ownRanked = rank(support.own);
+	// One card per character: of two own cards of a character only the better scoring one can be run.
+	const ownRanked = rank(support.own).filter((x, i, all) => !all.slice(0, i).some((y) => sameCharacter(x.p.card, y.p.card)));
 	const borrowedRanked = rank(support.borrowed);
 	const mix = support.typeMix;
 	const constrained = !!mix && SUPPORT_TYPES.some((t) => (mix[t] ?? 0) > 0);
-	// A card cannot be both run and borrowed, so each borrowed candidate takes its card out of the own pool.
+	// A deck holds one card per character, so each borrowed candidate takes its card out of the own pool.
 	let best: { own: Scored[]; fillers: number; b?: Scored; unmet: number; score: number } | undefined;
 	for (const b of borrowedRanked.length ? borrowedRanked : [undefined]) {
-		const pool = b ? ownRanked.filter((x) => x.p.card.id !== b.p.card.id) : ownRanked;
+		const pool = b ? ownRanked.filter((x) => !sameCharacter(x.p.card, b.p.card)) : ownRanked;
 		const quota = { ...mix };
 		if (b && (quota[b.p.card.type] ?? 0) > 0) quota[b.p.card.type]! -= 1;
 		const { picks, fillers: f } = constrained ? ownForMix(pool, quota) : { picks: pool.slice(0, OWN_SLOTS), fillers: 0 };
