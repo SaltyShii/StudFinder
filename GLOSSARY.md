@@ -96,6 +96,10 @@ _Avoid_: ace (for this selector)
 **Owned version**:
 A version the user marks as owned, taken with its default aptitudes and skills (no configuration). The Ace chart also lists the skills on its card list that it can buy with skill points (white and gold, whose running style, distance and surface conditions it can meet) as its own skills: certain, unless a parent can pass them on. The Ace slot scores every owned version, since their unique skills and aptitudes differ per track.
 
+**Viable version**:
+An Owned version the user marks as worth training for the selected CM, usually from community guides. Set per Champions Meeting. The Ace slot simulates only Viable versions; until the user marks one for a CM, every Owned version counts. An Owned version that is not Viable is listed apart with its reason, and the user can force-enable a single one. The Unfit filter still applies on top. The loops are unaffected (see Loop version).
+_Avoid_: shortlisted version (the shortlists are the Support cards'), picked version
+
 **Unfit version**:
 An Owned version whose surface or distance Aptitude grade for the selected CM is below the cutoff grade (default D, set by the user; G switches the filter off): reaching A would take pink sparks on every parent, at the cost of the distance spark. The Ace slot does not simulate it for that CM and lists it apart with its reason; the user can force-enable a single one. The loops are unaffected (see Loop version), and its trained veterans stay parent candidates for the other versions.
 _Avoid_: excluded version, skipped version
