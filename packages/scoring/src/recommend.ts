@@ -43,6 +43,8 @@ export interface AcePick {
 	mustHaveChance: number;
 	/** Chance the 2 parents and 4 grandparents lift the distance aptitude to A through pink sparks (1 when it starts at A). */
 	distanceAChance: number;
+	/** Chance the pair's style pink sparks lift the running style to A (1 when it starts at A). */
+	styleAChance: number;
 	parents: CandidatePick[];
 	/** The Support deck this Ace was ranked with; absent without a shortlist. */
 	deck?: SupportDeck;
@@ -346,7 +348,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		if (units.length === 1) pairs.push(units);
 		if (!pairs.length) pairs.push([]);
 		const category = categoryOf(course.distance);
-		// Each style the version already has A in runs on its own and the best score wins; with none at A, the best aptitude-ranked style. Parents' style pink sparks are not simulated yet.
+		// Each style the version already has A in runs on its own and the best score wins; with none at A, the best aptitude-ranked style. The style's own pink sparks are rolled in the runs (and its chance of A shown), but a style only reachable through them is not tried yet.
 		const withA = rankStyles(v.aptitudes, category).filter((st) => v.aptitudes[st] >= GRADE_A);
 		const styles = withA.length ? withA : [rankStyles(v.aptitudes, category)[0]];
 		const tries: { cand: AceCandidate; shown: SkillDetail[] }[] = [];
@@ -429,7 +431,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 			};
 			const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: meet(uniqueIdsOf(p.pair.flatMap((c) => c.horses))), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}), ...(supportRolls ? { support: supportRolls } : {}) });
 			const deckKey = deck ? `|${picks.map((p) => `${p.card.id}:${p.limitBreak}`).join()}` : '';
-			const keyOf = (p: ScoredPair) => `${vi}|${p.pair.map((c) => c.id).join(',')}${deckKey}`;
+			const keyOf = (p: ScoredPair) => `${vi}|${style}|${p.pair.map((c) => c.id).join(',')}${deckKey}`;
 			// The values are screened or full, so the same pair reruns once its values change.
 			const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.budget}|${Object.values(b.values).join()}` : ''; };
 			const fullKey = (p: ScoredPair) => `full|${keyOf(p)}${budgetKey(p)}`;
@@ -467,9 +469,10 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 			const winHorses = win.pair.flatMap((c) => c.horses);
 			// The scores read these at every reached grade, so they are refined like the details a pick shows.
 			for (const cell of winCells) for (const p of win.pair) for (const id of lineageIdsOf(p.horses)) shown.push(detailerOf(cell.h)(id));
+			const styleAChance = aptitudeOutcomes(v.aptitudes[style], winHorses, (x) => x.styleStars?.[style] ?? 0).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 			const distanceAChance = distOutcomes(winHorses).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
 			const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-			tries.push({ shown, cand: { v, refine, pick: { cardId: v.cardId, style, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, parents: win.parents, ...(deck ? { deck } : {}), skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined, sourcesOf(deck, deckSkills)) } });
+			tries.push({ shown, cand: { v, refine, pick: { cardId: v.cardId, style, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, styleAChance, parents: win.parents, ...(deck ? { deck } : {}), skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined, sourcesOf(deck, deckSkills)) } });
 		}
 		const best = tries.reduce((x, y) => (y.cand.pick.score > x.cand.pick.score ? y : x));
 		extras.push(...best.shown);

@@ -7,6 +7,7 @@ import type { RaceConditions } from './pairedRace';
 import type { SkillValue } from './skillValue';
 import type { SkillCost } from './skillBudget';
 import type { SupportInput } from './support';
+import type { Style } from './ace';
 
 /** Spark name (as in the tier list) to tier. */
 export type TierList = Record<string, Tier>;
@@ -34,6 +35,8 @@ export interface LineageHorse {
 	dirtStars: number;
 	/** Total stars of its turf pink sparks (0 when unset). */
 	turfStars?: number;
+	/** Stars of its style pink spark per running style (missing = none). A horse has one pink spark, so this is empty when its pink spark is a distance or surface one. */
+	styleStars?: Partial<Record<Style, number>>;
 	skills: SkillSpark[];
 	/** Absent for the Ace's own character (unique leveling covers it) and when the game data has no unique for the horse. */
 	unique?: UniqueSpark;

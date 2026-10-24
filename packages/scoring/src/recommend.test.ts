@@ -427,12 +427,44 @@ describe('Best style', () => {
 		const pick = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, [owned(1, undefined, both)]).aceSlots[0];
 		expect(pick.style).toBe(better.style);
 	});
+	test('each style is scored on its own runs: a version with A in two styles scores the better of the two single-style versions', () => {
+		const both = { ...apt, senko: 7, oikomi: 7, nige: 1, sashi: 1 };
+		const best = Math.max(only({ ...both, oikomi: 1 }).score, only({ ...both, senko: 1 }).score);
+		expect(only(both).score).toBe(best);
+	});
 	test('a version with A in no style keeps its best aptitude-ranked style', () => {
 		const none = { ...apt, nige: 1, senko: 4, sashi: 3, oikomi: 2 };
 		expect(only(none).style).toBe('senko');
 	});
 	test('the pick has no fall-back flag', () => {
 		expect('fallback' in only(apt)).toBe(false);
+	});
+});
+
+describe('Style pink sparks', () => {
+	const sure = (id: string, styleStars?: LineageHorse['styleStars']) => cand(id, horseOf([], { affinity: 1e6, dirtStars: 0, ...(styleStars ? { styleStars } : {}) }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }));
+	const weak = { ...apt, nige: 1, senko: 4, sashi: 3, oikomi: 2 }; // no style at A: senko, at D, is the best-ranked
+	const slot = (aptitudes: typeof apt, cs: Candidate[]) => recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes, candidates: cs }]).aceSlots[0];
+	test('a style pink spark raises the expected lengths when the style is below A', () => {
+		expect(slot(weak, [sure('a', { senko: 3 }), sure('b')]).score).toBeGreaterThan(slot(weak, [sure('a'), sure('b')]).score);
+	});
+	test('a spark for another style does nothing', () => {
+		expect(slot(weak, [sure('a', { nige: 3 }), sure('b')]).score).toBe(slot(weak, [sure('a'), sure('b')]).score);
+	});
+	test('the pick has chance 1 of A when the style is already A, and less when sparks decide it', () => {
+		expect(slot(apt, [sure('a', { senko: 3 }), sure('b')]).styleAChance).toBe(1);
+		const lowAffinity = cand('a', horseOf([], { affinity: 20, dirtStars: 0, styleStars: { senko: 1 } }), horseOf(), horseOf());
+		const chance = slot(weak, [lowAffinity, sure('b')]).styleAChance;
+		expect(chance).toBeGreaterThan(0);
+		expect(chance).toBeLessThan(1);
+		expect(slot(weak, [sure('a'), sure('b')]).styleAChance).toBe(0);
+	});
+	test('the certain sparks of a pair reach A', () => {
+		expect(slot(weak, [sure('a', { senko: 3 }), sure('b', { senko: 3 })]).styleAChance).toBe(1);
+	});
+	test('recommendAsync gives the same result with style sparks', async () => {
+		const v = [{ cardId: 1, aptitudes: weak, candidates: [sure('a', { senko: 3 }), sure('b')] }];
+		expect(await recommendAsync(async (batch) => batch.requests.map((r) => simulateRequest(r, batch.scenario)), candidateList, preset, undefined, v)).toEqual(recommend(candidateList, preset, undefined, v));
 	});
 });
 

@@ -1,7 +1,7 @@
 import { versionName, type GameData } from '../../lineage/src/gameData';
 import { lineageCompat } from '../../lineage/src/compatibility';
 import { FactorType, type Factor, type Veteran } from '../../lineage/src/types';
-import { categoryOf, type Category } from './ace';
+import { categoryOf, type Category, type Style } from './ace';
 import type { Candidate, LineageHorse, UniqueSpark } from './shared';
 
 /** Factor groups of the distance pink sparks (see lineage APTITUDE_BY_GROUP). */
@@ -44,16 +44,37 @@ function uniqueOf(data: GameData, cardId: number, factors: { type: FactorType; g
 	return { skillId: String(f.skillId), name: f.name, stars: f.stars, certain };
 }
 
+// Group ids of the running style pink sparks (see lineage APTITUDE_BY_GROUP).
+const STYLE_GROUPS: Record<number, Style> = { 21: 'nige', 22: 'senko', 23: 'sashi', 24: 'oikomi' };
+
 function horseOf(data: GameData, cardId: number, factorIds: number[], affinity: number, pinkGroupId: number, isParent: boolean, aceChara: number | null): LineageHorse {
 	const factors = factorIds.flatMap((id) => data.factors.get(id) ?? []);
 	const unique = uniqueOf(data, cardId, factors, isParent, aceChara);
+	const aptitude = factors.filter((f) => f.type === FactorType.Aptitude);
+	const stars = (groupId: number) => aptitude.filter((f) => f.groupId === groupId).map((f) => f.stars);
+	const styleStars: Partial<Record<Style, number>> = {};
+	for (const [g, style] of Object.entries(STYLE_GROUPS)) if (Number(g) !== pinkGroupId && stars(Number(g)).length) styleStars[style] = Math.max(...stars(Number(g)));
+	let pinkStars = Math.max(0, ...stars(pinkGroupId));
+	let dirtStars = stars(DIRT_GROUP).reduce((s, n) => s + n, 0);
+	let turfStars = stars(TURF_GROUP).reduce((s, n) => s + n, 0);
+	// A horse has one pink spark, so only its strongest counts (ties: distance, then surface, then style).
+	const bestStyle = Math.max(0, ...Object.values(styleStars));
+	const best = Math.max(pinkStars, dirtStars, turfStars, bestStyle);
+	const keepDistance = pinkStars === best;
+	const keepDirt = !keepDistance && dirtStars === best;
+	const keepTurf = !keepDistance && !keepDirt && turfStars === best;
+	const keepStyle = !keepDistance && !keepDirt && !keepTurf;
+	if (!keepDistance) pinkStars = 0;
+	if (!keepDirt) dirtStars = 0;
+	if (!keepTurf) turfStars = 0;
 	return {
 		...(unique ? { unique } : {}),
 		cardId,
 		affinity,
-		pinkStars: Math.max(0, ...factors.filter((f) => f.type === FactorType.Aptitude && f.groupId === pinkGroupId).map((f) => f.stars)),
-		dirtStars: factors.filter((f) => f.type === FactorType.Aptitude && f.groupId === DIRT_GROUP).reduce((s, f) => s + f.stars, 0),
-		turfStars: factors.filter((f) => f.type === FactorType.Aptitude && f.groupId === TURF_GROUP).reduce((s, f) => s + f.stars, 0),
+		pinkStars,
+		dirtStars,
+		turfStars,
+		...(keepStyle && bestStyle > 0 ? { styleStars } : {}),
 		skills: factors.filter((f) => f.type === FactorType.Skill && f.skillId != null).map((f) => ({ skillId: String(f.skillId), name: f.name, stars: f.stars })),
 	};
 }
