@@ -57,6 +57,20 @@ describe('Support deck', () => {
 		expect(deck.borrowed?.card.id).toBe(41);
 		expect(deck.notes).toEqual([]);
 	});
+	test('the Borrowed support card is never a card the deck already holds', () => {
+		const own = [card(1, ['10071']), ...fillers];
+		const deck = run([version([])], support(own, [card(1, ['10071']), card(41, ['10091'])])).aceSlots[0].deck!;
+		const ids = [...deck.own.map((p) => p.card.id), deck.borrowed!.card.id];
+		expect(new Set(ids).size).toBe(ids.length);
+	});
+	test('the same card shortlisted as own and Borrowed fills one slot, with a Type mix too', () => {
+		const own = [card(1, ['10071']), ...fillers];
+		for (const typeMix of [undefined, { speed: 6 }]) {
+			const deck = run([version([])], support(own, [card(1, ['10071'])], { typeMix })).aceSlots[0].deck!;
+			const ids = [...deck.own.map((p) => p.card.id), deck.borrowed!.card.id];
+			expect(new Set(ids).size).toBe(ids.length);
+		}
+	});
 	test('a deck with no borrowed shortlist is own cards only, with a note', () => {
 		const deck = run([version([])], support([card(1, ['10071']), ...fillers])).aceSlots[0].deck!;
 		expect(deck.borrowed).toBeUndefined();
