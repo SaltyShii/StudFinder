@@ -1,5 +1,6 @@
 import { versionName, type GameData } from '../../lineage/src/gameData';
 import { lineageCompat } from '../../lineage/src/compatibility';
+import { APTITUDE_BY_GROUP } from '../../lineage/src/sparks';
 import { FactorType, type Factor, type Veteran } from '../../lineage/src/types';
 import { categoryOf, type Category, type Style } from './ace';
 import type { Candidate, LineageHorse, UniqueSpark } from './shared';
@@ -44,8 +45,9 @@ function uniqueOf(data: GameData, cardId: number, factors: { type: FactorType; g
 	return { skillId: String(f.skillId), name: f.name, stars: f.stars, certain };
 }
 
-// Group ids of the running style pink sparks (see lineage APTITUDE_BY_GROUP).
-const STYLE_GROUPS: Record<number, Style> = { 21: 'nige', 22: 'senko', 23: 'sashi', 24: 'oikomi' };
+// Group ids of the running style pink sparks, from lineage's aptitude groups.
+const STYLES: readonly string[] = ['nige', 'senko', 'sashi', 'oikomi'];
+const STYLE_GROUPS = Object.entries(APTITUDE_BY_GROUP).filter(([, key]) => STYLES.includes(key)) as [string, Style][];
 
 function horseOf(data: GameData, cardId: number, factorIds: number[], affinity: number, pinkGroupId: number, isParent: boolean, aceChara: number | null): LineageHorse {
 	const factors = factorIds.flatMap((id) => data.factors.get(id) ?? []);
@@ -53,7 +55,7 @@ function horseOf(data: GameData, cardId: number, factorIds: number[], affinity: 
 	const aptitude = factors.filter((f) => f.type === FactorType.Aptitude);
 	const stars = (groupId: number) => aptitude.filter((f) => f.groupId === groupId).map((f) => f.stars);
 	const styleStars: Partial<Record<Style, number>> = {};
-	for (const [g, style] of Object.entries(STYLE_GROUPS)) if (Number(g) !== pinkGroupId && stars(Number(g)).length) styleStars[style] = Math.max(...stars(Number(g)));
+	for (const [g, style] of STYLE_GROUPS) if (Number(g) !== pinkGroupId && stars(Number(g)).length) styleStars[style] = Math.max(...stars(Number(g)));
 	let pinkStars = Math.max(0, ...stars(pinkGroupId));
 	let dirtStars = stars(DIRT_GROUP).reduce((s, n) => s + n, 0);
 	let turfStars = stars(TURF_GROUP).reduce((s, n) => s + n, 0);

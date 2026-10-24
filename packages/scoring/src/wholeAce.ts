@@ -5,7 +5,7 @@ import { GRADE_S, INSPIRATIONS, RED_PROC_POINTS, gradesFromPoints, procChance, s
 import { buildAce, categoryOf, courseFacts, type Style, type TargetStats } from './ace';
 import { pairedRace, type Scenario } from './pairedRace';
 import { buySet, MAX_HINT_LEVEL, type AceBudget } from './skillBudget';
-import { surfaceStarsOf, type LineageHorse } from './shared';
+import { styleStarsOf, surfaceStarsOf, type LineageHorse } from './shared';
 import { hintChance } from './support';
 
 /** The aptitudes a pair of parents can change: the CM distance, surface and running style (grade numbers, 1 = G ... 8 = S). */
@@ -71,7 +71,7 @@ export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surfac
 	const distance = pink((h) => h.pinkStars, base.distance);
 	const surfaceGrade = pink((h) => surfaceStarsOf(h, surface), base.surface);
 	// Right after the other pink sparks; a lineage with no style spark draws nothing here.
-	const styleGrade = style !== undefined && base.style !== undefined ? pink((h) => h.styleStars?.[style] ?? 0, base.style) : undefined;
+	const styleGrade = style !== undefined && base.style !== undefined ? pink(styleStarsOf(style), base.style) : undefined;
 	const hints: Record<string, number> = {};
 	// In the order the sparks first procced: a Record would sort the numeric ids, and the skill order can move the sim's random draws.
 	const skillIds: string[] = [];
