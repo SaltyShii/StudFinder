@@ -755,6 +755,19 @@ it('marks Viable versions per CM on the Owned versions picker, narrows the Ace s
 	expect(ids(jobs.at(-1)!.owned)).toEqual([100201, 100301]);
 });
 
+it('un-owning a version drops it from the Viable picks, so re-owning it does not restore the pick', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root);
+	await importFile();
+	await click(root.querySelector('button[name=edit-owned]'));
+	await click([...root.querySelectorAll<HTMLInputElement>('.modal input[name=viable]')].find((t) => t.value === '100201') ?? null);
+	expect(localStorage.getItem('stud-finder:viable-versions')).toContain('100201');
+	const card = () => root.querySelector<HTMLButtonElement>('.modal button[name=card][value="100201"]');
+	await click(card()); // un-own
+	expect(localStorage.getItem('stud-finder:viable-versions')).not.toContain('100201');
+	await click(card()); // own again
+	expect(root.querySelector<HTMLInputElement>('.modal input[name=viable][value="100201"]')!.checked).toBe(false);
+});
+
 it('force-enables an Unfit version for the Ace, keeps it across cutoff changes and reloads, and re-enables Run', async () => {
 	const dud = data.cards.get(100301)!;
 	const before = dud.aptitudes;

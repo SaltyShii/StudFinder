@@ -3,7 +3,7 @@ import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { DEFAULT_ASSUMPTIONS } from '../../../packages/scoring/src/assumptions';
 import { EMPTY_SUPPORT } from './supportSettings';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, loadViableVersions, saveViableVersions, saveMustHaves, saveRoster, saveTierEdits } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, loadViableVersions, pruneViableVersions, saveViableVersions, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -155,4 +155,8 @@ it('persists the Viable versions per Champions Meeting; a new CM, absent, stale 
 	}
 	s.setItem('stud-finder:viable-versions', '{oops');
 	expect(loadViableVersions(s)).toEqual({});
+});
+
+it('prunes Viable picks of versions that are no longer Owned, in every CM', () => {
+	expect(pruneViableVersions({ 3: [1, 2], 4: [2], 5: [] }, new Set([1]))).toEqual({ 3: [1], 4: [], 5: [] });
 });

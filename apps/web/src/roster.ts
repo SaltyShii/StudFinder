@@ -220,6 +220,11 @@ export function loadViableVersions(storage: Storage): Record<number, number[]> {
 	}) ?? {};
 }
 
+/** Drops the picks of versions that are no longer Owned, in every Champions Meeting. */
+export function pruneViableVersions(picks: Record<number, number[]>, owned: ReadonlySet<number>): Record<number, number[]> {
+	return Object.fromEntries(Object.entries(picks).map(([cm, ids]) => [cm, ids.filter((id) => owned.has(id))]));
+}
+
 export function clearRoster(storage: Storage): void {
 	ALL_KEYS.forEach((k) => storage.removeItem(k));
 }
