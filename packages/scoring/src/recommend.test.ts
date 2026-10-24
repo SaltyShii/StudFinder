@@ -386,30 +386,35 @@ test('bestPair with a pair-dependent extra picks the very pair exhaustive rankin
 	}
 });
 
-test('the Ace slots list up to 10 versions in the Ace order; the first is the single best Ace with its chart rows', () => {
+test('the Ace slots list up to 5 versions in the Ace order; the first is the single best Ace with its chart rows', () => {
 	const versions = Array.from({ length: 12 }, (_, i) => ({ cardId: i + 1, aptitudes: apt, uniqueSkillId: i === 7 ? '10071' : undefined, candidates: [] }));
 	const rec = recommend(candidateList, preset, undefined, versions);
-	expect(rec.aceSlots).toHaveLength(10);
+	expect(rec.aceSlots).toHaveLength(5);
 	expect(rec.aceSlots[0].cardId).toBe(8); // the only one with a unique skill worth anything
 	expect(rec.aceSlots[0].skills.length).toBeGreaterThan(0);
 	// Equal scores keep the Owned order.
-	expect(rec.aceSlots.slice(1).map((s) => s.cardId)).toEqual([1, 2, 3, 4, 5, 6, 7, 9, 10]);
+	expect(rec.aceSlots.slice(1).map((s) => s.cardId)).toEqual([1, 2, 3, 4]);
 	expect(rec.aceSlots.slice(1).every((s) => s.skills.length === 0)).toBe(true); // rows are built for the first only
 	const single = recommend(candidateList, preset, undefined, [versions[7]]).aceSlots[0];
 	expect(rec.aceSlots[0]).toEqual(single);
 });
 
-test('a version that cannot reach the distance is dropped while another can', () => {
+test('a version with no way to distance A is not hidden', () => {
 	const short = { ...apt, mile: 1, middle: 1, long: 1, short: 1 };
 	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: short, candidates: [] }, { cardId: 2, aptitudes: { ...apt, short: 7, mile: 7, middle: 7, long: 7 }, candidates: [] }]);
-	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([2]);
+	expect(rec.aceSlots.map((s) => s.cardId).sort()).toEqual([1, 2]);
 });
 
-test('a short list fills up from the reachable tier, after the distance A versions; versions with no way up stay out', () => {
+test('the Ace slots sort by score alone: a version below distance A with the higher score ranks first', () => {
 	const all = (g: number) => ({ ...apt, short: g, mile: g, middle: g, long: g });
-	const pinks = [unit('a', [], { pinkStars: 3 }), unit('b', [], { pinkStars: 3 })];
-	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: all(1), candidates: pinks }, { cardId: 2, aptitudes: all(6), candidates: pinks }, { cardId: 3, aptitudes: all(7), candidates: [] }, { cardId: 4, aptitudes: all(1), candidates: [] }]);
-	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([3, 2]); // 1 and 4 cannot reach A even with pink sparks
+	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: all(7), candidates: [] }, { cardId: 2, aptitudes: all(6), uniqueSkillId: '10071', candidates: [] }]);
+	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([2, 1]);
+	expect(rec.aceSlots[0].score).toBeGreaterThan(rec.aceSlots[1].score);
+});
+
+test('fewer versions than 5 give fewer rows, with no padding', () => {
+	const versions = [1, 2, 3].map((cardId) => ({ cardId, aptitudes: apt, candidates: [] }));
+	expect(recommend(candidateList, preset, undefined, versions).aceSlots).toHaveLength(3);
 });
 
 test('an Ace slot marks a fall-back when its style differs from the selected one', () => {
