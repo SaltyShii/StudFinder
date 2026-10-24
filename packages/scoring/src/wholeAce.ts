@@ -1,7 +1,7 @@
 import { SeededRng } from '@stud-finder/sim/src/Random';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import { FactorType } from '@stud-finder/lineage/src/types';
-import { GRADE_S, INSPIRATIONS, RED_PROC_POINTS, gradesFromPoints, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
+import { GRADE_A, GRADE_S, INSPIRATIONS, RED_PROC_POINTS, gradesFromPoints, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
 import { buildAce, categoryOf, courseFacts, type Style, type TargetStats } from './ace';
 import { pairedRace, type Scenario } from './pairedRace';
 import { buySet, MAX_HINT_LEVEL, type AceBudget } from './skillBudget';
@@ -70,8 +70,8 @@ export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surfac
 	};
 	const distance = pink((h) => h.pinkStars, base.distance);
 	const surfaceGrade = pink((h) => surfaceStarsOf(h, surface), base.surface);
-	// Right after the other pink sparks; a lineage with no style spark draws nothing here.
-	const styleGrade = style !== undefined && base.style !== undefined ? pink(styleStarsOf(style), base.style) : undefined;
+	// Right after the other pink sparks; a lineage with no style spark draws nothing here. A style already at A stays there (the style pink is capped at A) and draws nothing.
+	const styleGrade = style !== undefined && base.style !== undefined ? (base.style >= GRADE_A ? base.style : pink(styleStarsOf(style), base.style)) : undefined;
 	const hints: Record<string, number> = {};
 	// In the order the sparks first procced: a Record would sort the numeric ids, and the skill order can move the sim's random draws.
 	const skillIds: string[] = [];

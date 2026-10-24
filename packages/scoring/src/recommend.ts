@@ -412,7 +412,8 @@ function searchStyle(s: StyleSearch, style: Style, isLead: boolean, lead: Candid
 			const ds = distOutcomes(hs);
 			const ss = aptitudeOutcomes(v.aptitudes[course.surface], hs, (x) => surfaceStarsOf(x, course.surface));
 			// The style grade is rolled from this style's pinks only, so the pair search counts them for the style under search.
-			const ts = aptitudeOutcomes(v.aptitudes[style], hs, styleStarsOf(style));
+			// A style pink is capped at A: a style already there stays there.
+			const ts = v.aptitudes[style] >= GRADE_A ? [{ grade: v.aptitudes[style], chance: 1 }] : aptitudeOutcomes(v.aptitudes[style], hs, styleStarsOf(style));
 			cells = ds.flatMap((d) => ss.flatMap((s) => ts.map((t) => cellAt(d.grade, s.grade, t.grade, d.chance * s.chance * t.chance))));
 			// Every grade a pair can reach is simulated skill by skill, which is the search's cost; a style after the first scores at the likeliest grades alone (the races price the rest).
 			if (!isLead) cells = [{ ...cells.reduce((x, y) => (y.chance > x.chance ? y : x)), chance: 1 }];

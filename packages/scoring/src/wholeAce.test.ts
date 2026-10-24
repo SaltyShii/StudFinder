@@ -47,6 +47,7 @@ describe('rollSparks', () => {
 		expect(rollSparks(sure, { ...apt, style: 4 }, 'turf', 1, undefined, 'senko').style).toBe(8);
 		expect(rollSparks([horse()], { ...apt, style: 4 }, 'turf', 1, undefined, 'senko').style).toBe(4);
 		expect(rollSparks(sure, { ...apt, style: 4 }, 'turf', 1, undefined, 'nige').style).toBe(4); // another style's spark does nothing
+		expect(rollSparks(sure, { ...apt, style: 7 }, 'turf', 1, undefined, 'senko').style).toBe(7); // A stays A: the style pink is capped at A
 	});
 	test('the surface spark follows the course surface', () => {
 		const dirty = [horse({ affinity: 1e6, dirtStars: 3 })];

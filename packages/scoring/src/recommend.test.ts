@@ -448,6 +448,10 @@ describe('Style pink sparks', () => {
 	test('a style pink spark raises the expected lengths when the style is below A', () => {
 		expect(slot(weak, [sure('a', { senko: 3 }), sure('b')]).score).toBeGreaterThan(slot(weak, [sure('a'), sure('b')]).score);
 	});
+	test('a style pink spark does not raise the lengths when the style is already A (#154)', () => {
+		expect(slot(apt, [sure('a', { senko: 3 }), sure('b', { senko: 3 })]).score).toBe(slot(apt, [sure('a'), sure('b')]).score);
+		expect(slot(weak, [sure('a', { senko: 3 }), sure('b', { senko: 3 })]).score).toBeGreaterThan(slot(weak, [sure('a'), sure('b')]).score);
+	});
 	test('a spark for another style does nothing', () => {
 		expect(slot(weak, [sure('a', { nige: 3 }), sure('b')]).score).toBe(slot(weak, [sure('a'), sure('b')]).score);
 	});
