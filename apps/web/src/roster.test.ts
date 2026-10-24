@@ -3,7 +3,7 @@ import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { DEFAULT_ASSUMPTIONS } from '../../../packages/scoring/src/assumptions';
 import { EMPTY_SUPPORT } from './supportSettings';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, loadViableVersions, pruneViableVersions, saveViableVersions, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -66,6 +66,13 @@ it('persists Tier edits and drops stale-versioned or malformed ones', () => {
 	expect(loadTierEdits(s)).toEqual({});
 	s.setItem('stud-finder:tier-edits', JSON.stringify({ version: 1, edits: [edits.sashi] }));
 	expect(loadTierEdits(s)).toEqual({});
+});
+
+it('clearing data also drops the Viable picks', () => {
+	const s = fakeStorage();
+	saveViableVersions(s, { 3: [100101] });
+	clearRoster(s);
+	expect(loadViableVersions(s)).toEqual({});
 });
 
 it('persists Sim assumptions and falls back to the defaults for stale-versioned or malformed ones', () => {
@@ -132,4 +139,24 @@ it('rejects a malformed Type mix or trainings per card and falls back to the def
 		s.setItem('stud-finder:support-trainings-per-card', JSON.stringify(body));
 		expect(loadSupportSettings(s).trainingsPerCard).toBe(30);
 	}
+});
+
+it('persists the Viable versions per Champions Meeting; a new CM, absent, stale or malformed saves load as empty', () => {
+	const s = fakeStorage();
+	expect(loadViableVersions(s)).toEqual({});
+	saveViableVersions(s, { 3: [100101, 100201], 4: [] });
+	expect(loadViableVersions(s)).toEqual({ 3: [100101, 100201], 4: [] });
+	expect(loadViableVersions(s)[9]).toBeUndefined();
+	s.setItem('stud-finder:viable-versions', JSON.stringify({ version: 99, picks: { 3: [100101] } }));
+	expect(loadViableVersions(s)).toEqual({});
+	for (const picks of [[1], { 3: 'x' }, { 3: [1.5] }, { a: [1] }, { '': [1] }, { '1.0': [1] }, { '01': [1] }, null]) {
+		s.setItem('stud-finder:viable-versions', JSON.stringify({ version: 1, picks }));
+		expect(loadViableVersions(s)).toEqual({});
+	}
+	s.setItem('stud-finder:viable-versions', '{oops');
+	expect(loadViableVersions(s)).toEqual({});
+});
+
+it('prunes Viable picks of versions that are no longer Owned, in every CM', () => {
+	expect(pruneViableVersions({ 3: [1, 2], 4: [2], 5: [] }, new Set([1]))).toEqual({ 3: [1], 4: [], 5: [] });
 });
