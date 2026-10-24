@@ -715,6 +715,36 @@ it('skips Unfit versions in the Ace slot only, lists them apart with the reason,
 	} finally { dud.aptitudes = before; }
 });
 
+it('marks Viable versions per CM on the Owned versions picker, narrows the Ace slot only, and persists the picks', async () => {
+	const jobs: RecommendJob[] = [];
+	const spy: RecommendRunner = (job, p, done, fail) => { jobs.push(job); return inline(job, p, done, fail); };
+	const mount = async () => { render(null, root); await act(() => { render(<App loadData={async () => data} run={spy} runVeterans={noV} />, root); }); await flush(); };
+	const ids = (vs: { cardId: number }[] | undefined) => vs!.map((v) => v.cardId).sort();
+	const toggles = () => [...root.querySelectorAll<HTMLInputElement>('.modal input[name=viable]')];
+	await mount();
+	await importFile();
+	await click(root.querySelector('button[name=edit-owned]'));
+	expect(toggles().map((t) => [t.value, t.checked]).sort()).toEqual([['100201', false], ['100301', false]]);
+	await click(toggles().find((t) => t.value === '100201') ?? null);
+	expect(localStorage.getItem('stud-finder:viable-versions')).toContain('100201');
+	await closeModal();
+	await run();
+	expect(ids(jobs.at(-1)!.owned)).toEqual([100201]);
+	expect(ids(jobs.at(-1)!.loopVersions)).toEqual([100201, 100301]);
+	await mount(); // across reloads
+	await run();
+	expect(ids(jobs.at(-1)!.owned)).toEqual([100201]);
+	const cm = root.querySelector('select[name=cm]') as HTMLSelectElement;
+	cm.value = String(CMS.find((c) => String(c.id) !== cm.value)!.id); // a new CM starts empty
+	await act(() => { cm.dispatchEvent(new Event('change')); });
+	await run();
+	expect(ids(jobs.at(-1)!.owned)).toEqual([100201, 100301]);
+	localStorage.setItem('stud-finder:viable-versions', JSON.stringify({ version: 99, picks: {} }));
+	await mount();
+	await run();
+	expect(ids(jobs.at(-1)!.owned)).toEqual([100201, 100301]);
+});
+
 it('force-enables an Unfit version for the Ace, keeps it across cutoff changes and reloads, and re-enables Run', async () => {
 	const dud = data.cards.get(100301)!;
 	const before = dud.aptitudes;
