@@ -205,13 +205,18 @@ function capitalize(word: string) {
 	return word[0].toUpperCase() + word.slice(1);
 }
 
-/** Splits the Owned versions by surface and distance Aptitude grade against the cutoff; running style is ignored. The order is kept. When any Owned version is Viable, only those are considered (an empty pick keeps them all); the Unfit cutoff applies on top. A forced Unfit version is still listed as unfit (so it can be unforced) but joins `fit`, the Ace list. */
+/** Splits the Owned versions by surface and distance Aptitude grade against the cutoff; running style is ignored. The order is kept. When any Owned version is Viable, the others are listed apart as "not Viable" (which wins over an Unfit reason; an empty pick lists none); the Unfit cutoff applies on top to the Viable ones. A forced version is still listed as unfit (so it can be unforced) but joins `fit`, the Ace list. */
 export function planFit(versions: OwnedVersion[], course: Course | undefined, cutoff: number, forced: ReadonlySet<number> = new Set(), viable: ReadonlySet<number> = new Set()): { fit: OwnedVersion[]; unfit: UnfitVersion[] } {
 	const fit: OwnedVersion[] = [];
 	const unfit: UnfitVersion[] = [];
 	// Picks naming a version that is not Owned do not count, so they cannot empty the Ace list.
 	const picks = versions.filter((v) => viable.has(v.cardId));
-	for (const version of picks.length ? picks : versions) {
+	for (const version of versions) {
+		if (picks.length && !viable.has(version.cardId)) {
+			unfit.push({ version, reason: 'not Viable' });
+			if (forced.has(version.cardId)) fit.push(version);
+			continue;
+		}
 		const failing = course ? [surfaceOf(course.ground), categoryOf(course.distance)].filter((k) => version.aptitudes[k] < cutoff) : [];
 		if (failing.length) unfit.push({ version, reason: failing.map((k) => `${capitalize(k)} ${gradeLabel(version.aptitudes[k])}`).join(', ') });
 		if (!failing.length || forced.has(version.cardId)) fit.push(version);

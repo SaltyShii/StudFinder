@@ -207,6 +207,22 @@ it('still leaves out a Viable version that is Unfit, with the Unfit reason', () 
 	expect(split.unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt F']]);
 });
 
+it('lists non-Viable versions apart as "not Viable", over the Unfit reason, and force-enabling one simulates it', () => {
+	const versions = planOwned(data, roster, [100101, 100201], course, false);
+	versions[0] = { ...versions[0], aptitudes: { ...apt, dirt: 2 } };
+	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 7 } };
+	const dirtCourse = { ...course!, ground: 2 };
+	const viable = new Set([100201]);
+	const split = planFit(versions, dirtCourse, 4, new Set(), viable);
+	expect(split.fit.map((v) => v.cardId)).toEqual([100201]);
+	expect(split.unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'not Viable']]);
+	expect(planFit(versions, dirtCourse, 4, new Set([100101]), viable).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
+	// Viable but Unfit keeps the Unfit reason; no pick lists nothing apart for this reason.
+	expect(planFit(versions, dirtCourse, 4, new Set(), new Set([100101])).unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt F'], [100201, 'not Viable']]);
+	expect(planFit(versions, course, 4).unfit).toEqual([]);
+	expect(planFit(versions, course, 4, new Set(), new Set([999999])).unfit).toEqual([]);
+});
+
 it('builds the chart rows of one Ace hero on request, the same as the ranking builds them when it is the top hero', () => {
 	// Both versions carry a unique skill the sim knows, so their rows are not empty lists that compare equal by accident.
 	const owned = planOwned(data, roster, [100101, 100201], course, false).map((v) => ({ ...v, uniqueSkillId: '10071' }));
