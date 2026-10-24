@@ -64,6 +64,12 @@ export function LineageTree({ pick, data }: { pick: AcePick; data: GameData }) {
 	</div>;
 }
 
+/** The chance of A is left out at 100% and under 1%, where "A in 0% of runs" would only confuse. */
+function styleText(pick: AcePick): string {
+	const percent = Math.floor(pick.styleAChance * 100);
+	return percent >= 1 && pick.styleAChance < 1 ? `${STYLE_LABEL[pick.style]}, A in ${percent}% of runs` : STYLE_LABEL[pick.style];
+}
+
 /** The best Ace heroes as a compact list: name, running style, expected lengths. */
 export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
 	const selectedPick = picks?.find((p) => p.cardId === selected);
@@ -74,7 +80,7 @@ export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
 				{picks?.map((pick) => (
 					<li class="hero-row" data-testid={`ace-pick-${pick.cardId}`} data-selected={pick.cardId === selected || undefined}>
 						<strong>{nameOf(data, pick.cardId)}</strong>
-						<span class="muted">{STYLE_LABEL[pick.style]}{pick.fallback && ' (fall-back style: not the selected one)'}</span>
+						<span class="muted" data-testid="hero-style">{styleText(pick)}</span>
 						<span class="headline" data-testid="hero-lengths">{pick.expectedLengths.toFixed(2)} lengths</span>
 						{onSelect && <button class="select-pick" data-testid={`ace-select-${pick.cardId}`} aria-pressed={pick.cardId === selected} onClick={() => onSelect(pick.cardId)}>{pick.cardId === selected ? 'Skills shown below' : 'Show skills'}</button>}
 					</li>

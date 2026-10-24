@@ -7,6 +7,7 @@ import type { RaceConditions } from './pairedRace';
 import type { SkillValue } from './skillValue';
 import type { SkillCost } from './skillBudget';
 import type { SupportInput } from './support';
+import type { Style } from './ace';
 
 /** Spark name (as in the tier list) to tier. */
 export type TierList = Record<string, Tier>;
@@ -34,6 +35,8 @@ export interface LineageHorse {
 	dirtStars: number;
 	/** Total stars of its turf pink sparks (0 when unset). */
 	turfStars?: number;
+	/** Stars of its style pink spark per running style (missing = none). A horse has one pink spark, so this is empty when its pink spark is a distance or surface one. */
+	styleStars?: Partial<Record<Style, number>>;
 	skills: SkillSpark[];
 	/** Absent for the Ace's own character (unique leveling covers it) and when the game data has no unique for the horse. */
 	unique?: UniqueSpark;
@@ -183,6 +186,16 @@ export function surfaceStarsOf(h: LineageHorse, surface: 'turf' | 'dirt'): numbe
  * Where an aptitude of `base` ends up through these horses' pink sparks (`starsOf` picks the aptitude's stars), with the chance of each grade, lowest first.
  * Uses the lower bound of aptitudeChance throughout, as the dirt and distance A chances do. A grade at or above A can rise to S mid-run.
  */
+/** The chance these horses' sparks leave a grade at A or better, from a starting grade. */
+export function chanceOfA(base: number, horses: LineageHorse[], starsOf: (h: LineageHorse) => number): number {
+	return aptitudeOutcomes(base, horses, starsOf).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
+}
+
+/** What a horse's style pink spark holds for one running style; 0 when it carries none. */
+export function styleStarsOf(style: Style): (h: LineageHorse) => number {
+	return (h) => h.styleStars?.[style] ?? 0;
+}
+
 export function aptitudeOutcomes(base: number, horses: LineageHorse[], starsOf: (h: LineageHorse) => number): { grade: number; chance: number }[] {
 	const pink = horses.filter((h) => starsOf(h) > 0);
 	const start = startingGrade(base, pink.reduce((s, h) => s + starsOf(h), 0));

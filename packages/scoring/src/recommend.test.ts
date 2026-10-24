@@ -78,11 +78,10 @@ test('a fresh Owned version with no candidates is still eligible, scored by its 
 	expect(slot.score).toBeGreaterThan(0);
 });
 
-test('the Ace slot keeps the selected style when the version has A in it, else its best style by aptitude, with 2 parents', () => {
+test('the Ace slot runs in a style the version has A in, with 2 parents, whatever the Sim runner runs', () => {
 	const versions = [owned(1, undefined, { ...apt, oikomi: 8 })];
-	expect(recommend(candidateList, preset, undefined, versions).aceSlots[0].style).toBe('senko');
 	const slot = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, versions).aceSlots[0];
-	expect(slot.style).toBe('oikomi');
+	expect(['senko', 'oikomi']).toContain(slot.style); // Nige is C, never picked
 	expect(slot.parents.map((p) => p.candidateId).sort()).toEqual(['p', 'q']);
 });
 
@@ -386,40 +385,131 @@ test('bestPair with a pair-dependent extra picks the very pair exhaustive rankin
 	}
 });
 
-test('the Ace slots list up to 10 versions in the Ace order; the first is the single best Ace with its chart rows', () => {
+test('the Ace slots list up to 5 versions in the Ace order; the first is the single best Ace with its chart rows', () => {
 	const versions = Array.from({ length: 12 }, (_, i) => ({ cardId: i + 1, aptitudes: apt, uniqueSkillId: i === 7 ? '10071' : undefined, candidates: [] }));
 	const rec = recommend(candidateList, preset, undefined, versions);
-	expect(rec.aceSlots).toHaveLength(10);
+	expect(rec.aceSlots).toHaveLength(5);
 	expect(rec.aceSlots[0].cardId).toBe(8); // the only one with a unique skill worth anything
 	expect(rec.aceSlots[0].skills.length).toBeGreaterThan(0);
 	// Equal scores keep the Owned order.
-	expect(rec.aceSlots.slice(1).map((s) => s.cardId)).toEqual([1, 2, 3, 4, 5, 6, 7, 9, 10]);
+	expect(rec.aceSlots.slice(1).map((s) => s.cardId)).toEqual([1, 2, 3, 4]);
 	expect(rec.aceSlots.slice(1).every((s) => s.skills.length === 0)).toBe(true); // rows are built for the first only
 	const single = recommend(candidateList, preset, undefined, [versions[7]]).aceSlots[0];
 	expect(rec.aceSlots[0]).toEqual(single);
 });
 
-test('a version that cannot reach the distance is dropped while another can', () => {
+test('a version with no way to distance A is not hidden', () => {
 	const short = { ...apt, mile: 1, middle: 1, long: 1, short: 1 };
 	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: short, candidates: [] }, { cardId: 2, aptitudes: { ...apt, short: 7, mile: 7, middle: 7, long: 7 }, candidates: [] }]);
-	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([2]);
+	expect(rec.aceSlots.map((s) => s.cardId).sort()).toEqual([1, 2]);
 });
 
-test('a short list fills up from the reachable tier, after the distance A versions; versions with no way up stay out', () => {
+test('the Ace slots sort by score alone: a version below distance A with the higher score ranks first', () => {
 	const all = (g: number) => ({ ...apt, short: g, mile: g, middle: g, long: g });
-	const pinks = [unit('a', [], { pinkStars: 3 }), unit('b', [], { pinkStars: 3 })];
-	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: all(1), candidates: pinks }, { cardId: 2, aptitudes: all(6), candidates: pinks }, { cardId: 3, aptitudes: all(7), candidates: [] }, { cardId: 4, aptitudes: all(1), candidates: [] }]);
-	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([3, 2]); // 1 and 4 cannot reach A even with pink sparks
+	const rec = recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes: all(7), candidates: [] }, { cardId: 2, aptitudes: all(6), uniqueSkillId: '10071', candidates: [] }]);
+	expect(rec.aceSlots.map((s) => s.cardId)).toEqual([2, 1]);
+	expect(rec.aceSlots[0].score).toBeGreaterThan(rec.aceSlots[1].score);
 });
 
-test('an Ace slot marks a fall-back when its style differs from the selected one', () => {
-	const versions = [owned(1, undefined, { ...apt, oikomi: 8 }), owned(2)];
-	const rec = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, versions);
-	const byCard = (id: number) => rec.aceSlots.find((s) => s.cardId === id)!;
-	expect(byCard(1)).toMatchObject({ style: 'oikomi', fallback: true });
-	expect(byCard(2)).toMatchObject({ style: 'senko', fallback: true }); // Nige is E for it, so it falls back too
-	const same = recommend(candidateList, preset, undefined, versions);
-	expect(same.aceSlots.every((s) => s.style === 'senko' && !s.fallback)).toBe(true);
+test('fewer versions than 5 give fewer rows, with no padding', () => {
+	const versions = [1, 2, 3].map((cardId) => ({ cardId, aptitudes: apt, candidates: [] }));
+	expect(recommend(candidateList, preset, undefined, versions).aceSlots).toHaveLength(3);
+});
+
+describe('Best style', () => {
+	const only = (apts: typeof apt) => recommend(candidateList, preset, undefined, [owned(1, undefined, apts)]).aceSlots[0];
+	test('a version with A in two styles shows the one with the higher score, whatever the Sim runner runs', () => {
+		const both = { ...apt, senko: 7, oikomi: 7, nige: 1, sashi: 1 };
+		const senko = only({ ...both, oikomi: 1 });
+		const oikomi = only({ ...both, senko: 1 });
+		expect(senko.score).not.toBe(oikomi.score); // else the pick below proves nothing
+		const better = senko.score > oikomi.score ? senko : oikomi;
+		const pick = recommend(candidateList, { ...preset, runner: { ...horse, strategy: 'Nige' } }, undefined, [owned(1, undefined, both)]).aceSlots[0];
+		expect(pick.style).toBe(better.style);
+	});
+	test('each style is scored on its own runs: a version with A in two styles scores the better of the two single-style versions', () => {
+		const both = { ...apt, senko: 7, oikomi: 7, nige: 1, sashi: 1 };
+		const best = Math.max(only({ ...both, oikomi: 1 }).score, only({ ...both, senko: 1 }).score);
+		expect(only(both).score).toBe(best);
+	});
+	test('a version with A in no style keeps its best aptitude-ranked style', () => {
+		const none = { ...apt, nige: 1, senko: 4, sashi: 3, oikomi: 2 };
+		expect(only(none).style).toBe('senko');
+	});
+	test('the pick has no fall-back flag', () => {
+		expect('fallback' in only(apt)).toBe(false);
+	});
+});
+
+describe('Style pink sparks', () => {
+	const sure = (id: string, styleStars?: LineageHorse['styleStars']) => cand(id, horseOf([], { affinity: 1e6, dirtStars: 0, ...(styleStars ? { styleStars } : {}) }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }));
+	const weak = { ...apt, nige: 1, senko: 4, sashi: 3, oikomi: 2 }; // no style at A: senko, at D, is the best-ranked
+	const slot = (aptitudes: typeof apt, cs: Candidate[]) => recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes, candidates: cs }]).aceSlots[0];
+	test('a style pink spark raises the expected lengths when the style is below A', () => {
+		expect(slot(weak, [sure('a', { senko: 3 }), sure('b')]).score).toBeGreaterThan(slot(weak, [sure('a'), sure('b')]).score);
+	});
+	test('a style pink spark does not raise the lengths when the style is already A (#154)', () => {
+		expect(slot(apt, [sure('a', { senko: 3 }), sure('b', { senko: 3 })]).score).toBe(slot(apt, [sure('a'), sure('b')]).score);
+		expect(slot(weak, [sure('a', { senko: 3 }), sure('b', { senko: 3 })]).score).toBeGreaterThan(slot(weak, [sure('a'), sure('b')]).score);
+	});
+	test('a spark for another style does nothing', () => {
+		expect(slot(weak, [sure('a', { nige: 3 }), sure('b')]).score).toBe(slot(weak, [sure('a'), sure('b')]).score);
+	});
+	test('the pick has chance 1 of A when the style is already A, and less when sparks decide it', () => {
+		expect(slot(apt, [sure('a', { senko: 3 }), sure('b')]).styleAChance).toBe(1);
+		const lowAffinity = cand('a', horseOf([], { affinity: 20, dirtStars: 0, styleStars: { senko: 1 } }), horseOf(), horseOf());
+		const chance = slot(weak, [lowAffinity, sure('b')]).styleAChance;
+		expect(chance).toBeGreaterThan(0);
+		expect(chance).toBeLessThan(1);
+		expect(slot(weak, [sure('a'), sure('b')]).styleAChance).toBe(0);
+	});
+	test('the certain sparks of a pair reach A', () => {
+		expect(slot(weak, [sure('a', { senko: 3 }), sure('b', { senko: 3 })]).styleAChance).toBe(1);
+	});
+	test('recommendAsync gives the same result with style sparks', async () => {
+		const v = [{ cardId: 1, aptitudes: weak, candidates: [sure('a', { senko: 3 }), sure('b')] }];
+		expect(await recommendAsync(async (batch) => batch.requests.map((r) => simulateRequest(r, batch.scenario)), candidateList, preset, undefined, v)).toEqual(recommend(candidateList, preset, undefined, v));
+	});
+});
+
+describe('Styles reachable through style pink sparks', () => {
+	const sure = (id: string, styleStars: LineageHorse['styleStars'], skills: string[] = []) => cand(id, horseOf(skills, { affinity: 1e6, dirtStars: 0, styleStars }), horseOf([], { dirtStars: 0 }), horseOf([], { dirtStars: 0 }));
+	// Senko is the best-ranked style (B), nothing is at A; only the sashi pinks lift a style to A.
+	const bs = { ...apt, nige: 1, senko: 6, sashi: 5, oikomi: 1 };
+	const slot = (cs: Candidate[], aptitudes = bs) => recommend(candidateList, preset, undefined, [{ cardId: 1, aptitudes, candidates: cs }]).aceSlots[0];
+	test('a style that is B on the card but A through the pair wins with that style', () => {
+		const pick = slot([sure('a', { sashi: 3 }), sure('b', { sashi: 3 })]);
+		expect(pick.style).toBe('sashi');
+		expect(pick.styleAChance).toBe(1);
+	});
+	test('a style with no way to A is not simulated', async () => {
+		const styles = new Set<string>();
+		await recommendAsync(async (batch) => { for (const r of batch.requests) if (r.kind === 'wholeAce') styles.add(r.input.style); return batch.requests.map((r) => simulateRequest(r, batch.scenario)); }, candidateList, preset, undefined, [{ cardId: 1, aptitudes: { ...bs, senko: 7 }, candidates: [sure('a', { sashi: 3 }), sure('b', { sashi: 3 })] }]);
+		expect([...styles].sort()).toEqual(['sashi', 'senko']);
+	});
+	test('the pair differs per style when the style pinks differ', () => {
+		const both = { ...bs, sashi: 4, oikomi: 4, senko: 1 };
+		const pick = slot([sure('s1', { sashi: 3 }), sure('s2', { sashi: 3 }), sure('o1', { oikomi: 3 }), sure('o2', { oikomi: 3 })], both);
+		expect(['sashi', 'oikomi']).toContain(pick.style);
+		for (const parent of pick.horses) expect(parent[0].styleStars?.[pick.style]).toBe(3);
+	});
+	// Cost control: a style after the first only looks at the first style's best pairs and the pairs likeliest to reach A in it.
+	const crowd = [...Array.from({ length: 6 }, (_, i) => sure(`plain${i}`, {})), sure('s1', { sashi: 3 }), sure('s2', { sashi: 3 })];
+	test('a later style still finds the pair whose style pinks reach A among many plain ones', () => {
+		const pick = slot(crowd);
+		expect(pick.style).toBe('sashi');
+		expect(pick.styleAChance).toBe(1);
+	});
+	test('a later style races only a few pairs, not every one', async () => {
+		const raced = new Map<string, number>();
+		await recommendAsync(async (batch) => { for (const r of batch.requests) if (r.kind === 'wholeAce') raced.set(r.input.style, (raced.get(r.input.style) ?? 0) + 1); return batch.requests.map((r) => simulateRequest(r, batch.scenario)); }, candidateList, preset, undefined, [{ cardId: 1, aptitudes: { ...bs, senko: 7 }, candidates: crowd }]);
+		expect(raced.get('senko')).toBeGreaterThan(raced.get('sashi') ?? 0);
+		expect(raced.get('sashi')).toBeLessThanOrEqual(2 + 1);
+	});
+	test('recommendAsync gives the same result', async () => {
+		const v = [{ cardId: 1, aptitudes: bs, candidates: [sure('a', { sashi: 3 }), sure('b', { sashi: 3 }), sure('c', { senko: 3 })] }];
+		expect(await recommendAsync(async (batch) => batch.requests.map((r) => simulateRequest(r, batch.scenario)), candidateList, preset, undefined, v)).toEqual(recommend(candidateList, preset, undefined, v));
+	});
 });
 
 describe('Ace slot scored by Whole-Ace runs', () => {

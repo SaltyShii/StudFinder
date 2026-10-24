@@ -42,7 +42,7 @@ const roster = importRoster(JSON.stringify([
 const cm = pickCm(new Date(), CMS[0].id);
 const course = data.courses.get(cm.courseId);
 const ace = data.cards.get(100101)!;
-const planFor = (candidates: Candidate[], c: Course | undefined, styleChoice: Style | null = 'senko') => planRecommend(data, candidates, cm, { card: ace, course: c, styleChoice });
+const planFor = (candidates: Candidate[], c: Course | undefined) => planRecommend(data, candidates, cm, { card: ace, course: c });
 const jobFor = (candidates: Candidate[], c: Course | undefined) => planFor(candidates, c).job;
 
 it('builds a RecommendJob that the real recommend() accepts', () => {
@@ -63,7 +63,7 @@ it('has no RecommendJob without candidates or a course, but still lists candidat
 it('without a Sim runner plans the Generic one: all aptitudes A, no unique skill, every veteran a candidate', () => {
 	const candidates = planCandidates(data, roster, undefined, course, false);
 	expect(candidates.length).toBeGreaterThanOrEqual(planCandidates(data, roster, ace, course, false).length);
-	const job = planRecommend(data, candidates, cm, { course, styleChoice: 'senko' }).job!;
+	const job = planRecommend(data, candidates, cm, { course }).job!;
 	expect(job.preset.runner).toMatchObject({ distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', skills: [] });
 	expect(planRecommend(data, [], cm, { course }).job).toBeNull();
 });
@@ -83,22 +83,22 @@ it('veteran job waits for game data and carries unique skills', () => {
 	expect(vj.courseId).toBe(cm.courseId);
 });
 
-it('a manual Style beats the ranked one, and the plan carries default Target stats once the course is known', () => {
+it('the plan runs the ranked Style and carries default Target stats once the course is known', () => {
 	const candidates = planCandidates(data, roster, ace, course, false);
-	expect(planFor(candidates, course, null).style).toBe('senko'); // best aptitude on a middle-distance course
-	expect(planFor(candidates, course, 'nige').style).toBe('nige');
-	expect(planFor(candidates, course, 'nige').job).not.toBeNull();
+	expect(planFor(candidates, course).style).toBe('senko'); // best aptitude on a middle-distance course
+	expect(planFor(candidates, course).job).not.toBeNull();
 	expect(planFor(candidates, course).defaults).toBeDefined();
 	expect(planFor(candidates, undefined).defaults).toBeUndefined();
 });
 
 it('core loop style defaults to the Sim runner style, can be overridden, and drops surface, distance and track skills', () => {
 	const candidates = planCandidates(data, roster, ace, course, false);
-	const coreList = (coreStyle: Style | null, style: Style = 'sashi') => planRecommend(data, candidates, cm, { card: ace, course, styleChoice: style, coreStyleChoice: coreStyle }).job!.tierList!;
-	expect(coreList(null)).toHaveProperty(['Late Surger Straightaways']);
-	expect(coreList(null)).not.toHaveProperty(['End Closer Straightaways']);
+	const coreList = (coreStyle: Style | null) => planRecommend(data, candidates, cm, { card: ace, course, coreStyleChoice: coreStyle }).job!.tierList!;
+	expect(planFor(candidates, course).coreStyle).toBe('senko'); // the Sim runner's style
+	expect(coreList(null)).not.toHaveProperty(['Late Surger Straightaways']);
+	expect(coreList('sashi')).toHaveProperty(['Late Surger Straightaways']);
+	expect(coreList('sashi')).not.toHaveProperty(['End Closer Straightaways']);
 	expect(coreList('oikomi')).toHaveProperty(['End Closer Straightaways']);
-	expect(coreList(null, 'oikomi')).toHaveProperty(['End Closer Straightaways']);
 	expect(coreList('sashi')).not.toHaveProperty(['Sprint Corners']); // distance conditioned
 	expect(coreList('sashi')).not.toHaveProperty(['Groundwork']); // track conditioned
 	for (const n of ['Firm Conditions', 'Spring Runner', 'Right-Handed']) expect(coreList('sashi')).not.toHaveProperty([n]); // track condition, season, rotation
@@ -106,7 +106,7 @@ it('core loop style defaults to the Sim runner style, can be overridden, and dro
 
 it('Tier list edits move or disable a skill for the Core loop style only', () => {
 	const candidates = planCandidates(data, roster, ace, course, false);
-	const list = (edits: TierEdits) => planRecommend(data, candidates, cm, { card: ace, course, styleChoice: 'sashi', tierEdits: edits }).job!.tierList!;
+	const list = (edits: TierEdits) => planRecommend(data, candidates, cm, { card: ace, course, coreStyleChoice: 'sashi', tierEdits: edits }).job!.tierList!;
 	expect(list({})['Late Surger Straightaways']).toBe('T1.5');
 	expect(list({ sashi: { moved: { 'Late Surger Straightaways': 'T5' }, disabled: [] } })['Late Surger Straightaways']).toBe('T5');
 	expect(list({ sashi: { moved: {}, disabled: ['Late Surger Straightaways'] } })).not.toHaveProperty(['Late Surger Straightaways']);
@@ -266,7 +266,7 @@ it('builds Skill point costs from the game data for purchasable skills only, ids
 
 it('passes the Skill point budget into the preset; no budget means unlimited', () => {
 	const candidates = planCandidates(data, roster, ace, course, false);
-	const plan = (skillPointBudget?: number | null) => planRecommend(data, candidates, cm, { card: ace, course, styleChoice: 'senko', skillPointBudget }).job!.preset.skillPoints;
+	const plan = (skillPointBudget?: number | null) => planRecommend(data, candidates, cm, { card: ace, course, skillPointBudget }).job!.preset.skillPoints;
 	expect(plan(null)).toBeUndefined();
 	expect(plan()).toBeUndefined();
 	expect(plan(2700)?.budget).toBe(2700);

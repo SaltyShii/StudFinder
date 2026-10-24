@@ -68,7 +68,6 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const [mustHaves, setMustHaves] = useState<string[]>(() => loadMustHaves(localStorage));
 	// Null is the Generic runner (all A, no unique skill).
 	const [simRunnerId, setSimRunnerId] = useState<number | null>(null);
-	const [styleChoice, setStyleChoice] = useState<Style | null>(null);
 	const [coreStyleChoice, setCoreStyleChoice] = useState<Style | null>(null);
 	const [target, setTarget] = useState<Partial<TargetStats>>({});
 	const [skillTab, setSkillTab] = useState<SkillCategory>('speed');
@@ -102,7 +101,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const loopVersions = useMemo(() => ownedVersions.filter((v) => loopPicked.has(v.cardId)), [ownedVersions, loopPicked]);
 	// The hidden loops must not steer the ranking; the stored Must-haves stay untouched.
 	const activeMustHaves = useMemo(() => (showLoops ? mustHaves : []), [showLoops, mustHaves]);
-	const { style, coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, styleChoice, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves: activeMustHaves, assumptions, skillPointBudget, support }), [data, candidates, cm, card, course, styleChoice, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, activeMustHaves, assumptions, skillPointBudget, support]);
+	const { coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves: activeMustHaves, assumptions, skillPointBudget, support }), [data, candidates, cm, card, course, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, activeMustHaves, assumptions, skillPointBudget, support]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
@@ -163,20 +162,16 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 					<input type="file" accept=".json,application/json" title="Your export is read in this browser only and never sent anywhere." onChange={onFile} />
 					{roster && data && (
 						<>
-							<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setStyleChoice(null); setCoreStyleChoice(null); }}>
+							<label>CM <select name="cm" value={cmId} onChange={(e) => { const id = Number(e.currentTarget.value); saveCm(localStorage, id); setCmId(id); setCoreStyleChoice(null); }}>
 								{CMS.map((c) => <option value={c.id}>{c.name} {c.date}{c.confirmed === false ? ' (predicted)' : ''}</option>)}
 							</select></label>
-							<SimRunner data={data} cardId={card?.id ?? null} onPick={(id) => { setSimRunnerId(id); setStyleChoice(null); setCoreStyleChoice(null); }} />
-							<label>Style <select name="style" value={style} onChange={(e) => setStyleChoice(e.currentTarget.value as Style)}>
-								{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
-							</select></label>
+							<SimRunner data={data} cardId={card?.id ?? null} onPick={(id) => { setSimRunnerId(id); setCoreStyleChoice(null); }} />
 						</>
 					)}
 					<button class="primary" name="run" disabled={!job || noFit} onClick={snapshot}>Run</button>
 					{busy && <button name="cancel" onClick={cancel}>Cancel</button>}
 				</div>
 				<p class="course" data-testid="header-cm">{cm.name}{course && ` - ${course.distance}m ${surfaceOf(course.ground)}`}</p>
-				<span class="badge" data-testid="style-badge">{STYLE_LABEL[style]}</span>
 			</header>
 			{shownError && <p role="alert">{shownError}</p>}
 			{noFit && <p class="muted">All owned versions are below {gradeLabel(cutoff)} on this CM; force-enable one</p>}

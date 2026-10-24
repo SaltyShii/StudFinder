@@ -42,6 +42,13 @@ describe('rollSparks', () => {
 		expect(r.distance).toBe(8);
 		expect(r.surface).toBe(8);
 	});
+	test('a style spark lifts the running style grade; without one the grade stays put', () => {
+		const sure = [horse({ affinity: 1e6, styleStars: { senko: 3 } }), horse({ affinity: 1e6, styleStars: { senko: 3 } })];
+		expect(rollSparks(sure, { ...apt, style: 4 }, 'turf', 1, undefined, 'senko').style).toBe(8);
+		expect(rollSparks([horse()], { ...apt, style: 4 }, 'turf', 1, undefined, 'senko').style).toBe(4);
+		expect(rollSparks(sure, { ...apt, style: 4 }, 'turf', 1, undefined, 'nige').style).toBe(4); // another style's spark does nothing
+		expect(rollSparks(sure, { ...apt, style: 7 }, 'turf', 1, undefined, 'senko').style).toBe(7); // A stays A: the style pink is capped at A
+	});
 	test('the surface spark follows the course surface', () => {
 		const dirty = [horse({ affinity: 1e6, dirtStars: 3 })];
 		expect(rollSparks(dirty, { distance: 7, surface: 4 }, 'dirt', 1).surface).toBeGreaterThan(4);

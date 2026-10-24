@@ -133,7 +133,6 @@ export interface RecommendPlan {
 export interface PlanOptions {
 	card?: Card;
 	course?: Course;
-	styleChoice?: Style | null;
 	target?: Partial<TargetStats>;
 	coreStyleChoice?: Style | null;
 	owned?: OwnedVersion[];
@@ -159,10 +158,10 @@ export function skillCostsOf(skills: Iterable<Skill>): Record<string, SkillCost>
 }
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
-	const { card, course, styleChoice = null, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions, skillPointBudget, support } = options;
-	// Manual choice wins; otherwise the best-ranked style for this Sim runner on the CM course.
+	const { card, course, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions, skillPointBudget, support } = options;
+	// The best-ranked style for this Sim runner on the CM course.
 	const base = card ?? GENERIC_RUNNER;
-	const style: Style = styleChoice ?? (course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko');
+	const style: Style = course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko';
 	const defaults = course && defaultTargetStats(categoryOf(course.distance), style);
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };

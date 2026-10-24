@@ -28,7 +28,7 @@ test('every veteran is a candidate, labelled with what tells its runs apart; the
 test('a veteran brings itself and its parents, each with its own sparks and affinity', () => {
 	const [c] = candidatesOf(data, [vet(10, 1, [1, 2, 3], [gp(3, [5, 4]), null])], opts);
 	expect(c.horses).toHaveLength(2); // a missing parent brings nothing
-	expect(c.horses[0]).toMatchObject({ pinkStars: 3, dirtStars: 2, skills: [{ skillId: '200012', name: 'Straightaway Recovery', stars: 1 }] });
+	expect(c.horses[0]).toMatchObject({ pinkStars: 3, skills: [{ skillId: '200012', name: 'Straightaway Recovery', stars: 1 }] });
 	expect(c.horses[0].affinity).toBe(13); // direct 9 plus the trio through the grandparent
 	expect(c.horses[1]).toMatchObject({ pinkStars: 1, skills: [{ skillId: '200013', stars: 2 }] });
 	expect(c.horses[1].affinity).toBe(4);
@@ -43,7 +43,7 @@ test('core and side loop score a veteran from its own and its parents sparks', (
 	const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 	const run = (v: Veteran) => recommend({ candidates: candidatesOf(data, [v], opts) }, { courseId: 10101, runner: horse, samples: 5, seed: 1 }, { 'Straightaway Recovery': 'T0' });
 	const bare = run(vet(10, 1, []));
-	const rich = run(vet(10, 1, [1, 2, 3], [gp(3, [5]), null]));
+	const rich = run(vet(10, 1, [2, 3], [gp(3, [5, 4]), null]));
 	expect(bare.core).toEqual([]); // no dirt spark: not a great-grandparent
 	expect(rich.core[0].score).toBeGreaterThan(0);
 	expect(bare.side[0].score).toBeLessThan(rich.side[0].score);
@@ -72,4 +72,21 @@ test('a parent makes its white unique variant buyable with certainty; a grandpar
 	expect(c.horses[0].unique).toEqual({ skillId: '900001', name: 'Unique One', stars: 2, certain: true });
 	expect(c.horses[1].unique).toEqual({ skillId: '900002', name: 'Unique Two', stars: 2, certain: false });
 	expect(c.horses[2].unique).toBeUndefined();
+});
+
+test('a horse has one pink spark: its most stars count for the distance, a surface or a style, never several', () => {
+	const sparks = new GameData({
+		meta: {}, charas: {}, skills: {}, saddles: {}, tracks: {}, courses: {}, races: [],
+		cards: { 1: card(1), 100: card(100) },
+		factors: { 1: fx(1, 33, 2, 3), 2: fx(2, 12, 2, 2), 3: fx(3, 22, 2, 1), 4: fx(4, 23, 2, 2), 5: fx(5, 22, 2, 3), 6: fx(6, 11, 2, 1) },
+		relations: { points: {}, members: {}, ranks: [] },
+	} as unknown as RawGameData);
+	const only = (...ids: number[]) => candidatesOf(sparks, [vet(10, 1, ids)], { aceCardId: 100, pinkGroupId: 33 })[0].horses[0];
+	expect(only(1, 2, 3)).toMatchObject({ pinkStars: 3, dirtStars: 0 });
+	expect(only(1, 2, 3).styleStars).toBeUndefined();
+	expect(only(2, 3)).toMatchObject({ pinkStars: 0, dirtStars: 2 }); // the dirt spark wins over the weaker style spark
+	expect(only(2, 3).styleStars).toBeUndefined();
+	expect(only(3, 4)).toMatchObject({ pinkStars: 0, dirtStars: 0, styleStars: { sashi: 2 } });
+	expect(only(5, 2)).toMatchObject({ pinkStars: 0, dirtStars: 0, styleStars: { senko: 3 } });
+	expect(only(6).turfStars).toBe(1);
 });

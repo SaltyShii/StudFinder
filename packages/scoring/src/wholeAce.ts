@@ -1,17 +1,19 @@
 import { SeededRng } from '@stud-finder/sim/src/Random';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import { FactorType } from '@stud-finder/lineage/src/types';
-import { GRADE_S, INSPIRATIONS, RED_PROC_POINTS, gradesFromPoints, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
+import { GRADE_A, GRADE_S, INSPIRATIONS, RED_PROC_POINTS, gradesFromPoints, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
 import { buildAce, categoryOf, courseFacts, type Style, type TargetStats } from './ace';
 import { pairedRace, type Scenario } from './pairedRace';
 import { buySet, MAX_HINT_LEVEL, type AceBudget } from './skillBudget';
-import { surfaceStarsOf, type LineageHorse } from './shared';
+import { styleStarsOf, surfaceStarsOf, type LineageHorse } from './shared';
 import { hintChance } from './support';
 
-/** The aptitudes a pair of parents can change: the CM distance and surface (grade numbers, 1 = G ... 8 = S). */
+/** The aptitudes a pair of parents can change: the CM distance, surface and running style (grade numbers, 1 = G ... 8 = S). */
 export interface RolledAptitudes {
 	distance: number;
 	surface: number;
+	/** The Ace's running style grade; absent when the style is not rolled. */
+	style?: number;
 }
 
 /** What one roll of a pair's sparks gave. */
@@ -56,10 +58,10 @@ function rollAptitude(base: number, stars: number[], affinities: number[], rng: 
 }
 
 /**
- * Rolls which sparks of these lineage horses (both parents and all four grandparents) procced, from the seed alone: pink distance and surface sparks, white skill sparks.
+ * Rolls which sparks of these lineage horses (both parents and all four grandparents) procced, from the seed alone: pink distance, surface and style sparks, white skill sparks.
  * Chances are the inheritance model's (stars, affinity, two inspirations). Pure: the same seed gives the same roll.
  */
-export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surface: 'turf' | 'dirt', seed: number, support?: SupportRolls): SparkRoll {
+export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surface: 'turf' | 'dirt', seed: number, support?: SupportRolls, style?: Style): SparkRoll {
 	const prng = new SeededRng(seed);
 	const rng = () => prng.random();
 	const pink = (starsOf: (h: LineageHorse) => number, grade: number) => {
@@ -68,6 +70,8 @@ export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surfac
 	};
 	const distance = pink((h) => h.pinkStars, base.distance);
 	const surfaceGrade = pink((h) => surfaceStarsOf(h, surface), base.surface);
+	// Right after the other pink sparks; a lineage with no style spark draws nothing here. A style already at A stays there (the style pink is capped at A) and draws nothing.
+	const styleGrade = style !== undefined && base.style !== undefined ? (base.style >= GRADE_A ? base.style : pink(styleStarsOf(style), base.style)) : undefined;
 	const hints: Record<string, number> = {};
 	// In the order the sparks first procced: a Record would sort the numeric ids, and the skill order can move the sim's random draws.
 	const skillIds: string[] = [];
@@ -100,7 +104,7 @@ export function rollSparks(horses: LineageHorse[], base: RolledAptitudes, surfac
 			hints[id] = Math.min(MAX_HINT_LEVEL, (hints[id] ?? 0) + 1 + card.bonus);
 		}
 	}
-	return { distance, surface: surfaceGrade, skillIds, hints, unlocked, hinted };
+	return { distance, surface: surfaceGrade, ...(styleGrade !== undefined ? { style: styleGrade } : {}), skillIds, hints, unlocked, hinted };
 }
 
 export interface WholeAceInput {
@@ -149,8 +153,8 @@ export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
 	const counts: Record<string, number> = {};
 	let total = 0;
 	for (const seed of seeds) {
-		const rolled = rollSparks(horses, { distance: aptitudes[category], surface: aptitudes[surface] }, surface, seed, support);
-		const ace = buildAce({ aptitudes: { ...aptitudes, [category]: rolled.distance, [surface]: rolled.surface }, style, category, surface, target });
+		const rolled = rollSparks(horses, { distance: aptitudes[category], surface: aptitudes[surface], style: aptitudes[style] }, surface, seed, support, style);
+		const ace = buildAce({ aptitudes: { ...aptitudes, [category]: rolled.distance, [surface]: rolled.surface, [style]: rolled.style ?? aptitudes[style] }, style, category, surface, target });
 		// No hint of its own: the green spark only unlocks the white version, at the base cost.
 		const unlocked = rolled.unlocked.filter((id) => uniqueSkillIds.includes(id));
 		// A card's hint on a skill off the card list makes it buyable like an unlocked one; one the Ace cannot use is wasted.

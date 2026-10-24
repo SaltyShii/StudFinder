@@ -44,8 +44,12 @@ A veteran scored as a CM runner as herself, in the running style she ran in her 
 _Avoid_: ace (when it is a finished run rather than the one about to be trained)
 
 **Ace hero**:
-An Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. The Ace slot lists the 10 best Ace heroes in the Ace order (expected lengths gained = the mean of its Whole-Ace runs): distance A versions first, then those that can reach A through pink sparks to fill the list (Unfit versions and ones with no way to A excluded); selecting one opens its chart. Each shows the running style it runs in: the selected one where it has A in it, else its best-ranked style. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
+An Owned version to train next, with its 2 parents and 4 grandparents and the Track overview skill chart. The Ace slot lists the 5 best Ace heroes by Ace order (expected lengths gained = the mean of its Whole-Ace runs), best on top, one row per version; selecting one opens its chart. Each shows its Best style and, when that style is not already A on the version, the chance of reaching A. It has no equipped skills yet; after its run the user buys skills with skill points, guided by the chart.
 _Avoid_: equipped skills (that is the Ace veteran's term), ace (for the finished run)
+
+**Best style**:
+The running style in which an Ace hero scores highest for the selected CM, found by simulating every style it has A in or can reach A in through its parents' style pink sparks, each with its own best pair of parents. A parent has one pink spark, so a style pink takes the place of that parent's distance or surface pink. The Style dropdown is gone: the Target stats stay as the user set them, whatever the style.
+_Avoid_: fall-back style, selected style
 
 **Buyable skill**:
 A general skill (white or gold) on the Ace card's own skill list that the Ace can buy with skill points after its run, when it meets the skill's running style, distance and surface conditions. The chart lists them as the Ace's own skills (certain), except one a parent can pass on, which shows its inherit chance instead. Skills off the card list appear only through a parent, or under **Other buyable skill** below.
