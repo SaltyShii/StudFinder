@@ -71,6 +71,14 @@ describe('Support deck', () => {
 			expect(new Set(ids).size).toBe(ids.length);
 		}
 	});
+	test('a deck holds one card per character, own and Borrowed', () => {
+		const dull = [11, 12, 13, 14].map((id) => card(id, ['99999'], { charaId: id }));
+		const own = [card(1, ['10071'], { charaId: 7 }), card(2, ['10091'], { charaId: 7 }), ...dull];
+		const borrowed = [card(41, ['10071'], { charaId: 7 }), card(42, ['99999'], { charaId: 42 })];
+		const deck = run([version(['10071', '10091'])], support(own, borrowed)).aceSlots[0].deck!;
+		const charas = [...deck.own.map((p) => p.card.charaId), deck.borrowed!.card.charaId];
+		expect(new Set(charas).size).toBe(charas.length);
+	});
 	test('a deck with no borrowed shortlist is own cards only, with a note', () => {
 		const deck = run([version([])], support([card(1, ['10071']), ...fillers])).aceSlots[0].deck!;
 		expect(deck.borrowed).toBeUndefined();
