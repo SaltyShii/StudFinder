@@ -24,6 +24,9 @@ it('shows the chance of A after the style name only when the style is below A', 
 	const style = (over: Partial<AcePick>) => shown(pick({ style: 'senko', ...over })).querySelector('[data-testid=hero-style]')!.textContent;
 	expect(style({ styleAChance: 0.746 })).toBe('Pace Chaser, A in 74% of runs');
 	expect(style({ styleAChance: 1 })).toBe('Pace Chaser');
+	expect(style({ styleAChance: 0.004 })).toBe('Pace Chaser'); // would read "A in 0% of runs"
+	expect(style({ styleAChance: 0 })).toBe('Pace Chaser');
+	expect(style({ styleAChance: 0.01 })).toBe('Pace Chaser, A in 1% of runs');
 });
 
 it('shows the hero\'s style and no fall-back text', () => {
