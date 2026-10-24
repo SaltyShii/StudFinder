@@ -3,7 +3,7 @@ import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { DEFAULT_ASSUMPTIONS } from '../../../packages/scoring/src/assumptions';
 import { EMPTY_SUPPORT } from './supportSettings';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, saveMustHaves, saveRoster, saveTierEdits } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, loadViableVersions, saveViableVersions, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -132,4 +132,20 @@ it('rejects a malformed Type mix or trainings per card and falls back to the def
 		s.setItem('stud-finder:support-trainings-per-card', JSON.stringify(body));
 		expect(loadSupportSettings(s).trainingsPerCard).toBe(30);
 	}
+});
+
+it('persists the Viable versions per Champions Meeting; a new CM, absent, stale or malformed saves load as empty', () => {
+	const s = fakeStorage();
+	expect(loadViableVersions(s)).toEqual({});
+	saveViableVersions(s, { 3: [100101, 100201], 4: [] });
+	expect(loadViableVersions(s)).toEqual({ 3: [100101, 100201], 4: [] });
+	expect(loadViableVersions(s)[9]).toBeUndefined();
+	s.setItem('stud-finder:viable-versions', JSON.stringify({ version: 99, picks: { 3: [100101] } }));
+	expect(loadViableVersions(s)).toEqual({});
+	for (const picks of [[1], { 3: 'x' }, { 3: [1.5] }, { a: [1] }, null]) {
+		s.setItem('stud-finder:viable-versions', JSON.stringify({ version: 1, picks }));
+		expect(loadViableVersions(s)).toEqual({});
+	}
+	s.setItem('stud-finder:viable-versions', '{oops');
+	expect(loadViableVersions(s)).toEqual({});
 });

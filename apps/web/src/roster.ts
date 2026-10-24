@@ -205,6 +205,22 @@ export function loadSupportSettings(storage: Storage): SupportSettings {
 	return { own: loadShortlist(storage, SUPPORT_OWN_KEY), borrowed: loadShortlist(storage, SUPPORT_BORROWED_KEY), trainingsPerCard: count ?? EMPTY_SUPPORT.trainingsPerCard, typeMixes: mixes ?? {} };
 }
 
+const VIABLE_KEY = 'stud-finder:viable-versions';
+
+/** Viable picks, a map from CM id to card ids, under their own key; nothing here bumps VERSION, a save from before has none. */
+export function saveViableVersions(storage: Storage, picks: Record<number, number[]>): void {
+	saveVersioned(storage, VIABLE_KEY, 'picks', picks);
+}
+
+/** The stored Viable picks; absent, stale-versioned or malformed data loads as empty. */
+export function loadViableVersions(storage: Storage): Record<number, number[]> {
+	return loadVersioned(storage, VIABLE_KEY, 'picks', (v) => {
+		if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+		const ok = Object.entries(v).every(([cm, ids]) => Number.isInteger(Number(cm)) && Array.isArray(ids) && ids.every((i) => Number.isInteger(i)));
+		return ok ? (v as Record<number, number[]>) : null;
+	}) ?? {};
+}
+
 export function clearRoster(storage: Storage): void {
 	ALL_KEYS.forEach((k) => storage.removeItem(k));
 }
