@@ -23,6 +23,12 @@ export interface UniqueSpark extends SkillSpark {
 	/** A parent always makes it buyable; a grandparent only when its green spark procs in an inheritance. */
 	certain: boolean;
 }
+/** A spark shown on the lineage tree. */
+export interface DisplaySpark {
+	kind: 'blue' | 'pink' | 'green';
+	name: string;
+	stars: number;
+}
 /** One horse a veteran brings into the Ace's lineage: itself as a parent, or one of its two parents as a grandparent. */
 export interface LineageHorse {
 	/** For its portrait. */
@@ -38,6 +44,10 @@ export interface LineageHorse {
 	/** Stars of its style pink spark per running style (missing = none). A horse has one pink spark, so this is empty when its pink spark is a distance or surface one. */
 	styleStars?: Partial<Record<Style, number>>;
 	skills: SkillSpark[];
+	/** The veteran's rank score (rating), for display; only the parent has one, a grandparent is a recorded parent without it. */
+	rankScore?: number;
+	/** Every blue, pink and green spark the horse carries, for display only: scoring reads the fields above, where a horse's one pink spark counts once. */
+	sparks?: DisplaySpark[];
 	/** Absent for the Ace's own character (unique leveling covers it) and when the game data has no unique for the horse. */
 	unique?: UniqueSpark;
 }

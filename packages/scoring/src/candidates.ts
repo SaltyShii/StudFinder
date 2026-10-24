@@ -3,7 +3,7 @@ import { lineageCompat } from '../../lineage/src/compatibility';
 import { APTITUDE_BY_GROUP } from '../../lineage/src/sparks';
 import { FactorType, type Factor, type Veteran } from '../../lineage/src/types';
 import { categoryOf, type Category, type Style } from './ace';
-import type { Candidate, LineageHorse, UniqueSpark } from './shared';
+import type { Candidate, DisplaySpark, LineageHorse, UniqueSpark } from './shared';
 
 /** Factor groups of the distance pink sparks (see lineage APTITUDE_BY_GROUP). */
 const PINK_GROUP: Record<Category, number> = { short: 31, mile: 32, middle: 33, long: 34 };
@@ -49,7 +49,7 @@ function uniqueOf(data: GameData, cardId: number, factors: { type: FactorType; g
 const STYLES: readonly string[] = ['nige', 'senko', 'sashi', 'oikomi'];
 const STYLE_GROUPS = Object.entries(APTITUDE_BY_GROUP).filter(([, key]) => STYLES.includes(key)) as [string, Style][];
 
-function horseOf(data: GameData, cardId: number, factorIds: number[], affinity: number, pinkGroupId: number, isParent: boolean, aceChara: number | null): LineageHorse {
+function horseOf(data: GameData, cardId: number, factorIds: number[], affinity: number, pinkGroupId: number, isParent: boolean, aceChara: number | null, rankScore?: number): LineageHorse {
 	const factors = factorIds.flatMap((id) => data.factors.get(id) ?? []);
 	const unique = uniqueOf(data, cardId, factors, isParent, aceChara);
 	const aptitude = factors.filter((f) => f.type === FactorType.Aptitude);
@@ -69,8 +69,14 @@ function horseOf(data: GameData, cardId: number, factorIds: number[], affinity: 
 	if (!keepDistance) pinkStars = 0;
 	if (!keepDirt) dirtStars = 0;
 	if (!keepTurf) turfStars = 0;
+	const sparks: DisplaySpark[] = factors.flatMap((f) => {
+		const kind = f.type === FactorType.Stat ? 'blue' : f.type === FactorType.Aptitude ? 'pink' : f.type === FactorType.Unique ? 'green' : null;
+		return kind ? [{ kind, name: f.name, stars: f.stars }] : [];
+	});
 	return {
 		...(unique ? { unique } : {}),
+		...(rankScore != null ? { rankScore } : {}),
+		...(sparks.length ? { sparks } : {}),
 		cardId,
 		affinity,
 		pinkStars,
@@ -93,7 +99,7 @@ export function candidatesOf(data: GameData, veterans: Veteran[], t: CandidateTa
 		const card = data.cards.get(v.cardId);
 		const version = card ? versionName(card) : String(v.cardId);
 		const label = v.borrowed ? `borrowed from ${v.borrowed.trainerName ?? v.borrowed.trainerId}` : `Rank score ${v.rankScore}, created ${v.createdAt}`;
-		const horses = [horseOf(data, v.cardId, v.factorIds, compat?.affinity ?? 0, t.pinkGroupId, true, target)];
+		const horses = [horseOf(data, v.cardId, v.factorIds, compat?.affinity ?? 0, t.pinkGroupId, true, target, v.rankScore)];
 		v.parents.forEach((g, i) => { if (g) horses.push(horseOf(data, g.cardId, g.factorIds, compat?.grandparents[i] ?? 0, t.pinkGroupId, false, target)); });
 		// Borrowed trainedIds are negative, so they never collide with owned ones.
 		return { id: String(v.trainedId), name: `${version} (${label})`, horses, charaId: data.charaIdOfCard(v.cardId) ?? undefined };

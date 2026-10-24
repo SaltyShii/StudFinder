@@ -33,8 +33,9 @@ export function parentsById(ownedVersions: OwnedVersion[], cardId: number): Map<
 	return new Map(ownedVersions.find((v) => v.cardId === cardId)?.candidates.map((c) => [c.id, c]));
 }
 
-/** Distance and surface aptitude sparks are all pink; stat sparks are not shown. */
+/** Every blue, pink and green spark the horse carries; without them (older picks) only the scored pink sparks (distance and surface). */
 function SparkChips({ horse }: { horse: LineageHorse }) {
+	if (horse.sparks) return <div class="chips">{horse.sparks.map((s) => <span class={`chip chip-${s.kind}`}>{s.name} {s.stars}</span>)}</div>;
 	const pink = [['Distance', horse.pinkStars], ['Turf', surfaceStarsOf(horse, 'turf')], ['Dirt', surfaceStarsOf(horse, 'dirt')]] as const;
 	return <div class="chips">
 		{pink.filter(([, n]) => n > 0).map(([label, n]) => <span class="chip chip-pink">{label} {n}</span>)}
@@ -46,11 +47,12 @@ function TreeNode({ horse, testId, data }: { horse: LineageHorse; testId: string
 	return <div class="tree-node" data-testid={testId}>
 		<img class="portrait" alt={name} src={`${import.meta.env.BASE_URL}img/cards/${horse.cardId}.png`} />
 		<span class="tree-name">{name}</span>
+		{horse.rankScore != null && <span class="muted" data-testid="tree-rating">Rating {horse.rankScore.toLocaleString('en-US')}</span>}
 		<SparkChips horse={horse} />
 	</div>;
 }
 
-/** The Ace on top, its 2 parents and below each parent its own 2 grandparents; pink spark chips (distance, turf, dirt) sit on every horse but the Ace, so a lineage lacking the right pink sparks stands out. */
+/** The Ace on top, its 2 parents and below each parent its own 2 grandparents; a parent also shows its rating (rank score); spark chips (blue, pink, green) sit on every horse but the Ace, so a lineage lacking the right pink sparks stands out. */
 export function LineageTree({ pick, data }: { pick: AcePick; data: GameData }) {
 	return <div class="lineage-tree" data-testid="lineage-tree">
 		<div class="tree-node tree-ace" data-testid="tree-ace">
