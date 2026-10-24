@@ -489,6 +489,19 @@ describe('Styles reachable through style pink sparks', () => {
 		expect(['sashi', 'oikomi']).toContain(pick.style);
 		for (const parent of pick.horses) expect(parent[0].styleStars?.[pick.style]).toBe(3);
 	});
+	// Cost control: a style after the first only looks at the first style's best pairs and the pairs likeliest to reach A in it.
+	const crowd = [...Array.from({ length: 6 }, (_, i) => sure(`plain${i}`, {})), sure('s1', { sashi: 3 }), sure('s2', { sashi: 3 })];
+	test('a later style still finds the pair whose style pinks reach A among many plain ones', () => {
+		const pick = slot(crowd);
+		expect(pick.style).toBe('sashi');
+		expect(pick.styleAChance).toBe(1);
+	});
+	test('a later style races only a few pairs, not every one', async () => {
+		const raced = new Map<string, number>();
+		await recommendAsync(async (batch) => { for (const r of batch.requests) if (r.kind === 'wholeAce') raced.set(r.input.style, (raced.get(r.input.style) ?? 0) + 1); return batch.requests.map((r) => simulateRequest(r, batch.scenario)); }, candidateList, preset, undefined, [{ cardId: 1, aptitudes: { ...bs, senko: 7 }, candidates: crowd }]);
+		expect(raced.get('senko')).toBeGreaterThan(raced.get('sashi') ?? 0);
+		expect(raced.get('sashi')).toBeLessThanOrEqual(2 + 1);
+	});
 	test('recommendAsync gives the same result', async () => {
 		const v = [{ cardId: 1, aptitudes: bs, candidates: [sure('a', { sashi: 3 }), sure('b', { sashi: 3 }), sure('c', { senko: 3 })] }];
 		expect(await recommendAsync(async (batch) => batch.requests.map((r) => simulateRequest(r, batch.scenario)), candidateList, preset, undefined, v)).toEqual(recommend(candidateList, preset, undefined, v));

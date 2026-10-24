@@ -119,6 +119,8 @@ export interface RecommendProgress {
 const SCREEN_SAMPLES = 20;
 // Parent pairs per Owned version that Whole-Ace runs choose between; the additive ranking only decides who makes the list.
 const SHORTLIST = 10;
+/** Pairs a version's other styles screen and race: the first style's shortlist leaders plus the pairs likeliest to reach A in that style. */
+const OTHER_STYLE_PAIRS = 2;
 
 /** The Whole-Ace runs of one recommendation: shared seeds, and a memo so a repeated pass never reruns a pair. */
 interface AceRuns {
@@ -328,6 +330,14 @@ function shownDetails(r: Recommendation): SkillDetail[] {
 	return [...picks.flatMap((p) => p.detail), ...(r.aceSlots[0]?.skills ?? []), ...r.sideSlots.flatMap((l) => l.skills)];
 }
 
+/** The pairs a style other than the version's first looks at: the first style's best pairs, plus those most likely to reach A in this style through their style pinks. */
+function otherStylePairs(pairs: Candidate[][], lead: Candidate[][], grade: number, style: Style): Candidate[][] {
+	const stars = (p: Candidate[]) => p.reduce((t, c) => t + c.horses.reduce((u, x) => u + (x.styleStars?.[style] ?? 0), 0), 0);
+	const chanceA = (p: Candidate[]) => aptitudeOutcomes(grade, p.flatMap((c) => c.horses), (x) => x.styleStars?.[style] ?? 0).filter((o) => o.grade >= GRADE_A).reduce((t, o) => t + o.chance, 0);
+	const likely = pairs.map((p, i) => ({ p, i, a: chanceA(p), s: stars(p) })).sort((x, y) => y.a - x.a || y.s - x.s || x.i - y.i).slice(0, OTHER_STYLE_PAIRS).map((x) => x.p);
+	return [...new Set([...lead, ...likely])];
+}
+
 /** A version's best Ace pick; its chart rows are built on demand (the learnable pool is simulated skill by skill). */
 interface AceCandidate { v: OwnedVersion; /** Set while the pick is scored from screened Whole-Ace runs: the winner to rerun at full samples. */ refine?: AceRefine; pick: AcePick; rows: () => AceSkillRow[]; }
 
@@ -354,8 +364,11 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const withA = rankStyles(v.aptitudes, category).filter(reachable);
 		const styles = withA.length ? withA : [rankStyles(v.aptitudes, category)[0]];
 		const tries: { cand: AceCandidate; shown: SkillDetail[] }[] = [];
-		for (const style of styles) {
+		// The first style (best aptitude) searches every pair. The others only look at pairs likely to do well in them, so the cost stays near one style's search.
+		let lead: Candidate[][] = [];
+		for (const [si, style] of styles.entries()) {
 			const shown: SkillDetail[] = [];
+			const stylePairs = si ? otherStylePairs(pairs, lead, v.aptitudes[style], style) : pairs;
 			const { speed, stamina, power, guts, wisdom } = runner;
 			const input = { aptitudes: v.aptitudes, style, category, surface: course.surface, target: { speed, stamina, power, guts, wisdom } };
 			const h = buildAce({ ...input, uniqueSkillId: v.uniqueSkillId });
@@ -382,7 +395,10 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 					const ss = aptitudeOutcomes(v.aptitudes[course.surface], hs, (x) => surfaceStarsOf(x, course.surface));
 					// The style grade is rolled from this style's pinks only, so the pair search counts them for the style under search.
 					const ts = aptitudeOutcomes(v.aptitudes[style], hs, (x) => x.styleStars?.[style] ?? 0);
-					cellMemo.set(p, (cells = ds.flatMap((d) => ss.flatMap((s) => ts.map((t) => cellAt(d.grade, s.grade, t.grade, d.chance * s.chance * t.chance))))));
+					cells = ds.flatMap((d) => ss.flatMap((s) => ts.map((t) => cellAt(d.grade, s.grade, t.grade, d.chance * s.chance * t.chance))));
+					// Every grade a pair can reach is simulated skill by skill, which is the search's cost; a style after the first scores at the likeliest grades alone (the races price the rest).
+					if (si) cells = [{ ...cells.reduce((x, y) => (y.chance > x.chance ? y : x)), chance: 1 }];
+					cellMemo.set(p, cells);
 				}
 				return cells;
 			};
@@ -406,7 +422,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 				});
 			};
 			// The most a candidate can add, whatever the other parent supplies and whichever grades are reached: only skills that add value count.
-			const grid = [...new Map(pairs.flatMap(cellsOf).map((c) => [c.key, c])).values()];
+			const grid = [...new Map(stylePairs.flatMap(cellsOf).map((c) => [c.key, c])).values()];
 			const bound = (c: Candidate) => {
 				const stars = maxStars(c.horses.flatMap((x) => x.skills));
 				let total = 0;
@@ -416,7 +432,8 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 				}
 				return total;
 			};
-			const shortlist = bestPairs(pairs, rank, bound, extraOf, partial, SHORTLIST);
+			const shortlist = bestPairs(stylePairs, rank, bound, extraOf, partial, si ? OTHER_STYLE_PAIRS : SHORTLIST);
+			if (!si) lead = shortlist.slice(0, OTHER_STYLE_PAIRS).map((x) => x.pair);
 			// Whole-Ace runs choose among the shortlist; the additive score only decides who is on it. A pass still waiting for simulations is thrown away, so it skips the runs.
 			const meet = (ids: string[]) => skillsAceCanMeet(ids, { style, category, surface: course.surface });
 			const buyable = meet(v.learnableSkillIds ?? []);
