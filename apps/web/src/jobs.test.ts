@@ -188,6 +188,25 @@ it('simulates a forced Unfit version in the Ace slot, keeps it listed, and keeps
 	expect(planFit(versions, dirtCourse, 4, new Set([100201])).fit.map((v) => v.cardId)).toEqual([100201]);
 });
 
+it('simulates only the Viable versions in the Ace slot, in Owned order, and ignores picks outside the Owned versions', () => {
+	const versions = planOwned(data, roster, [100101, 100201], course, false);
+	expect(planFit(versions, course, 4, new Set(), new Set()).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
+	expect(planFit(versions, course, 4, new Set(), new Set([100201])).fit.map((v) => v.cardId)).toEqual([100201]);
+	// A pick that is not Owned does not count as a pick, so nothing narrows.
+	expect(planFit(versions, course, 4, new Set(), new Set([999999])).fit.map((v) => v.cardId)).toEqual([100101, 100201]);
+	expect(planFit(versions, course, 4, new Set(), new Set([999999, 100101])).fit.map((v) => v.cardId)).toEqual([100101]);
+});
+
+it('still leaves out a Viable version that is Unfit, with the Unfit reason', () => {
+	const versions = planOwned(data, roster, [100101, 100201], course, false);
+	versions[0] = { ...versions[0], aptitudes: { ...apt, dirt: 2 } };
+	versions[1] = { ...versions[1], aptitudes: { ...apt, dirt: 7 } };
+	const dirtCourse = { ...course!, ground: 2 };
+	const split = planFit(versions, dirtCourse, 4, new Set(), new Set([100101, 100201]));
+	expect(split.fit.map((v) => v.cardId)).toEqual([100201]);
+	expect(split.unfit.map((u) => [u.version.cardId, u.reason])).toEqual([[100101, 'Dirt F']]);
+});
+
 it('builds the chart rows of one Ace hero on request, the same as the ranking builds them when it is the top hero', () => {
 	// Both versions carry a unique skill the sim knows, so their rows are not empty lists that compare equal by accident.
 	const owned = planOwned(data, roster, [100101, 100201], course, false).map((v) => ({ ...v, uniqueSkillId: '10071' }));
