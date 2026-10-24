@@ -727,9 +727,19 @@ it('marks Viable versions per CM on the Owned versions picker, narrows the Ace s
 	expect(toggles().map((t) => [t.value, t.checked]).sort()).toEqual([['100201', false], ['100301', false]]);
 	await click(toggles().find((t) => t.value === '100201') ?? null);
 	expect(localStorage.getItem('stud-finder:viable-versions')).toContain('100201');
+	expect(root.querySelector('.modal [data-testid=unfit-versions]')!.textContent).toContain('not Viable');
 	await closeModal();
+	expect(root.textContent).toContain('1 Viable for this CM');
 	await run();
 	expect(ids(jobs.at(-1)!.owned)).toEqual([100201]);
+	await click(root.querySelector('button[name=edit-owned]'));
+	await click(root.querySelector('.modal input[name=force-unfit]'));
+	await closeModal();
+	await run();
+	expect(ids(jobs.at(-1)!.owned)).toEqual([100201, 100301]);
+	await click(root.querySelector('button[name=edit-owned]'));
+	await click(root.querySelector('.modal input[name=force-unfit]')); // unforce again
+	await closeModal();
 	expect(ids(jobs.at(-1)!.loopVersions)).toEqual([100201, 100301]);
 	await mount(); // across reloads
 	await run();

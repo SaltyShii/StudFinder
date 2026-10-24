@@ -190,7 +190,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 							<h2>Roster</h2>
 							<p>{roster.veterans.length} veterans, {roster.borrowed.length} borrowed</p>
 							<label><input type="checkbox" name="use-borrowed" checked={useBorrowed} onChange={(e) => { const on = e.currentTarget.checked; saveUseBorrowed(localStorage, on); setUseBorrowed(on); }} /> Also score friends' borrowed veterans (up to 5 borrows a day)</label>
-							<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setLoopChoice(null); setCutoff(DEFAULT_FIT_CUTOFF); setForced([]); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
+							<button onClick={() => { clearRoster(localStorage); setRoster(null); setOwnedChoice(null); setLoopChoice(null); setCutoff(DEFAULT_FIT_CUTOFF); setForced([]); setViablePicks({}); setUseBorrowed(false); setMustHaves([]); setTierEdits({}); setRan(null); }}>Clear data</button>
 						</section>
 						{showLoops && <label class="panel">Core loop style <select name="core-style" value={coreStyle} onChange={(e) => setCoreStyleChoice(e.currentTarget.value as Style)}>
 							{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}

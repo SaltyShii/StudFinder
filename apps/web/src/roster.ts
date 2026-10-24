@@ -15,6 +15,7 @@ const OWNED_KEY = 'stud-finder:owned-versions';
 const LOOP_KEY = 'stud-finder:loop-versions';
 const FIT_CUTOFF_KEY = 'stud-finder:fit-cutoff';
 const FORCED_KEY = 'stud-finder:forced-versions';
+const VIABLE_KEY = 'stud-finder:viable-versions';
 const MUST_HAVES_KEY = 'stud-finder:must-haves';
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
 const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
@@ -23,7 +24,7 @@ const SKILL_POINT_BUDGET_KEY = 'stud-finder:skill-point-budget';
 const VERSION = 1;
 
 /** Every key clearRoster wipes; add new keys here only. The last is an earlier version's manual owned toggles, which no longer exist. */
-const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, FIT_CUTOFF_KEY, FORCED_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
+const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, FIT_CUTOFF_KEY, FORCED_KEY, VIABLE_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
 
 function saveVersioned(storage: Storage, key: string, field: string, value: unknown): void {
 	storage.setItem(key, JSON.stringify({ version: VERSION, [field]: value }));
@@ -204,8 +205,6 @@ export function loadSupportSettings(storage: Storage): SupportSettings {
 	const mixes = loadVersioned(storage, SUPPORT_TYPE_MIX_KEY, 'mixes', (v) => (v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(isTypeMix) ? (v as Record<string, TypeMix>) : null));
 	return { own: loadShortlist(storage, SUPPORT_OWN_KEY), borrowed: loadShortlist(storage, SUPPORT_BORROWED_KEY), trainingsPerCard: count ?? EMPTY_SUPPORT.trainingsPerCard, typeMixes: mixes ?? {} };
 }
-
-const VIABLE_KEY = 'stud-finder:viable-versions';
 
 /** Viable picks, a map from CM id to card ids, under their own key; nothing here bumps VERSION, a save from before has none. */
 export function saveViableVersions(storage: Storage, picks: Record<number, number[]>): void {

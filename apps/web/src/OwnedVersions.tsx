@@ -31,10 +31,11 @@ export function OwnedVersions({ data, owned, viable, onViable, unfit, forced, on
 	const toggleForced = (id: number) => onForce(forced.includes(id) ? forced.filter((i) => i !== id) : [...forced, id]);
 	const toggle = (id: number) => onChange(owned.has(id) ? [...owned].filter((i) => i !== id) : [...owned, id]);
 	const toggleViable = (id: number) => onViable(viable.includes(id) ? viable.filter((i) => i !== id) : [...viable, id]);
+	const viableCount = viable.filter((id) => owned.has(id)).length;
 	return (
 		<section class="panel">
 			<h2>Owned versions</h2>
-			<p>{owned.size} owned</p>
+			<p>{owned.size} owned{viableCount > 0 && `, ${viableCount} Viable for this CM`}</p>
 			<div class="chips">{[...owned].slice(0, PREVIEW).map((id) => <img class="portrait small" alt={nameOf(id)} src={`${import.meta.env.BASE_URL}img/cards/${id}.png`} />)}</div>
 			<label>Unfit below <select name="fit-cutoff" value={cutoff} onChange={(e) => onCutoff(Number(e.currentTarget.value))}>
 				{GRADE_NUMBERS.map((g) => <option value={g}>{gradeLabel(g)}{g === FIT_OFF ? ' (filter off)' : ''}</option>)}
@@ -42,7 +43,7 @@ export function OwnedVersions({ data, owned, viable, onViable, unfit, forced, on
 			<p class="muted">The Ace slot does not simulate versions whose surface or distance Aptitude is below this on the CM course.</p>
 			<button type="button" name="edit-owned" onClick={() => setOpen(true)}>Edit owned versions</button>
 			{open && <Modal title="Owned versions" onClose={() => setOpen(false)}><CardPicker data={data} selected={owned} onPick={toggle} count={`${owned.size} selected`} />
-				{owned.size > 0 && <div data-testid="viable-versions"><h3>Viable for this CM</h3><p class="muted">With any marked, the Ace slot simulates only the marked versions; with none, every owned version.</p><ul>{[...owned].map((id) => <li><label><input type="checkbox" name="viable" value={id} checked={viable.includes(id)} onChange={() => toggleViable(id)} /> {nameOf(id) || id}</label></li>)}</ul></div>}
+				{owned.size > 0 && <div data-testid="viable-versions"><h3>Viable for this CM</h3><p class="muted">With any marked, the Ace slot simulates only the marked versions and lists the rest below; with none, every owned version.</p><ul>{[...owned].map((id) => <li><label><input type="checkbox" name="viable" value={id} checked={viable.includes(id)} onChange={() => toggleViable(id)} /> {nameOf(id) || id}</label></li>)}</ul></div>}
 				{unfit.length > 0 && <div data-testid="unfit-versions"><h3>Not simulated for this CM</h3><p class="muted">Tick a version to simulate it in the Ace slot anyway.</p><ul>{unfit.map(({ version, reason }) => <li><label><input type="checkbox" name="force-unfit" value={version.cardId} checked={forced.includes(version.cardId)} onChange={() => toggleForced(version.cardId)} /> {nameOf(version.cardId) || version.cardId}: {reason}</label></li>)}</ul></div>}
 			</Modal>}
 		</section>

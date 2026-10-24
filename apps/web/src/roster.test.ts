@@ -68,6 +68,13 @@ it('persists Tier edits and drops stale-versioned or malformed ones', () => {
 	expect(loadTierEdits(s)).toEqual({});
 });
 
+it('clearing data also drops the Viable picks', () => {
+	const s = fakeStorage();
+	saveViableVersions(s, { 3: [100101] });
+	clearRoster(s);
+	expect(loadViableVersions(s)).toEqual({});
+});
+
 it('persists Sim assumptions and falls back to the defaults for stale-versioned or malformed ones', () => {
 	const s = fakeStorage();
 	expect(loadAssumptions(s)).toEqual(DEFAULT_ASSUMPTIONS);
