@@ -9,6 +9,7 @@ import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import { formatAge } from './age';
 import { AceHero, nameOf } from './AceHero';
 import { aceBuildCode } from './buildCode';
+import { fetchCmUsage } from './cmData';
 import { useBuildLink } from './useBuildLink';
 import { SHOW_LOOPS } from './flags';
 import { MustHaves } from './MustHaves';
@@ -50,9 +51,11 @@ interface Props {
 	runVeterans?: VeteranRunner;
 	/** Builds the chart rows of an Ace hero other than the first, when it is opened. */
 	runRows?: AceRowsRunner;
+	/** Reads a CM's usage and win rates, for the Viable version suggestions. */
+	loadUsage?: typeof fetchCmUsage;
 }
 
-export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = recommendRunner, runVeterans = veteranRunner, runRows = aceRowsRunner }: Props) {
+export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = recommendRunner, runVeterans = veteranRunner, runRows = aceRowsRunner, loadUsage = fetchCmUsage }: Props) {
 	const [roster, setRoster] = useState<ImportResult | null>(() => loadRoster(localStorage));
 	const [data, setData] = useState<GameData | null>(null);
 	const [error, setError] = useState('');
@@ -211,7 +214,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 						}} /><span class="muted"> Skill points the Ace may spend on skills; empty is unlimited.</span>
 							<label><input type="checkbox" name="fast-learner" checked={fastLearner} onChange={(e) => { const on = e.currentTarget.checked; saveFastLearner(localStorage, on); setFastLearner(on); }} /> Fast Learner: another 10% off every skill</label></label>
 						<SupportSettingsPanel data={data} value={supportSettings} onChange={changeSupportSettings} cm={cm} typeMix={typeMix} />
-						<OwnedVersions data={data} owned={owned} viable={viablePicks[cmId] ?? []} onViable={(ids) => { const next = { ...viablePicks, [cmId]: ids }; saveViableVersions(localStorage, next); setViablePicks(next); }} notSimulated={notSimulated} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); const pruned = pruneViableVersions(viablePicks, new Set(ids)); saveViableVersions(localStorage, pruned); setViablePicks(pruned); }} />
+						<OwnedVersions data={data} cm={cm} course={course} loadUsage={loadUsage} owned={owned} viable={viablePicks[cmId] ?? []} onViable={(ids) => { const next = { ...viablePicks, [cmId]: ids }; saveViableVersions(localStorage, next); setViablePicks(next); }} notSimulated={notSimulated} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); const pruned = pruneViableVersions(viablePicks, new Set(ids)); saveViableVersions(localStorage, pruned); setViablePicks(pruned); }} />
 						{showLoops && <>
 							<LoopVersions data={data} owned={owned} picked={loopPicked} onChange={(ids) => { saveLoopVersions(localStorage, ids); setLoopChoice(ids); }} />
 							<MustHaves data={data} tiers={applyTierEdit(baseTierList, tierEdits[coreStyle])} mustHaves={mustHaves} suggestions={suggestions} onChange={(ids) => { saveMustHaves(localStorage, ids); setMustHaves(ids); }} />

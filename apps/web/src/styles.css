@@ -247,6 +247,11 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .loop-pick + .loop-pick, .hero-pick + .hero-pick { margin-top: 10px; }
 .loop-pick[data-selected] .card:first-child, .hero-pick[data-selected] .card:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .external-link { align-self: flex-start; color: var(--accent); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.data-table th { padding: 4px 8px; text-align: left; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); }
+.data-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table tr[data-suggested] td:first-child { font-weight: 700; color: var(--accent); }
 .select-pick { margin-top: 4px; font-size: 0.8rem; }
 .select-pick[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
 .chart-title { margin: 8px 0 4px; }

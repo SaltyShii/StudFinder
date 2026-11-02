@@ -456,6 +456,42 @@ it('links the selected Ace hero to uma.moe once its code is encoded, and not whi
 	expect(link()).toBeNull();
 });
 
+it('suggests Viable versions from the CM data on request, marks them on a click and reads nothing before it', async () => {
+	const asked: number[] = [];
+	const loadUsage: NonNullable<ComponentProps<typeof PlainApp>['loadUsage']> = async (cm) => {
+		asked.push(cm.id);
+		return { label: 'CM data set', pairs: [{ cardId: 100201, style: 2, winRate: 0.5, usage: 0.1 }, { cardId: 100301, style: 3, winRate: 0.2, usage: 0.1 }] };
+	};
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} loadUsage={loadUsage} />, root);
+	await importFile();
+	await click(root.querySelector('button[name=edit-owned]'));
+	expect(asked).toEqual([]);
+	await click(root.querySelector('button[name=suggest-viable]'));
+	await flush();
+	expect(asked).toHaveLength(1);
+	const rows = () => [...root.querySelectorAll('[data-testid=viable-suggestions] tbody tr')];
+	expect(rows().map((r) => r.textContent)).toEqual(['Test StudPace Chaser50.0%10.0%', 'Test DudLate Surger20.0%10.0%']);
+	expect(rows()[0].hasAttribute('data-suggested')).toBe(true);
+	expect(rows()[1].hasAttribute('data-suggested')).toBe(false);
+	await click(root.querySelector('button[name=mark-suggested]'));
+	expect(root.querySelector<HTMLInputElement>('.modal input[name=viable][value="100201"]')!.checked).toBe(true);
+	expect(root.querySelector<HTMLInputElement>('.modal input[name=viable][value="100301"]')!.checked).toBe(false);
+});
+
+it('says so when the CM data has nothing on the CM or cannot be read', async () => {
+	let answer: () => Promise<null> = async () => null;
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} loadUsage={() => answer()} />, root);
+	await importFile();
+	await click(root.querySelector('button[name=edit-owned]'));
+	await click(root.querySelector('button[name=suggest-viable]'));
+	await flush();
+	expect(root.querySelector('[data-testid=viable-none]')).not.toBeNull();
+	answer = async () => { throw new Error('offline'); };
+	await click(root.querySelector('button[name=suggest-viable]'));
+	await flush();
+	expect(root.querySelector('.modal [role=alert]')!.textContent).toContain('offline');
+});
+
 it('passes Fast Learner to the job with the budget, re-runs on a change and persists it', async () => {
 	const jobs: RecommendJob[] = [];
 	const recording: RecommendRunner = (job, _p, done) => { jobs.push(job); done(computeRecommend(job)); return () => {}; };
