@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { recommend, recommendAsync, simulateRequest, type Candidate, type CandidateList, type LineageHorse, type OwnedVersion, type SkillCost } from './recommend';
 import { aceBudget, buySet, discounted, withoutReplaced } from './skillBudget';
+import { marginalValues, wholeAceSeeds } from './wholeAce';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 20, seed: 7 };
@@ -65,7 +66,9 @@ describe('Skill point budget', () => {
 	test('the budget picks the set with the most lengths for it', () => {
 		const v = version(['10071', '10091', '200011']);
 		expect(scoreOf(v, 550)).toBe(scoreOf(version(['10071', '10091']))); // 300 + 250
-		expect(scoreOf(v, 300)).toBe(scoreOf(version(['10071']))); // the best single
+		// On value alone the budget picks 10071 (300 SP), but raced in the build 10091 (250 SP) gains more: the Build refinement finds it.
+		expect(scoreOf(version(['10071']))).toBeLessThan(scoreOf(version(['10091'])));
+		expect(scoreOf(v, 300)).toBe(scoreOf(version(['10091'])));
 		expect(scoreOf(v, 250)).toBe(scoreOf(version(['10091']))); // 250 SP: 10091, not the cheap 200011
 	});
 	test('a gold skill is bought with its white only when the budget covers both, never instead of the white alone', () => {
@@ -148,6 +151,36 @@ describe('Skill point budget', () => {
 		expect({ ...tight, aceSlots: 0 }).toEqual({ ...free, aceSlots: 0 });
 	});
 
+	describe('Build refinement', () => {
+		const tight = { budget: 300, costs };
+		const v = version(['10071', '10091', '200011']);
+		test('refined builds keep the same result through the worker batches, and a score never drops', async () => {
+			const p = { ...preset, samples: 40, skillPoints: tight };
+			const a = recommend(none, p, undefined, [v]);
+			const batched = await recommendAsync(async (batch) => batch.requests.map((r) => simulateRequest(r, batch.scenario)), none, p, undefined, [v]);
+			expect(batched).toEqual(a);
+			expect(a.aceSlots[0].buildRefined).toBe(true);
+			// The first pick, 10071, is what the refined build had to beat.
+			const first = recommend(none, { ...preset, samples: 40 }, undefined, [version(['10071'])]).aceSlots[0].score;
+			expect(a.aceSlots[0].score).toBeGreaterThan(first);
+		});
+		test('runs only when the budget leaves something out', () => {
+			const kinds: string[] = [];
+			const steps = (p: typeof preset & { skillPoints?: unknown }) => { kinds.length = 0; return recommendAsync(async (batch) => { kinds.push(...batch.requests.map((r) => r.kind)); return batch.requests.map((r) => simulateRequest(r, batch.scenario)); }, none, p as never, undefined, [v]).then(() => [...kinds]); };
+			return steps({ ...preset, skillPoints: { budget: 1e6, costs } }).then((rich) => {
+				expect(rich).not.toContain('marginal');
+				return steps({ ...preset, skillPoints: tight });
+			}).then((poor) => { expect(poor).toContain('marginal'); });
+		});
+		test('what a skill adds is measured on the build, not on its own', () => {
+			const input = { aptitudes: apt, style: 'senko' as const, scenario: { courseId: preset.courseId }, target: { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400 }, buyableSkillIds: ['10071', '10091'], horses: [], seeds: wholeAceSeeds(7, 10) };
+			const values = { '10071': 1, '10091': 1, '200011': 1 };
+			const out = marginalValues({ ...input, budget: { budget: 1e6, costs, values } });
+			expect(Object.keys(out).sort()).toEqual(['10071', '10091', '200011']);
+			expect(out['10071']).toBeGreaterThan(0);
+			expect(marginalValues(input)).toEqual({}); // nothing to choose without a budget
+		});
+	});
 	describe('bought share', () => {
 		const boughtOf = (v: OwnedVersion, budget?: number) => Object.fromEntries(recommend(none, { ...preset, skillPoints: budget === undefined ? undefined : { budget, costs } }, undefined, [v]).aceSlots[0].skills.map((r) => [r.skillId, r.bought]));
 		test('a skill the Ace can always afford is bought in every run', () => {

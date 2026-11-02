@@ -77,11 +77,11 @@ function spotWatcher(skillIds: string[], distance: number) {
 	};
 }
 
-/** Races the horse without and with the skills on the same seed, once per sample. With `versus`, the reference is that other horse instead (and every run counts as activated): what the scenario's horse gains over it. */
-export function pairedRace(skillIds: string[], scenario: Scenario, versus?: HorseDesc): PairedRun[] {
+/** Races the horse without and with the skills on the same seed, once per sample. With `versus`, the reference is that other horse instead (and every run counts as activated): what the scenario's horse gains over it. `versusSkills` are the reference's own skills, for what a skill adds to a whole build. */
+export function pairedRace(skillIds: string[], scenario: Scenario, versus?: HorseDesc, versusSkills: string[] = []): PairedRun[] {
 	const { samples = 100 } = scenario;
 	const { distance } = courseFacts(scenario.courseId); // first, so an unknown course id gets its own message
-	const base = raceBuilder([], versus ? { ...scenario, horse: versus } : scenario);
+	const base = raceBuilder(versusSkills, versus ? { ...scenario, horse: versus } : scenario);
 	const test = raceBuilder(skillIds, scenario);
 	const runs: PairedRun[] = [];
 	for (let i = 0; i < samples; i++) {

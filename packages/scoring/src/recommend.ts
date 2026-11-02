@@ -5,7 +5,7 @@ import { gainOverId, skillDetail, unsimulated } from './skillDetail';
 import type { Scenario } from './pairedRace';
 import type { Aptitudes } from '@stud-finder/lineage/src/types';
 import type { HorseDesc } from '@stud-finder/sim/src/RaceSolverBuilder';
-import { wholeAceRuns, wholeAceSeeds, type WholeAceInput, type WholeAceRuns } from './wholeAce';
+import { marginalValues, wholeAceRuns, wholeAceSeeds, type WholeAceInput, type WholeAceRuns } from './wholeAce';
 import { skillsAceCanMeet } from './learnable';
 import { aceBudget, type AceBudget } from './skillBudget';
 import { atLimitBreak, deckPicks, hintLevelOf, pickDeck, trainingsPerCardOf, type SupportDeck, type SupportType, type SupportInput } from './support';
@@ -48,6 +48,8 @@ export interface AcePick {
 	parents: CandidatePick[];
 	/** The Support deck this Ace was ranked with; absent without a shortlist. */
 	deck?: SupportDeck;
+	/** Its score comes from a Build refinement that raced better than the first purchases. */
+	buildRefined?: boolean;
 	/** The combined chart: the Ace's own skills plus everything either parent lineage can pass on, best avg lengths first. Built for the first Ace slot only; empty for the others. */
 	skills: AceSkillRow[];
 }
@@ -122,10 +124,15 @@ const SHORTLIST = 10;
 /** Pairs a version's other styles screen and race: the first style's shortlist leaders plus the pairs likeliest to reach A in that style. */
 const OTHER_STYLE_PAIRS = 2;
 
+// The runs a Build refinement measures each skill over, per skill: the costliest part of a refinement, and the refined build still has to beat the first one over the full seeds.
+const REFINE_SAMPLES = 30;
+
 /** The Whole-Ace runs of one recommendation: shared seeds, and a memo so a repeated pass never reruns a pair. */
 interface AceRuns {
 	seeds: number[];
 	screenSeeds: number[];
+	/** Build refinements done: the runs of each refined build, by the runs they refine. */
+	refined: Map<string, WholeAceRuns>;
 	/** Winners (version|parents) already re-run at full samples. */
 	full: Set<string>;
 	/** The runs already simulated; otherwise a stand-in (mean 0, nothing bought), and the run is noted for the next batch. The mean and the bought shares come back together so a score and its chart share the same runs. */
@@ -139,6 +146,12 @@ export type WholeAceRequest = Omit<WholeAceInput, 'scenario'>;
 interface AceRefine {
 	pairKey: string;
 	fullKey: string;
+	input: WholeAceRequest;
+}
+
+/** A shown Ace whose purchases can still be refined. */
+interface AceBuild {
+	key: string;
 	input: WholeAceRequest;
 }
 
@@ -156,10 +169,16 @@ export interface WholeAceRunsRequest {
 	input: WholeAceRequest;
 }
 
-export type SimRequest = SkillRequest | WholeAceRunsRequest;
+/** What each skill the budget could buy adds to the builds of a pair's Whole-Ace runs. */
+export interface MarginalRequest {
+	kind: 'marginal';
+	input: WholeAceRequest;
+}
 
-/** What a request answers with: a skill detail, or the Whole-Ace runs of a pair. */
-export type SimResult = SkillDetail | WholeAceRuns;
+export type SimRequest = SkillRequest | WholeAceRunsRequest | MarginalRequest;
+
+/** What a request answers with: a skill detail, the Whole-Ace runs of a pair, or the marginal values of its skills. */
+export type SimResult = SkillDetail | WholeAceRuns | Record<string, number>;
 
 /** Skills to simulate, each for one runner. They are independent, so a caller may simulate them in any order, in parallel. */
 export interface SimBatch {
@@ -176,7 +195,8 @@ export function simulateSkill({ horse, id, samples }: SkillRequest, scenario: Si
 
 /** Simulates one request of either kind. */
 export function simulateRequest(request: SimRequest, scenario: SimBatch['scenario']): SimResult {
-	return request.kind === 'skill' ? simulateSkill(request, scenario) : wholeAceRuns({ ...request.input, scenario });
+	if (request.kind === 'skill') return simulateSkill(request, scenario);
+	return request.kind === 'marginal' ? marginalValues({ ...request.input, scenario }) : wholeAceRuns({ ...request.input, scenario });
 }
 
 /** Simulates a batch right here, one skill after the other. */
@@ -248,6 +268,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	const aceRuns: AceRuns = {
 		seeds: wholeAceSeeds(seed, samples),
 		screenSeeds: wholeAceSeeds(seed, Math.min(samples, SCREEN_SAMPLES)),
+		refined: new Map(),
 		full: new Set(),
 		memo: (key, input) => {
 			const m = aceMemo.get(key);
@@ -259,6 +280,8 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	};
 	// Shown Aces still scored from screened runs after the last pass.
 	let aceTodo: AceRefine[] = [];
+	// Shown Aces whose purchases are not refined yet.
+	let aceBuilds: AceBuild[] = [];
 	const track = trackOverview({ ...cm, horse, seed });
 	const pass = (): Recommendation => {
 		const detailFor = detailerOf(horse);
@@ -269,6 +292,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const ranked = rankAceSlots(versions).slice(0, ACE_SLOTS);
 		// The chart simulates the whole buyable pool, so only the first Ace's rows are built.
 		aceTodo = ranked.flatMap((x) => (x.refine ? [x.refine] : []));
+		aceBuilds = ranked.flatMap((x) => (x.build ? [x.build] : []));
 		const aceSlots = ranked.map((x, i) => ({ ...x.pick, skills: i === 0 ? x.rows() : [] }));
 		const coreV = coreVersion(loopVersions);
 		// The Core loop's dirt A chance uses the core version's affinities, not the Sim runner's.
@@ -310,7 +334,20 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 	for (;;) {
 		const todo = new Map<string, { key: string; id: string }>();
 		for (const d of [...shownDetails(rec), ...extras]) if (d.screened && d.src) todo.set(`${d.src}|${d.skillId}`, { key: d.src, id: d.skillId });
-		if (!todo.size && !aceTodo.length) return rec;
+		if (!todo.size && !aceTodo.length) {
+			if (!aceBuilds.length) return rec;
+			// Last, once the shown Aces are final: their purchases again, from what each skill adds to the build rather than what it does alone. A build that does not race better is dropped when the runs come back.
+			const builds = aceBuilds;
+			const refineSeeds = wholeAceSeeds(seed, Math.min(samples, REFINE_SAMPLES));
+			const marginals = (yield { scenario: { ...cm, seed }, requests: builds.map((b): SimRequest => ({ kind: 'marginal', input: { ...b.input, seeds: refineSeeds } })), progress: (done) => onProgress?.({ phase: 'refine', done: simulated + done, total: builds.length }) }) as SimResult[] as Record<string, number>[];
+			simulated += builds.length;
+			const inputs = builds.map((b, i): WholeAceRequest => ({ ...b.input, budget: { ...b.input.budget!, values: marginals[i] } }));
+			const refined = (yield { scenario: { ...cm, seed }, requests: inputs.map((input): SimRequest => ({ kind: 'wholeAce', input })), progress: (done) => onProgress?.({ phase: 'refine', done: simulated + done, total: builds.length }) }) as SimResult[] as WholeAceRuns[];
+			simulated += builds.length;
+			builds.forEach((b, i) => aceRuns.refined.set(b.key, refined[i]));
+			rec = yield* settle();
+			continue;
+		}
 		const entries = [...todo.values()];
 		// The shown Aces' winners at full samples, once each, beside the skills in one batch.
 		const aceAsks = [...new Map(aceTodo.filter((r) => !aceMemo.has(r.fullKey)).map((r) => [r.fullKey, r.input])).entries()];
@@ -339,7 +376,7 @@ function otherStylePairs(pairs: Candidate[][], lead: Candidate[][], grade: numbe
 }
 
 /** A version's best Ace pick; its chart rows are built on demand (the learnable pool is simulated skill by skill). */
-interface AceCandidate { v: OwnedVersion; /** Set while the pick is scored from screened Whole-Ace runs: the winner to rerun at full samples. */ refine?: AceRefine; pick: AcePick; rows: () => AceSkillRow[]; }
+interface AceCandidate { v: OwnedVersion; /** Set while the pick is scored from screened Whole-Ace runs: the winner to rerun at full samples. */ refine?: AceRefine; /** Set once the pick's runs are final and its purchases not refined yet. */ build?: AceBuild; pick: AcePick; rows: () => AceSkillRow[]; }
 
 /** The Ace at one pair of distance and surface grades. */
 interface Cell { key: string; chance: number; /** With the unique skill. */ h: HorseDesc; /** Without it: the baseline skills are measured on. */ bare: HorseDesc }
@@ -504,6 +541,19 @@ function searchStyle(s: StyleSearch, style: Style, isLead: boolean, lead: Candid
 			score = scored.mean;
 		}
 	}
+	let build: AceBuild | undefined;
+	let buildRefined = false;
+	if (!partial() && !refine && scored && skillPoints) {
+		const key = fullKey(win);
+		const refined = runs.refined.get(key);
+		if (refined) {
+			if (refined.mean > scored.mean) { scored = refined; score = refined.mean; buildRefined = true; }
+		} else {
+			// Nothing to refine when the budget covers everything worth having in every run.
+			const b = budgetOf(win)!;
+			if (Object.keys(b.values).some((id) => b.values[id] > 0 && (scored.bought[id] ?? 0) < 1)) build = { key, input: requestOf(win, runs.seeds) };
+		}
+	}
 	const winCells = cellsOf(win.pair);
 	const winHorses = win.pair.flatMap((c) => c.horses);
 	// The scores read these at every reached grade, so they are refined like the details a pick shows.
@@ -511,7 +561,7 @@ function searchStyle(s: StyleSearch, style: Style, isLead: boolean, lead: Candid
 	const styleAChance = chanceOfA(v.aptitudes[style], winHorses, styleStarsOf(style));
 	const distanceAChance = chanceOfA(base, winHorses, (x) => x.pinkStars);
 	const parentsOf = win.pair.map((c) => ({ id: c.id, horses: c.horses }));
-	return { shown, lead: shortlist.slice(0, OTHER_STYLE_PAIRS).map((x) => x.pair), cand: { v, refine, pick: { cardId: v.cardId, style, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, styleAChance, parents: win.parents, ...(deck ? { deck } : {}), skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined, sourcesOf(deck, deckSkills)) } };
+	return { shown, lead: shortlist.slice(0, OTHER_STYLE_PAIRS).map((x) => x.pair), cand: { v, refine, build, pick: { cardId: v.cardId, style, score, expectedLengths: score, horses: win.pair.map((c) => c.horses), mustHaveChance: mustHaveChance(winHorses, mustHaves), distanceAChance, styleAChance, parents: win.parents, ...(deck ? { deck } : {}), ...(buildRefined ? { buildRefined } : {}), skills: [] }, rows: () => aceRows(uniqueId ? detailerOf(bareBase, true)(uniqueId) : undefined, parentsOf, detailerOf(h), h.skills, mustHaves, buyable, meet(v.otherSkillIds ?? []), skillPoints && scored ? { shares: scored.bought, priced: skillPoints.costs } : undefined, sourcesOf(deck, deckSkills)) } };
 }
 
 /** Per skill the Ace can use, the deck cards whose hint pool holds it, in roll order. */

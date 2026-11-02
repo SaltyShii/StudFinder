@@ -145,17 +145,52 @@ export interface WholeAceRuns {
  * Pure and deterministic.
  */
 export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
-	const { aptitudes, style, scenario, target, uniqueSkillId, buyableSkillIds, uniqueSkillIds = [], horses, seeds, budget, support } = input;
+	const { scenario, seeds } = input;
 	if (!seeds.length) return { mean: 0, bought: {} };
-	const lowerOf = lowerTiersOf(input);
-	const { distance, surface } = courseFacts(scenario.courseId);
-	const category = categoryOf(distance);
-	const baseHorse = buildAce({ aptitudes, style, category, surface, target });
-	// Runs whose sparks hint the same skills at the same levels buy the same set.
-	const sets = new Map<string, string[]>();
+	const { distance, surface } = courseFacts(input.scenario.courseId);
+	const baseHorse = buildAce({ aptitudes: input.aptitudes, style: input.style, category: categoryOf(distance), surface, target: input.target });
+	const runOf = runBuilder(input);
 	const counts: Record<string, number> = {};
 	let total = 0;
 	for (const seed of seeds) {
+		const { ace, bought, skills } = runOf(seed);
+		for (const id of bought) counts[id] = (counts[id] ?? 0) + 1;
+		const [run] = pairedRace(skills, { ...scenario, horse: ace, samples: 1, seed }, baseHorse);
+		total += run.lengths;
+	}
+	return { mean: total / seeds.length, bought: Object.fromEntries(Object.entries(counts).map(([id, n]) => [id, n / seeds.length])) };
+}
+
+/**
+ * What each skill the budget could buy adds to the build the Ace actually ends up with, in mean lengths: the runs' own builds raced with and without it, the rest of its group left out of both.
+ * A skill's value on its own misses how it works with the rest: a recovery skill is worth nothing until the others use up the HP, two speed skills can overlap.
+ */
+export function marginalValues(input: WholeAceInput): Record<string, number> {
+	const { scenario, seeds, budget } = input;
+	if (!budget || !seeds.length) return {};
+	const runOf = runBuilder(input);
+	const ids = Object.keys(budget.values);
+	const totals: Record<string, number> = Object.fromEntries(ids.map((id) => [id, 0]));
+	for (const seed of seeds) {
+		const { ace, skills } = runOf(seed);
+		for (const id of ids) {
+			const rest = skills.filter((s) => budget.costs[s]?.group !== budget.costs[id].group);
+			const [run] = pairedRace([...rest, id], { ...scenario, horse: ace, samples: 1, seed }, ace, rest);
+			totals[id] += run.lengths;
+		}
+	}
+	return Object.fromEntries(ids.map((id) => [id, totals[id] / seeds.length]));
+}
+
+/** Rolls and buys for one seed: the trained Ace, what it bought and the skills it races with. */
+function runBuilder(input: WholeAceInput): (seed: number) => { ace: ReturnType<typeof buildAce>; bought: string[]; skills: string[] } {
+	const { aptitudes, style, scenario, target, uniqueSkillId, buyableSkillIds, uniqueSkillIds = [], horses, budget, support } = input;
+	const lowerOf = lowerTiersOf(input);
+	const { distance, surface } = courseFacts(scenario.courseId);
+	const category = categoryOf(distance);
+	// Runs whose sparks hint the same skills at the same levels buy the same set.
+	const sets = new Map<string, string[]>();
+	return (seed) => {
 		const rolled = rollSparks(horses, { distance: aptitudes[category], surface: aptitudes[surface], style: aptitudes[style] }, surface, seed, support, style);
 		const ace = buildAce({ aptitudes: { ...aptitudes, [category]: rolled.distance, [surface]: rolled.surface, [style]: rolled.style ?? aptitudes[style] }, style, category, surface, target });
 		// No hint of its own: the green spark only unlocks the white version, at the base cost.
@@ -172,12 +207,8 @@ export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
 		} else {
 			bought = [...buyableSkillIds, ...unlockedBeyond(buyableSkillIds)];
 		}
-		for (const id of bought) counts[id] = (counts[id] ?? 0) + 1;
-		const skills = withoutReplaced([...new Set([...(uniqueSkillId ? [uniqueSkillId] : []), ...bought, ...rolled.skillIds])], lowerOf);
-		const [run] = pairedRace(skills, { ...scenario, horse: ace, samples: 1, seed }, baseHorse);
-		total += run.lengths;
-	}
-	return { mean: total / seeds.length, bought: Object.fromEntries(Object.entries(counts).map(([id, n]) => [id, n / seeds.length])) };
+		return { ace, bought, skills: withoutReplaced([...new Set([...(uniqueSkillId ? [uniqueSkillId] : []), ...bought, ...rolled.skillIds])], lowerOf) };
+	};
 }
 
 /** The skill each upgrade replaces, as `withoutReplaced` reads it. */

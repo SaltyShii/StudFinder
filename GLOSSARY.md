@@ -77,6 +77,9 @@ A trait a run can end with: another 10% off every skill, added to the Hint level
 **Skill point budget**:
 The total SP an Ace hero has to spend, one setting for every version (starts at about 2700, a typical Grand Concert run; the user can clear it). In each Whole-Ace run the Ace buys the affordable set with the most lengths gained per SP, with that run's Hint levels, at most one skill of a group (with what it is learned on). Cleared means unlimited: it buys every Buyable skill. Ace veterans and the loops ignore it.
 
+**Build refinement**:
+The last step of a run with a Skill point budget, for the Ace heroes shown when the budget leaves something out: each skill's value is measured again as what it adds to the Ace's actual build (paired races with and without it), the Ace buys again from those values, and the new build replaces the first if its Whole-Ace runs race better. A skill's value on its own misses how it works with the rest. Those runs also give the score, so a refined hero can move up the list.
+
 **Support card**:
 A card in the support deck that gives hints during a run, with a type (speed, stamina, power, guts, wit or friend), a pool of hint skills, a Hint Frequency and a limit break level. The player shortlists the ones they would consider running, from the full catalogue.
 _Avoid_: card (alone, that is a version), support (alone)
