@@ -8,6 +8,8 @@ const API = 'https://hakuraku.moe/api/simdata';
 const STYLE_NAMES: Record<number, string> = { 1: 'Front Runner', 2: 'Pace Chaser', 3: 'Late Surger', 4: 'End Closer', 5: 'Runaway', 6: 'Debuffer' };
 /** Below this share of the field a win rate rests on too few runners to go by. */
 const MIN_USAGE = 0.0005;
+// A debuffer's team wins through its teammates, which says nothing of her as an Ace.
+const DEBUFFER = 6;
 
 /** One version in one running style in a CM's data. */
 export interface CmUsagePair {
@@ -80,7 +82,7 @@ export function suggestViable({ pairs }: CmUsage, owned: Iterable<number>): Viab
 		return enough(a) !== enough(b) ? enough(a) : enough(a) ? a.winRate > b.winRate : a.usage > b.usage;
 	};
 	for (const p of pairs) {
-		if (!ownedIds.has(p.cardId)) continue;
+		if (!ownedIds.has(p.cardId) || p.style === DEBUFFER) continue;
 		const cur = best.get(p.cardId);
 		if (!cur || better(p, cur)) best.set(p.cardId, p);
 	}

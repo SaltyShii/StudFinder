@@ -57,9 +57,11 @@ it('suggests the Owned versions that beat the field, each in its best running st
 			pair(3, 2, 0.6, 0.0001), // owned, wins but barely run
 			pair(4, 2, 0.36, 0.2), // owned, just above
 			pair(9, 2, 0.34, 0.3), // not owned
+			pair(4, 6, 0.9, 0.001), // a debuffer's team wins through its teammates
+			pair(6, 6, 0.9, 0.001), // owned, only as a debuffer
 		],
 	};
-	const out = suggestViable(usage, [1, 2, 3, 4, 5]);
+	const out = suggestViable(usage, [1, 2, 3, 4, 5, 6]);
 	expect(out.map((s) => [s.cardId, s.style, s.suggested])).toEqual([[1, 2, true], [4, 2, true], [3, 2, false], [2, 1, false]]);
 	expect(out[0].styleName).toBe('Pace Chaser');
 });
