@@ -182,6 +182,9 @@ The course, season and conditions of a specific Champions Meeting, used to pick 
 A friend's veteran you borrow as a parent; the game allows 5 borrows a day. Scored like any other veteran.
 _Avoid_: rental
 
+**What-if tree**:
+A lineage the user plans by hand in the Planner view: a target and up to 2 parents and 4 grandparents, each any version (trained or not) or a Roster veteran, with the sparks and G1 wins they are planned or known to have. It shows affinity and spark odds by the same model the recommendations use, and ranks nothing. Great-grandparents are left out: they do not change these odds.
+
 **Slot**:
 A place in the lineage a recommendation fills: the Ace veteran, the core loop or the side loop.
 

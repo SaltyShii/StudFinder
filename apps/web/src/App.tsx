@@ -14,6 +14,7 @@ import { useBuildLink } from './useBuildLink';
 import { SHOW_LOOPS } from './flags';
 import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
+import { PlannerView } from './PlannerView';
 import { LoopVersions } from './LoopVersions';
 import { SimRunner } from './SimRunner';
 import { SupportSettingsPanel } from './SupportSettingsPanel';
@@ -56,6 +57,8 @@ interface Props {
 }
 
 export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = recommendRunner, runVeterans = veteranRunner, runRows = aceRowsRunner, loadUsage = fetchCmUsage }: Props) {
+	// A shared What-if tree opens in the Planner.
+	const [view, setView] = useState<'recommend' | 'planner'>(() => (location.hash.startsWith('#plan=') ? 'planner' : 'recommend'));
 	const [roster, setRoster] = useState<ImportResult | null>(() => loadRoster(localStorage));
 	const [data, setData] = useState<GameData | null>(null);
 	const [error, setError] = useState('');
@@ -167,7 +170,15 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
 
 	return (
+		<div class="shell">
+			<nav class="rail" aria-label="Views">
+				<span class="rail-logo" aria-hidden="true">SF</span>
+				<button type="button" name="view-recommend" aria-pressed={view === 'recommend'} onClick={() => setView('recommend')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.8 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3.1 1.2-6.2L3 9.6l6.3-.8z" /></svg>Recommend</button>
+				<button type="button" name="view-planner" aria-pressed={view === 'planner'} onClick={() => setView('planner')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v6m0 0H6v4m6-4h6v4M4 14h4v6H4zm12 0h4v6h-4zM9 2h6v4H9z" /></svg>Planner</button>
+			</nav>
 		<main class="layout">
+			{view === 'planner' && (data ? <PlannerView data={data} roster={roster} /> : <p class="muted">Loading the game data...</p>)}
+			{view === 'recommend' && <>
 			<header class="app-header" data-testid="app-header">
 				<div class="top-bar" data-testid="top-bar">
 					<h1>Stud Finder</h1>
@@ -202,17 +213,17 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 						{showLoops && <label class="panel">Core loop style <select name="core-style" value={coreStyle} onChange={(e) => setCoreStyleChoice(e.currentTarget.value as Style)}>
 							{STYLES.map((s) => <option value={s}>{STYLE_LABEL[s]}</option>)}
 						</select></label>}
-						{defaults && <fieldset class="panel"><legend>Target stats</legend>{STATS.map((k) => (
+						{defaults && <section class="panel"><h2>Target stats</h2><fieldset class="stat-grid">{STATS.map((k) => (
 							<label>{k} <input type="number" name={k} value={target[k] ?? defaults[k]} onChange={(e) => setTarget({ ...target, [k]: Number(e.currentTarget.value) })} /></label>
-						))}</fieldset>}
+						))}</fieldset></section>}
 						<AssumptionsPanel value={assumptions} onChange={changeAssumptions} trainingsPerCard={supportSettings.trainingsPerCard} onTrainingsPerCard={(n) => changeSupportSettings({ ...supportSettings, trainingsPerCard: n })} />
-						<label class="panel">Skill point budget <input type="number" name="skill-point-budget" min={0} step={1} placeholder="unlimited" value={skillPointBudget ?? ''} onChange={(e) => {
+						<section class="panel"><h2>Skill points</h2><label>Skill point budget <input type="number" name="skill-point-budget" min={0} step={1} placeholder="unlimited" value={skillPointBudget ?? ''} onChange={(e) => {
 							const text = e.currentTarget.value.trim();
 							const n = Number(text);
 							if (text === '') changeSkillPointBudget(null);
 							else if (Number.isInteger(n) && n >= 0) changeSkillPointBudget(n);
-						}} /><span class="muted"> Skill points the Ace may spend on skills; empty is unlimited.</span>
-							<label><input type="checkbox" name="fast-learner" checked={fastLearner} onChange={(e) => { const on = e.currentTarget.checked; saveFastLearner(localStorage, on); setFastLearner(on); }} /> Fast Learner: another 10% off every skill</label></label>
+						}} /></label><span class="muted">Skill points the Ace may spend on skills; empty is unlimited.</span>
+							<label><input type="checkbox" name="fast-learner" checked={fastLearner} onChange={(e) => { const on = e.currentTarget.checked; saveFastLearner(localStorage, on); setFastLearner(on); }} /> Fast Learner: another 10% off every skill</label></section>
 						<SupportSettingsPanel data={data} value={supportSettings} onChange={changeSupportSettings} cm={cm} typeMix={typeMix} />
 						<OwnedVersions data={data} cm={cm} course={course} loadUsage={loadUsage} owned={owned} viable={viablePicks[cmId] ?? []} onViable={(ids) => { const next = { ...viablePicks, [cmId]: ids }; saveViableVersions(localStorage, next); setViablePicks(next); }} notSimulated={notSimulated} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); const pruned = pruneViableVersions(viablePicks, new Set(ids)); saveViableVersions(localStorage, pruned); setViablePicks(pruned); }} />
 						{showLoops && <>
@@ -251,7 +262,9 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 					</>}
 				</div>
 			)}
+			</>}
 			{data?.meta?.resourceVersion && <footer class="muted">Game data: resource version {data.meta.resourceVersion}, generated {formatAge(data.meta.generatedAt)}</footer>}
 		</main>
+		</div>
 	);
 }

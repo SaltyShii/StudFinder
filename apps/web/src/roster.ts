@@ -2,6 +2,7 @@ import type { GameData } from '../../../packages/lineage/src/gameData';
 import { parseExport } from '../../../packages/lineage/src/importer';
 import type { ImportResult } from '../../../packages/lineage/src/types';
 import type { TypeMix } from '../../../packages/scoring/src/support';
+import { parseTree, type WhatIfTree } from '../../../packages/scoring/src/whatIf';
 import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
 import { GRADE_NUMBERS, STYLES } from '../../../packages/scoring/src/ace';
 import { DEFAULT_ASSUMPTIONS, DEFAULT_DUELING_RATES, DEFAULT_HP_DEBUFFS, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
@@ -20,11 +21,13 @@ const MUST_HAVES_KEY = 'stud-finder:must-haves';
 const TIER_EDITS_KEY = 'stud-finder:tier-edits';
 const ASSUMPTIONS_KEY = 'stud-finder:sim-assumptions';
 const SKILL_POINT_BUDGET_KEY = 'stud-finder:skill-point-budget';
+const PLANNER_TREE_KEY = 'stud-finder:planner-tree';
+const PLANNER_SAVES_KEY = 'stud-finder:planner-saves';
 // Bump when a stored shape changes; older saves are then rejected.
 const VERSION = 1;
 
 /** Every key clearRoster wipes; add new keys here only. The last is an earlier version's manual owned toggles, which no longer exist. */
-const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, FIT_CUTOFF_KEY, FORCED_KEY, VIABLE_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, 'stud-finder:owned'];
+const ALL_KEYS = [KEY, CM_KEY, BORROW_KEY, OWNED_KEY, LOOP_KEY, FIT_CUTOFF_KEY, FORCED_KEY, VIABLE_KEY, MUST_HAVES_KEY, TIER_EDITS_KEY, PLANNER_TREE_KEY, PLANNER_SAVES_KEY, 'stud-finder:owned'];
 
 function saveVersioned(storage: Storage, key: string, field: string, value: unknown): void {
 	storage.setItem(key, JSON.stringify({ version: VERSION, [field]: value }));
@@ -238,6 +241,33 @@ export function loadViableVersions(storage: Storage): Record<number, number[]> {
 /** Drops the picks of versions that are no longer Owned, in every Champions Meeting. */
 export function pruneViableVersions(picks: Record<number, number[]>, owned: ReadonlySet<number>): Record<number, number[]> {
 	return Object.fromEntries(Object.entries(picks).map(([cm, ids]) => [cm, ids.filter((id) => owned.has(id))]));
+}
+
+/** A named What-if tree. */
+export interface PlannerSave {
+	name: string;
+	tree: WhatIfTree;
+}
+
+export function savePlannerTree(storage: Storage, tree: WhatIfTree): void {
+	saveVersioned(storage, PLANNER_TREE_KEY, 'tree', tree);
+}
+
+/** The tree last planned; empty when absent, stale-versioned or malformed. Wiped by Clear data, as it can hold the Roster's sparks. */
+export function loadPlannerTree(storage: Storage, data?: GameData): WhatIfTree {
+	return loadVersioned(storage, PLANNER_TREE_KEY, 'tree', (v) => parseTree(v, data)) ?? {};
+}
+
+export function savePlannerSaves(storage: Storage, saves: PlannerSave[]): void {
+	saveVersioned(storage, PLANNER_SAVES_KEY, 'saves', saves);
+}
+
+/** The named plans; a malformed one is dropped, the others stay. */
+export function loadPlannerSaves(storage: Storage, data?: GameData): PlannerSave[] {
+	return loadVersioned(storage, PLANNER_SAVES_KEY, 'saves', (v) => (Array.isArray(v) ? v.flatMap((s): PlannerSave[] => {
+		const tree = parseTree(s?.tree, data);
+		return tree && typeof s?.name === 'string' ? [{ name: s.name, tree }] : [];
+	}) : null)) ?? [];
 }
 
 export function clearRoster(storage: Storage): void {

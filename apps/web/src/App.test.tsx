@@ -42,7 +42,7 @@ const flush = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
 
 let root: HTMLElement;
 // The default CM depends on today's date, and so do the near-tied scores some tests order by.
-beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime('2026-10-20'); localStorage.clear(); root = document.createElement('div'); document.body.replaceChildren(root); });
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime('2026-10-20'); localStorage.clear(); location.hash = ''; root = document.createElement('div'); document.body.replaceChildren(root); });
 afterEach(() => { vi.useRealTimers(); });
 
 async function importFile() {
@@ -490,6 +490,25 @@ it('says so when the CM data has nothing on the CM or cannot be read', async () 
 	await click(root.querySelector('button[name=suggest-viable]'));
 	await flush();
 	expect(root.querySelector('.modal [role=alert]')!.textContent).toContain('offline');
+});
+
+it('switches to the Planner and back without losing the results', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} runRows={() => () => {}} />, root);
+	await importFile();
+	await pickAce();
+	expect(root.querySelector('[data-testid=planner]')).toBeNull();
+	await click(root.querySelector('button[name=view-planner]'));
+	expect(root.querySelector('[data-testid=planner]')).not.toBeNull();
+	expect(root.querySelector('[data-testid=top-bar]')).toBeNull();
+	await click(root.querySelector('button[name=view-recommend]'));
+	expect(root.querySelectorAll('[data-testid^=ace-pick]').length).toBe(2);
+});
+
+it('opens a shared What-if tree in the Planner', async () => {
+	location.hash = '#plan=e30';
+	await act(() => render(<App loadData={async () => data} run={inline} runVeterans={noV} />, root));
+	await flush();
+	expect(root.querySelector('[data-testid=planner]')).not.toBeNull();
 });
 
 it('passes Fast Learner to the job with the budget, re-runs on a change and persists it', async () => {

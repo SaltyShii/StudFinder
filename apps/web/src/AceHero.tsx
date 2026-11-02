@@ -83,8 +83,11 @@ export function AceHero({ picks, selected, onSelect, data, stale, buildLink }: P
 			<ol class="hero-list" style={stale ? { opacity: 0.5 } : undefined}>
 				{picks?.map((pick) => (
 					<li class="hero-row" data-testid={`ace-pick-${pick.cardId}`} data-selected={pick.cardId === selected || undefined}>
-						<strong>{nameOf(data, pick.cardId)}</strong>
-						<span class="muted" data-testid="hero-style">{styleText(pick)}{pick.buildRefined && <span class="refined" data-testid="hero-refined" title="Its skills were picked again from what each adds to the whole build, which raced better"> · refined</span>}</span>
+						<img class="portrait" alt="" src={`${import.meta.env.BASE_URL}img/cards/${pick.cardId}.png`} />
+						<span class="hero-name">
+							<strong>{nameOf(data, pick.cardId)}</strong>
+							<span class="muted" data-testid="hero-style">{styleText(pick)}{pick.buildRefined && <span class="refined" data-testid="hero-refined" title="Its skills were picked again from what each adds to the whole build, which raced better"> · refined</span>}</span>
+						</span>
 						<span class="headline" data-testid="hero-lengths">{pick.expectedLengths.toFixed(2)} lengths</span>
 						{onSelect && <button class="select-pick" data-testid={`ace-select-${pick.cardId}`} aria-pressed={pick.cardId === selected} onClick={() => onSelect(pick.cardId)}>{pick.cardId === selected ? 'Skills shown below' : 'Show skills'}</button>}
 					</li>
