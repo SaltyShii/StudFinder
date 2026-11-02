@@ -205,7 +205,7 @@ export async function recommendAsync(runBatch: (batch: SimBatch) => Promise<SimR
 	}
 }
 
-function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, skillPoints, support, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SimResult[]> {
+function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1, runner: horse, skillPoints, skillTiers, support, ...cm }: CmPreset, tierList?: TierList, owned: OwnedVersion[] = [], mustHaves: string[] = [], onProgress?: (p: RecommendProgress) => void, loopVersions: OwnedVersion[] = owned): Generator<SimBatch, Recommendation, SimResult[]> {
 	// One cache per distinct runner, so Owned versions that run identically share simulations.
 	const sims = new Map<string, { horse: HorseDesc; cache: Map<string, SkillDetail> }>();
 	let simulated = 0;
@@ -265,7 +265,7 @@ function* recommendSteps(candidateList: CandidateList, { samples = 100, seed = 1
 		const seen = new Map<string, SkillDetail>();
 		const detailOf = (id: string) => { const d = detailFor(id); seen.set(id, d); return d; };
 			extras = [];
-			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceRuns, skillPoints, support);
+			const versions = bestAcePerVersion(owned, horse, courseFacts(cm.courseId), detailerOf, mustHaves, () => missing.size > 0, extras, { ...cm, seed }, aceRuns, skillPoints, support, skillTiers);
 		const ranked = rankAceSlots(versions).slice(0, ACE_SLOTS);
 		// The chart simulates the whole buyable pool, so only the first Ace's rows are built.
 		aceTodo = ranked.flatMap((x) => (x.refine ? [x.refine] : []));
@@ -349,7 +349,7 @@ interface Cell { key: string; chance: number; /** With the unique skill. */ h: H
 // The additive score (the Ace simulated at every distance, surface and style grade the pair's pink sparks can reach, weighted by the chance of that grade) only shortlists pairs;
 // the score a pick shows comes from racing the whole Ace with the pair's parents (Whole-Ace runs). Must-haves play no part.
 // A version with no roster candidates still scores by its unique alone.
-function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns, skillPoints?: SkillPoints, support?: SupportInput): AceCandidate[] {
+function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: CourseFacts, detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail, mustHaves: string[], partial: () => boolean, extras: SkillDetail[], scenario: Omit<Scenario, 'horse' | 'samples'>, runs: AceRuns, skillPoints?: SkillPoints, support?: SupportInput, skillTiers?: Record<string, string>): AceCandidate[] {
 	const out: AceCandidate[] = [];
 	for (const [vi, v] of owned.entries()) {
 		const units = v.candidates;
@@ -366,7 +366,7 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 		const tries: { cand: AceCandidate; shown: SkillDetail[] }[] = [];
 		// The first style (best aptitude) searches every pair. The others only look at pairs likely to do well in them, so the cost stays near one style's search.
 		let lead: Candidate[][] = [];
-		const search: StyleSearch = { v, vi, pairs, runner, course, category, detailerOf, mustHaves, partial, runs, skillPoints, support };
+		const search: StyleSearch = { v, vi, pairs, runner, course, category, detailerOf, mustHaves, partial, runs, skillPoints, support, skillTiers };
 		for (const [i, style] of styles.entries()) {
 			const found = searchStyle(search, style, i === 0, lead);
 			if (i === 0) lead = found.lead;
@@ -380,11 +380,11 @@ function bestAcePerVersion(owned: OwnedVersion[], runner: HorseDesc, course: Cou
 }
 
 /** What one version's style searches share. */
-interface StyleSearch { v: OwnedVersion; vi: number; pairs: Candidate[][]; runner: HorseDesc; course: CourseFacts; category: Category; detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail; mustHaves: string[]; partial: () => boolean; runs: AceRuns; skillPoints?: SkillPoints; support?: SupportInput }
+interface StyleSearch { v: OwnedVersion; vi: number; pairs: Candidate[][]; runner: HorseDesc; course: CourseFacts; category: Category; detailerOf: (h: HorseDesc, full?: boolean) => (id: string) => SkillDetail; mustHaves: string[]; partial: () => boolean; runs: AceRuns; skillPoints?: SkillPoints; support?: SupportInput; skillTiers?: Record<string, string> }
 
 /** The version's best pair and score in one running style. The lead style (best aptitude) searches every pair and hands its best pairs to the others via `lead`. */
 function searchStyle(s: StyleSearch, style: Style, isLead: boolean, lead: Candidate[][]): { cand: AceCandidate; shown: SkillDetail[]; lead: Candidate[][] } {
-	const { v, vi, pairs, runner, course, category, detailerOf, mustHaves, partial, runs, skillPoints, support } = s;
+	const { v, vi, pairs, runner, course, category, detailerOf, mustHaves, partial, runs, skillPoints, support, skillTiers } = s;
 	const shown: SkillDetail[] = [];
 	const stylePairs = isLead ? pairs : otherStylePairs(pairs, lead, v.aptitudes[style], style);
 	const { speed, stamina, power, guts, wisdom } = runner;
@@ -468,7 +468,7 @@ function searchStyle(s: StyleSearch, style: Style, isLead: boolean, lead: Candid
 		if (!b) budgets.set(p, (b = aceBudget(skillPoints, [...new Set([...buyable, ...meet(lineageIdsOf(p.pair.flatMap((c) => c.horses))), ...deckSkills])], (id) => detailerOf(h)(id).value)));
 		return b;
 	};
-	const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: meet(uniqueIdsOf(p.pair.flatMap((c) => c.horses))), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}), ...(supportRolls ? { support: supportRolls } : {}) });
+	const requestOf = (p: ScoredPair, seeds: number[]): WholeAceRequest => ({ aptitudes: v.aptitudes, style, target: { speed, stamina, power, guts, wisdom }, uniqueSkillId: uniqueId, buyableSkillIds: buyable, uniqueSkillIds: meet(uniqueIdsOf(p.pair.flatMap((c) => c.horses))), horses: p.pair.flatMap((c) => c.horses), seeds, ...(skillPoints ? { budget: budgetOf(p) } : {}), ...(supportRolls ? { support: supportRolls } : {}), ...(skillTiers ? { tiers: skillTiers } : {}) });
 	const deckKey = deck ? `|${picks.map((p) => `${p.card.id}:${p.limitBreak}`).join()}` : '';
 	const keyOf = (p: ScoredPair) => `${vi}|${style}|${p.pair.map((c) => c.id).join(',')}${deckKey}`;
 	// The values are screened or full, so the same pair reruns once its values change.

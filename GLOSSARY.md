@@ -64,15 +64,15 @@ A white or gold skill (the strongest of its group) the Ace meets the conditions 
 _Avoid_: extra skill
 
 **Skill points (SP)**:
-What the Ace spends after its run to buy skills. Every buyable skill has a base cost; a gold skill costs its white version plus its own.
+What the Ace spends after its run to buy skills. Every buyable skill has a base cost; a skill learned on another costs that one as well: a ◎ its ○, a gold skill every white version below it. Once learned, the upper skill replaces the lower ones, so only it races.
 _Avoid_: points (alone)
 
 **Hint level**:
-How far a skill's cost is discounted for an Ace, from 1 to 5 (10%, 20%, 30%, 35%, 40% off). Procced sparks for the skill raise it by their stars, up to 5; a hinted skill off the card list also becomes buyable. Each of a gold skill's two costs takes the discount.
+How far a skill's cost is discounted for an Ace, from 1 to 5 (10%, 20%, 30%, 35%, 40% off). Procced sparks for the skill raise it by their stars, up to 5; a hinted skill off the card list also becomes buyable. A hint on a white skill discounts the white skills of its group alike; a gold skill keeps its own Hint level.
 _Avoid_: hint (alone), discount level
 
 **Skill point budget**:
-The total SP an Ace hero has to spend, one setting for every version (starts at about 2700, a typical Grand Concert run; the user can clear it). In each Whole-Ace run the Ace buys the affordable set with the most lengths gained per SP, with that run's Hint levels; a gold skill replaces its white version, never both. Cleared means unlimited: it buys every Buyable skill. Ace veterans and the loops ignore it.
+The total SP an Ace hero has to spend, one setting for every version (starts at about 2700, a typical Grand Concert run; the user can clear it). In each Whole-Ace run the Ace buys the affordable set with the most lengths gained per SP, with that run's Hint levels, at most one skill of a group (with what it is learned on). Cleared means unlimited: it buys every Buyable skill. Ace veterans and the loops ignore it.
 
 **Support card**:
 A card in the support deck that gives hints during a run, with a type (speed, stamina, power, guts, wit or friend), a pool of hint skills, a Hint Frequency and a limit break level. The player shortlists the ones they would consider running, from the full catalogue.

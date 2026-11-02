@@ -2,8 +2,10 @@
 export interface SkillCost {
 	cost: number;
 	group: number;
-	/** A gold skill: the white version it replaces. Buying the gold skill means buying that white skill first, so the two are one bundle. */
+	/** A gold or ◎ skill: the skill it is learned on and replaces, the next one down its group. Buying it means buying that one first, so the chain down the group is one bundle. */
 	replacesId?: string;
+	/** A gold skill keeps its own hints; the game shares a hint among the white skills of a group. */
+	gold?: boolean;
 }
 
 /** The Skill point budget as one Whole-Ace request carries it: the costs of the skills in play and their value (lengths gained) as already simulated. */
@@ -14,8 +16,25 @@ export interface AceBudget {
 	values: Record<string, number>;
 }
 
+/** The skill and what it is learned on, from the top of its group down; empty when a step has no price, so it cannot be bought. */
+function chainOf(id: string, costs: Record<string, SkillCost>): string[] {
+	const chain: string[] = [];
+	for (let at: string | undefined = id; at !== undefined; at = costs[at].replacesId) {
+		if (!costs[at]) return [];
+		chain.push(at);
+	}
+	return chain;
+}
+
+/** The skills of a set that actually race: one another replaces is gone once that one is learned. `lowerOf` names the skill each upgrade replaces. */
+export function withoutReplaced(skillIds: string[], lowerOf: Record<string, string>): string[] {
+	const gone = new Set<string>();
+	for (const id of skillIds) for (let at = lowerOf[id]; at !== undefined; at = lowerOf[at]) gone.add(at);
+	return skillIds.filter((id) => !gone.has(id));
+}
+
 /**
- * The budget a Whole-Ace request carries for the skills it may buy: the costs of those with a price (plus the white version a gold skill replaces, which the bundle needs) and their values.
+ * The budget a Whole-Ace request carries for the skills it may buy: the costs of those with a price (plus the skills a gold or ◎ skill is learned on, which the bundle needs) and their values.
  * Skills the game data gives no cost are left out, so `buySet` never buys them.
  */
 export function aceBudget({ budget, costs: priced }: { budget: number; costs: Record<string, SkillCost> }, skillIds: string[], valueOf: (id: string) => number): AceBudget {
@@ -24,7 +43,7 @@ export function aceBudget({ budget, costs: priced }: { budget: number; costs: Re
 	for (const id of ids) {
 		const c = priced[id];
 		costs[id] = c;
-		if (c.replacesId && c.replacesId in priced) costs[c.replacesId] = priced[c.replacesId];
+		for (let lower = c.replacesId; lower !== undefined && lower in priced; lower = priced[lower].replacesId) costs[lower] = priced[lower];
 	}
 	return { budget, costs, values: Object.fromEntries(ids.map((id) => [id, valueOf(id)])) };
 }
@@ -47,22 +66,22 @@ interface Item {
 
 /**
  * The skills one Whole-Ace run buys: the set with the most lengths gained within the budget, at most one item per skill group.
- * Items are the white skills (at their discounted cost) and the gold skills as bundles (white + gold, each discounted); the card list's skills plus any hinted skill.
+ * Items are the skills as bundles of everything they are learned on (a ◎ with its ○, a gold with its white versions), each step discounted; the card list's skills plus any hinted skill. A hint on a white skill discounts the white skills of its group alike.
  * A skill with no cost (not for sale) is never an item. Ties keep the earlier item, so the result is a pure function of the arguments.
  */
 export function buySet({ budget, costs, values }: AceBudget, buyableSkillIds: string[], { skillIds: hinted, hints }: { skillIds: string[]; hints: Record<string, number> }): string[] {
 	const ids = [...new Set([...buyableSkillIds, ...hinted])];
-	const costOf = (id: string) => discounted(costs[id].cost, hints[id] ?? 0);
+	const whiteHints = new Map<number, number>();
+	for (const [id, level] of Object.entries(hints)) if (costs[id] && !costs[id].gold) whiteHints.set(costs[id].group, Math.max(whiteHints.get(costs[id].group) ?? 0, level));
+	const costOf = (id: string) => discounted(costs[id].cost, costs[id].gold ? hints[id] ?? 0 : whiteHints.get(costs[id].group) ?? 0);
 	const groups = new Map<number, Item[]>();
 	for (const id of ids) {
 		const c = costs[id];
 		const value = values[id] ?? 0;
 		if (!c || value <= 0) continue;
-		const white = c.replacesId ? costs[c.replacesId] : undefined;
-		if (c.replacesId && !white) continue;
-		const item: Item = c.replacesId
-			? { skillIds: [c.replacesId, id], cost: costOf(c.replacesId) + costOf(id), value }
-			: { skillIds: [id], cost: costOf(id), value };
+		const chain = chainOf(id, costs);
+		if (!chain.length) continue;
+		const item: Item = { skillIds: chain, cost: chain.reduce((t, at) => t + costOf(at), 0), value };
 		if (item.cost > budget) continue;
 		const list = groups.get(c.group) ?? [];
 		list.push(item);

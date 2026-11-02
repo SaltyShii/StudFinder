@@ -76,6 +76,8 @@ export interface CmPreset extends RaceConditions {
 	seed?: number;
 	/** The Skill point budget the Ace slot buys within; absent means unlimited (every Buyable skill is bought). Ace heroes only. */
 	skillPoints?: SkillPoints;
+	/** The skill each gold or ◎ skill replaces, so an Ace that ends up with both races only the upper one, budget or not. Ace heroes only. */
+	skillTiers?: Record<string, string>;
 	/** The Support cards the player would consider running; the Ace slot picks a Support deck from them per Ace hero. Absent or both lists empty changes nothing. Ace heroes only. */
 	support?: SupportInput;
 	/** Race conditions every paired race assumes; umalator's defaults when unset. */

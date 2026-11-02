@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { recommend, recommendAsync, simulateRequest, type Candidate, type CandidateList, type LineageHorse, type OwnedVersion, type SkillCost } from './recommend';
+import { aceBudget, buySet, withoutReplaced } from './skillBudget';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 20, seed: 7 };
@@ -12,7 +13,7 @@ const costs: Record<string, SkillCost> = {
 	'200011': { cost: 100, group: 2 },
 	'10091': { cost: 250, group: 3 },
 	'200012': { cost: 90, group: 20001 },
-	'200014': { cost: 130, group: 20001, replacesId: '200012' },
+	'200014': { cost: 130, group: 20001, replacesId: '200012', gold: true },
 };
 
 function version(learnableSkillIds: string[], candidates: Candidate[] = [], cardId = 1): OwnedVersion {
@@ -70,7 +71,7 @@ describe('Skill point budget', () => {
 	test('a gold skill is bought with its white only when the budget covers both, never instead of the white alone', () => {
 		const v = version(['200012', '200014']);
 		const whiteOnly = scoreOf(version(['200012']));
-		const bundle = scoreOf(v);
+		const bundle = scoreOf(version(['200014'])); // the gold replaces its white, so it races alone
 		expect(bundle).toBeGreaterThan(whiteOnly);
 		expect(scoreOf(v, 220)).toBe(bundle); // 90 + 130
 		expect(scoreOf(v, 219)).toBe(whiteOnly); // the white alone is what fits
@@ -78,8 +79,44 @@ describe('Skill point budget', () => {
 	});
 	test('a gold skill is a bundle even when the card list has only the gold', () => {
 		const gold = version(['200014']);
-		expect(scoreOf(gold, 220)).toBe(scoreOf(version(['200012', '200014'])));
+		expect(scoreOf(gold, 220)).toBe(scoreOf(gold));
 		expect(scoreOf(gold, 219)).toBe(0);
+	});
+	describe('skills learned on another', () => {
+		// As in the game data: Right-Handed ◎ on ○, the gold on the ◎.
+		const tiers: Record<string, SkillCost> = {
+			'200012': { cost: 90, group: 20001 },
+			'200011': { cost: 110, group: 20001, replacesId: '200012' },
+			'200014': { cost: 130, group: 20001, replacesId: '200011', gold: true },
+		};
+		const rich = { budget: 1e6, costs: tiers, values: { '200011': 1, '200012': 0.5, '200014': 2 } };
+		const noHints = { skillIds: [], hints: {} };
+		test('a ◎ costs its ○ as well, and a gold both', () => {
+			expect(buySet({ ...rich, budget: 199 }, ['200011'], noHints)).toEqual([]);
+			expect(buySet({ ...rich, budget: 200 }, ['200011'], noHints).sort()).toEqual(['200011', '200012']);
+			expect(buySet({ ...rich, budget: 329 }, ['200014'], noHints)).toEqual([]);
+			expect(buySet({ ...rich, budget: 330 }, ['200014'], noHints).sort()).toEqual(['200011', '200012', '200014']);
+		});
+		test('a hint on either white tier discounts both, but not the gold', () => {
+			// Level 5 is 40% off: 66 + 54 for the white tiers, the gold at its full 130.
+			const hinted = { skillIds: [], hints: { '200012': 5 } };
+			expect(buySet({ ...rich, budget: 120 }, ['200011'], hinted).sort()).toEqual(['200011', '200012']);
+			expect(buySet({ ...rich, budget: 119 }, ['200011'], hinted)).toEqual([]);
+			expect(buySet({ ...rich, budget: 250 }, ['200014'], hinted).sort()).toEqual(['200011', '200012', '200014']);
+			expect(buySet({ ...rich, budget: 249 }, ['200014'], hinted)).toEqual([]);
+		});
+		test('a skill whose lower tier has no price cannot be bought', () => {
+			expect(buySet({ ...rich, costs: { '200011': tiers['200011'] } }, ['200011'], noHints)).toEqual([]);
+		});
+		test('the budget copies the whole chain', () => {
+			expect(Object.keys(aceBudget({ budget: 500, costs: tiers }, ['200014'], () => 1).costs).sort()).toEqual(['200011', '200012', '200014']);
+		});
+		test('only the top of a group races, budget or not', () => {
+			expect(withoutReplaced(['200012', '200011', '200014', '10071'], { '200011': '200012', '200014': '200011' })).toEqual(['200014', '10071']);
+			const tiered = { ...preset, skillTiers: { '200014': '200012' } };
+			const both = recommend(none, tiered, undefined, [version(['200012', '200014'])]).aceSlots[0].score;
+			expect(both).toBe(recommend(none, tiered, undefined, [version(['200014'])]).aceSlots[0].score);
+		});
 	});
 	test('same seed and budget give the same result, also through the worker batches', async () => {
 		const v = [version(['10071', '10081', '10091'], [sure('p', '10091'), sure('q', '200011')])];

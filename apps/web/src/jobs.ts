@@ -150,11 +150,20 @@ export interface PlanOptions {
 /** What each purchasable skill costs, keyed by skill id as the scorer reads it; skills that cannot be bought are left out. */
 export function skillCostsOf(skills: Iterable<Skill>): Record<string, SkillCost> {
 	const costs: Record<string, SkillCost> = {};
-	for (const s of skills) {
-		if (s.purchasable === false || s.spCost == null) continue;
-		costs[String(s.id)] = { cost: s.spCost, group: s.groupId, ...(s.replacesId != null ? { replacesId: String(s.replacesId) } : {}) };
+	const sold = [...skills].filter((s) => s.purchasable !== false && s.spCost != null);
+	// A ◎ is learned on the ○ of its group. The data links gold skills only, so the white tiers are told apart by grade value (a × has a negative one, so nothing is learned on it).
+	const whites = sold.filter((s) => s.rarity === 1 && s.gradeValue > 0);
+	const lowerWhite = (s: Skill) => (s.rarity === 1 ? whites.filter((w) => w.groupId === s.groupId && w.gradeValue < s.gradeValue).sort((a, b) => b.gradeValue - a.gradeValue)[0]?.id : undefined);
+	for (const s of sold) {
+		const lower = s.replacesId ?? lowerWhite(s);
+		costs[String(s.id)] = { cost: s.spCost, group: s.groupId, ...(lower != null ? { replacesId: String(lower) } : {}), ...(s.rarity === 2 ? { gold: true } : {}) };
 	}
 	return costs;
+}
+
+/** The skill each gold or ◎ skill replaces, read off the costs. */
+export function skillTiersOf(costs: Record<string, SkillCost>): Record<string, string> {
+	return Object.fromEntries(Object.entries(costs).flatMap(([id, c]) => (c.replacesId ? [[id, c.replacesId]] : [])));
 }
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
@@ -166,7 +175,8 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 	const coreStyle = coreStyleChoice ?? style;
 	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions, ...(skillPointBudget != null ? { skillPoints: { budget: skillPointBudget, costs: skillCostsOf(data.skills.values()) } } : {}), ...(support ? { support } : {}) }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
+	const costs = skillCostsOf(data.skills.values());
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions, skillTiers: skillTiersOf(costs), ...(skillPointBudget != null ? { skillPoints: { budget: skillPointBudget, costs } } : {}), ...(support ? { support } : {}) }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
 }
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */

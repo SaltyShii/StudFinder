@@ -4,7 +4,7 @@ import { FactorType } from '@stud-finder/lineage/src/types';
 import { GRADE_A, GRADE_S, INSPIRATIONS, RED_PROC_POINTS, gradesFromPoints, procChance, startingGrade } from '@stud-finder/lineage/src/inheritance';
 import { buildAce, categoryOf, courseFacts, type Style, type TargetStats } from './ace';
 import { pairedRace, type Scenario } from './pairedRace';
-import { buySet, MAX_HINT_LEVEL, type AceBudget } from './skillBudget';
+import { buySet, MAX_HINT_LEVEL, withoutReplaced, type AceBudget } from './skillBudget';
 import { styleStarsOf, surfaceStarsOf, type LineageHorse } from './shared';
 import { hintChance } from './support';
 
@@ -124,6 +124,8 @@ export interface WholeAceInput {
 	horses: LineageHorse[];
 	/** The Skill point budget the Ace buys within; absent means unlimited: every Buyable skill is bought. */
 	budget?: AceBudget;
+	/** The skill each gold or ◎ skill replaces, so a run races the top of a group only; read off the budget's costs when absent. */
+	tiers?: Record<string, string>;
 	/** The Support deck's hint rolls, and the skills the Ace can use (a hint on another is wasted); absent without a deck. */
 	support?: SupportRolls & { usable: string[] };
 	/** Race seeds shared by every version and pair; one Whole-Ace run per seed, the spark roll uses the same seed. */
@@ -145,6 +147,7 @@ export interface WholeAceRuns {
 export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
 	const { aptitudes, style, scenario, target, uniqueSkillId, buyableSkillIds, uniqueSkillIds = [], horses, seeds, budget, support } = input;
 	if (!seeds.length) return { mean: 0, bought: {} };
+	const lowerOf = lowerTiersOf(input);
 	const { distance, surface } = courseFacts(scenario.courseId);
 	const category = categoryOf(distance);
 	const baseHorse = buildAce({ aptitudes, style, category, surface, target });
@@ -170,11 +173,17 @@ export function wholeAceRuns(input: WholeAceInput): WholeAceRuns {
 			bought = [...buyableSkillIds, ...unlockedBeyond(buyableSkillIds)];
 		}
 		for (const id of bought) counts[id] = (counts[id] ?? 0) + 1;
-		const skills = [...new Set([...(uniqueSkillId ? [uniqueSkillId] : []), ...bought, ...rolled.skillIds])];
+		const skills = withoutReplaced([...new Set([...(uniqueSkillId ? [uniqueSkillId] : []), ...bought, ...rolled.skillIds])], lowerOf);
 		const [run] = pairedRace(skills, { ...scenario, horse: ace, samples: 1, seed }, baseHorse);
 		total += run.lengths;
 	}
 	return { mean: total / seeds.length, bought: Object.fromEntries(Object.entries(counts).map(([id, n]) => [id, n / seeds.length])) };
+}
+
+/** The skill each upgrade replaces, as `withoutReplaced` reads it. */
+function lowerTiersOf({ tiers, budget }: Pick<WholeAceInput, 'tiers' | 'budget'>): Record<string, string> {
+	if (tiers) return tiers;
+	return Object.fromEntries(Object.entries(budget?.costs ?? {}).flatMap(([id, c]) => (c.replacesId ? [[id, c.replacesId]] : [])));
 }
 
 /** The one seed list every version and pair is scored on (common random numbers): one seed per Whole-Ace run. */

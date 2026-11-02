@@ -6,7 +6,7 @@ import type { Style } from '../../../packages/scoring/src/ace';
 import type { AceSkillRow, Recommendation } from '../../../packages/scoring/src/recommend';
 import type { Candidate } from '../../../packages/scoring/src/shared';
 import { importRoster } from './roster';
-import { aceRowsJob, cardIdsOf, skillCostsOf, planCandidates, planFit, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
+import { aceRowsJob, cardIdsOf, skillCostsOf, skillTiersOf, planCandidates, planFit, planOwned, planRecommend, planVeterans, veteranTasks, type TierEdits } from './jobs';
 import { rankVeterans } from '../../../packages/scoring/src/rankVeterans';
 import { scoreVeterans, type AceVeteranScore } from '../../../packages/scoring/src/veterans';
 import { runJob } from './runJob';
@@ -261,7 +261,25 @@ it('builds Skill point costs from the game data for purchasable skills only, ids
 		[3, { id: 3, groupId: 11, rarity: 1, purchasable: false }],
 		[4, { id: 4, groupId: 12, rarity: 3 }],
 	] as [number, Skill][]);
-	expect(skillCostsOf(skills.values())).toEqual({ '1': { cost: 90, group: 10 }, '2': { cost: 180, group: 10, replacesId: '1' } });
+	expect(skillCostsOf(skills.values())).toEqual({ '1': { cost: 90, group: 10 }, '2': { cost: 180, group: 10, replacesId: '1', gold: true } });
+});
+
+it('learns a ◎ on the ○ of its group, and a gold on the ◎, but nothing on a ×', () => {
+	const skills = new Map([
+		[11, { id: 11, groupId: 20, rarity: 1, gradeValue: 174, spCost: 110 }],
+		[12, { id: 12, groupId: 20, rarity: 1, gradeValue: 129, spCost: 90 }],
+		[13, { id: 13, groupId: 20, rarity: 1, gradeValue: -129, spCost: 50 }],
+		[14, { id: 14, groupId: 20, rarity: 2, gradeValue: 461, spCost: 130, replacesId: 11 }],
+		[21, { id: 21, groupId: 30, rarity: 1, gradeValue: 217, spCost: 180 }],
+		[22, { id: 22, groupId: 30, rarity: 1, gradeValue: -262, spCost: 100 }],
+	] as [number, Skill][]);
+	const costs = skillCostsOf(skills.values());
+	expect(costs['11'].replacesId).toBe('12');
+	expect(costs['12'].replacesId).toBeUndefined();
+	expect(costs['13'].replacesId).toBeUndefined();
+	expect(costs['14'].replacesId).toBe('11');
+	expect(costs['21'].replacesId).toBeUndefined(); // only a × below it
+	expect(skillTiersOf(costs)).toEqual({ '11': '12', '14': '11' });
 });
 
 it('passes the Skill point budget into the preset; no budget means unlimited', () => {
