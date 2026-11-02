@@ -289,4 +289,6 @@ it('passes the Skill point budget into the preset; no budget means unlimited', (
 	expect(plan()).toBeUndefined();
 	expect(plan(2700)?.budget).toBe(2700);
 	expect(plan(2700)?.costs).toEqual(skillCostsOf(data.skills.values()));
+	expect(plan(2700)?.fastLearner).toBeUndefined();
+	expect(planRecommend(data, candidates, cm, { card: ace, course, skillPointBudget: 2700, fastLearner: true }).job!.preset.skillPoints?.fastLearner).toBe(true);
 });

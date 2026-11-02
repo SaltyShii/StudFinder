@@ -444,6 +444,18 @@ it('shows the Sim assumptions with umalator defaults, re-runs every slot on a ch
 	expect(root.querySelector('.sim-assumptions input[name=rate-frontRunner]')).toBeNull();
 });
 
+it('passes Fast Learner to the job with the budget, re-runs on a change and persists it', async () => {
+	const jobs: RecommendJob[] = [];
+	const recording: RecommendRunner = (job, _p, done) => { jobs.push(job); done(computeRecommend(job)); return () => {}; };
+	render(<App loadData={async () => data} run={recording} runVeterans={noV} />, root);
+	await importFile();
+	await pickAce();
+	expect(jobs.at(-1)!.preset.skillPoints?.fastLearner).toBeUndefined();
+	await click(root.querySelector('input[name=fast-learner]'));
+	expect(jobs.at(-1)!.preset.skillPoints?.fastLearner).toBe(true);
+	expect(localStorage.getItem('stud-finder:fast-learner')).toContain('true');
+});
+
 it('shows the Skill point budget as 2700, passes it to the job, re-runs on a change, treats a cleared field as unlimited and persists it', async () => {
 	const jobs: RecommendJob[] = [];
 	const spy: RecommendRunner = (job, p, done, onError) => { jobs.push(job); return inline(job, p, done, onError); };

@@ -3,7 +3,7 @@ import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { DEFAULT_ASSUMPTIONS } from '../../../packages/scoring/src/assumptions';
 import { EMPTY_SUPPORT } from './supportSettings';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, loadViableVersions, pruneViableVersions, saveViableVersions, saveMustHaves, saveRoster, saveTierEdits } from './roster';
+import { clearRoster, importRoster, loadFastLearner, saveFastLearner, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadSupportSettings, saveSupportSettings, loadRoster, loadMustHaves, loadTierEdits, loadViableVersions, pruneViableVersions, saveViableVersions, saveMustHaves, saveRoster, saveTierEdits } from './roster';
 
 const data = new GameData({
 	meta: {}, charas: {}, cards: { 100101: { id: 100101, charaId: 1001, name: 'Synth', title: 'Test' } },
@@ -96,6 +96,17 @@ it('clearing data also drops Must-haves and Tier edits', () => {
 	clearRoster(s);
 	expect(loadMustHaves(s)).toEqual([]);
 	expect(loadTierEdits(s)).toEqual({});
+});
+
+it('persists Fast Learner, off by default and for stale or malformed saves', () => {
+	const s = fakeStorage();
+	expect(loadFastLearner(s)).toBe(false);
+	saveFastLearner(s, true);
+	expect(loadFastLearner(s)).toBe(true);
+	s.setItem('stud-finder:fast-learner', JSON.stringify({ version: 99, on: true }));
+	expect(loadFastLearner(s)).toBe(false);
+	s.setItem('stud-finder:fast-learner', 'garbage');
+	expect(loadFastLearner(s)).toBe(false);
 });
 
 it('persists the Skill point budget: 2700 by default, a cleared field is unlimited, stale or malformed saves get 2700', () => {

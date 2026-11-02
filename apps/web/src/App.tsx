@@ -28,7 +28,7 @@ import { aceRowsRunner, recommendRunner, veteranRunner } from './runners';
 import { useJob } from './useJob';
 import { useAceRows } from './useAceRows';
 import { VeteranList } from './VeteranList';
-import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadFitCutoff, saveFitCutoff, loadForcedVersions, saveForcedVersions, loadViableVersions, pruneViableVersions, saveViableVersions, loadMustHaves, loadRoster, loadSupportSettings, saveSupportSettings, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
+import { clearRoster, importRoster, loadAssumptions, saveAssumptions, loadSkillPointBudget, saveSkillPointBudget, loadFastLearner, saveFastLearner, loadCm, loadOwnedVersions, loadLoopVersions, saveLoopVersions, loadFitCutoff, saveFitCutoff, loadForcedVersions, saveForcedVersions, loadViableVersions, pruneViableVersions, saveViableVersions, loadMustHaves, loadRoster, loadSupportSettings, saveSupportSettings, loadTierEdits, loadUseBorrowed, saveCm, saveMustHaves, saveOwnedVersions, saveRoster, saveTierEdits, saveUseBorrowed } from './roster';
 
 // Banner files are named <id>.png, or <id>-jp.png while the CM is only known from the JP release; hide when neither exists.
 function CmBanner({ cmId }: { cmId: number }) {
@@ -83,6 +83,8 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const [skillPointBudget, setSkillPointBudget] = useState(() => loadSkillPointBudget(localStorage));
 	const changeSkillPointBudget = (next: number | null) => { saveSkillPointBudget(localStorage, next); setSkillPointBudget(next); };
 
+	const [fastLearner, setFastLearner] = useState(() => loadFastLearner(localStorage));
+
 	const [supportSettings, setSupportSettings] = useState(() => loadSupportSettings(localStorage));
 	const changeSupportSettings = (next: SupportSettingsValue) => { saveSupportSettings(localStorage, next); setSupportSettings(next); };
 
@@ -101,7 +103,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const loopVersions = useMemo(() => ownedVersions.filter((v) => loopPicked.has(v.cardId)), [ownedVersions, loopPicked]);
 	// The hidden loops must not steer the ranking; the stored Must-haves stay untouched.
 	const activeMustHaves = useMemo(() => (showLoops ? mustHaves : []), [showLoops, mustHaves]);
-	const { coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves: activeMustHaves, assumptions, skillPointBudget, support }), [data, candidates, cm, card, course, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, activeMustHaves, assumptions, skillPointBudget, support]);
+	const { coreStyle, job, defaults } = useMemo(() => planRecommend(data, candidates, cm, { card, course, target, coreStyleChoice, owned: aceVersions, loopVersions, tierEdits, mustHaves: activeMustHaves, assumptions, skillPointBudget, fastLearner, support }), [data, candidates, cm, card, course, target, coreStyleChoice, aceVersions, loopVersions, tierEdits, activeMustHaves, assumptions, skillPointBudget, fastLearner, support]);
 	const baseTierList = useMemo(() => (data ? coreTierListOf(data, coreStyle) : {}), [data, coreStyle]);
 	const editTiers = (edit: TierEdit | undefined) => {
 		const next = { ...tierEdits, [coreStyle]: edit }; // undefined drops out of the stored JSON
@@ -115,13 +117,13 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const [ran, setRan] = useState<{ job: RecommendJob; veteranJob: VeteranJob | null; run: RecommendJob; vRun: VeteranJob | null } | null>(null);
 	// The veteran scores depend on the CM, roster and assumptions only: while those are unchanged, a finished or running job stays as it is (a cancelled or failed one has no result and runs again).
 	const snapshot = () => job && setRan({ job, veteranJob, run: { ...job }, vRun: ran?.veteranJob === veteranJob && (vs.busy || vs.result) ? ran.vRun : veteranJob && { ...veteranJob } });
-	// A new assumption changes every score, a new Skill point budget and new Support cards the Ace's, so results already on screen are recomputed rather than left outdated.
-	const lastAssumptions = useRef({ assumptions, skillPointBudget, support });
+	// A new assumption changes every score, a new Skill point budget, Fast Learner and new Support cards the Ace's, so results already on screen are recomputed rather than left outdated.
+	const lastAssumptions = useRef({ assumptions, skillPointBudget, fastLearner, support });
 	useEffect(() => {
-		if (lastAssumptions.current.assumptions === assumptions && lastAssumptions.current.skillPointBudget === skillPointBudget && lastAssumptions.current.support === support) return;
-		lastAssumptions.current = { assumptions, skillPointBudget, support };
+		if (lastAssumptions.current.assumptions === assumptions && lastAssumptions.current.skillPointBudget === skillPointBudget && lastAssumptions.current.fastLearner === fastLearner && lastAssumptions.current.support === support) return;
+		lastAssumptions.current = { assumptions, skillPointBudget, fastLearner, support };
 		if (ran) snapshot();
-	}, [assumptions, skillPointBudget, support]);
+	}, [assumptions, skillPointBudget, fastLearner, support]);
 	const { result, progress, busy, stale: running, error: jobError, cancel } = useJob(run, ran?.run ?? null);
 	// Scores of another CM must not pass as current, so a restart or cancel drops them.
 	const vs = useJob(runVeterans, ran?.vRun ?? null, { clearOnRestart: true });
@@ -199,7 +201,8 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 							const n = Number(text);
 							if (text === '') changeSkillPointBudget(null);
 							else if (Number.isInteger(n) && n >= 0) changeSkillPointBudget(n);
-						}} /><span class="muted"> Skill points the Ace may spend on skills; empty is unlimited.</span></label>
+						}} /><span class="muted"> Skill points the Ace may spend on skills; empty is unlimited.</span>
+							<label><input type="checkbox" name="fast-learner" checked={fastLearner} onChange={(e) => { const on = e.currentTarget.checked; saveFastLearner(localStorage, on); setFastLearner(on); }} /> Fast Learner: another 10% off every skill</label></label>
 						<SupportSettingsPanel data={data} value={supportSettings} onChange={changeSupportSettings} cm={cm} typeMix={typeMix} />
 						<OwnedVersions data={data} owned={owned} viable={viablePicks[cmId] ?? []} onViable={(ids) => { const next = { ...viablePicks, [cmId]: ids }; saveViableVersions(localStorage, next); setViablePicks(next); }} notSimulated={notSimulated} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); const pruned = pruneViableVersions(viablePicks, new Set(ids)); saveViableVersions(localStorage, pruned); setViablePicks(pruned); }} />
 						{showLoops && <>

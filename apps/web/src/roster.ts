@@ -182,6 +182,17 @@ export function loadSkillPointBudget(storage: Storage): number | null {
 	}
 }
 
+const FAST_LEARNER_KEY = 'stud-finder:fast-learner';
+
+export function saveFastLearner(storage: Storage, on: boolean): void {
+	saveVersioned(storage, FAST_LEARNER_KEY, 'on', on);
+}
+
+/** Whether the Ace has Fast Learner; off when absent, stale-versioned or malformed. Not wiped by Clear data: a setting, not Roster data. */
+export function loadFastLearner(storage: Storage): boolean {
+	return loadVersioned(storage, FAST_LEARNER_KEY, 'on', (v) => (v === true ? true : null)) ?? false;
+}
+
 const SUPPORT_OWN_KEY = 'stud-finder:support-own';
 const SUPPORT_BORROWED_KEY = 'stud-finder:support-borrowed';
 const SUPPORT_TRAININGS_KEY = 'stud-finder:support-trainings-per-card';

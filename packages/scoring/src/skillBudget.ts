@@ -12,6 +12,8 @@ export interface SkillCost {
 export interface AceBudget {
 	/** Skill points to spend. */
 	budget: number;
+	/** Fast Learner: another 10% off every skill. */
+	fastLearner?: boolean;
 	costs: Record<string, SkillCost>;
 	values: Record<string, number>;
 }
@@ -37,7 +39,7 @@ export function withoutReplaced(skillIds: string[], lowerOf: Record<string, stri
  * The budget a Whole-Ace request carries for the skills it may buy: the costs of those with a price (plus the skills a gold or ◎ skill is learned on, which the bundle needs) and their values.
  * Skills the game data gives no cost are left out, so `buySet` never buys them.
  */
-export function aceBudget({ budget, costs: priced }: { budget: number; costs: Record<string, SkillCost> }, skillIds: string[], valueOf: (id: string) => number): AceBudget {
+export function aceBudget({ budget, costs: priced, fastLearner }: { budget: number; costs: Record<string, SkillCost>; fastLearner?: boolean }, skillIds: string[], valueOf: (id: string) => number): AceBudget {
 	const ids = skillIds.filter((id) => id in priced);
 	const costs: Record<string, SkillCost> = {};
 	for (const id of ids) {
@@ -45,16 +47,18 @@ export function aceBudget({ budget, costs: priced }: { budget: number; costs: Re
 		costs[id] = c;
 		for (let lower = c.replacesId; lower !== undefined && lower in priced; lower = priced[lower].replacesId) costs[lower] = priced[lower];
 	}
-	return { budget, costs, values: Object.fromEntries(ids.map((id) => [id, valueOf(id)])) };
+	return { budget, ...(fastLearner ? { fastLearner } : {}), costs, values: Object.fromEntries(ids.map((id) => [id, valueOf(id)])) };
 }
 
 /** Percent off the base cost per Hint level, 0 to 5. */
 const HINT_OFF = [0, 10, 20, 30, 35, 40];
 export const MAX_HINT_LEVEL = HINT_OFF.length - 1;
 
-/** The cost after a Hint level's discount, in whole SP. */
-export function discounted(cost: number, hintLevel: number): number {
-	return Math.floor((cost * (100 - HINT_OFF[Math.min(hintLevel, MAX_HINT_LEVEL)])) / 100);
+const FAST_LEARNER_OFF = 10;
+
+/** The cost after a Hint level's discount and Fast Learner's, which add up, in whole SP. */
+export function discounted(cost: number, hintLevel: number, fastLearner = false): number {
+	return Math.floor((cost * (100 - HINT_OFF[Math.min(hintLevel, MAX_HINT_LEVEL)] - (fastLearner ? FAST_LEARNER_OFF : 0))) / 100);
 }
 
 /** What the Ace may buy in one group: the skills it gets and what they cost together. */
@@ -69,11 +73,11 @@ interface Item {
  * Items are the skills as bundles of everything they are learned on (a ◎ with its ○, a gold with its white versions), each step discounted; the card list's skills plus any hinted skill. A hint on a white skill discounts the white skills of its group alike.
  * A skill with no cost (not for sale) is never an item. Ties keep the earlier item, so the result is a pure function of the arguments.
  */
-export function buySet({ budget, costs, values }: AceBudget, buyableSkillIds: string[], { skillIds: hinted, hints }: { skillIds: string[]; hints: Record<string, number> }): string[] {
+export function buySet({ budget, costs, values, fastLearner }: AceBudget, buyableSkillIds: string[], { skillIds: hinted, hints }: { skillIds: string[]; hints: Record<string, number> }): string[] {
 	const ids = [...new Set([...buyableSkillIds, ...hinted])];
 	const whiteHints = new Map<number, number>();
 	for (const [id, level] of Object.entries(hints)) if (costs[id] && !costs[id].gold) whiteHints.set(costs[id].group, Math.max(whiteHints.get(costs[id].group) ?? 0, level));
-	const costOf = (id: string) => discounted(costs[id].cost, costs[id].gold ? hints[id] ?? 0 : whiteHints.get(costs[id].group) ?? 0);
+	const costOf = (id: string) => discounted(costs[id].cost, costs[id].gold ? hints[id] ?? 0 : whiteHints.get(costs[id].group) ?? 0, fastLearner);
 	const groups = new Map<number, Item[]>();
 	for (const id of ids) {
 		const c = costs[id];

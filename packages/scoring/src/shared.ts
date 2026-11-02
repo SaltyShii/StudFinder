@@ -67,6 +67,8 @@ export interface CandidateList {
 export interface SkillPoints {
 	budget: number;
 	costs: Record<string, SkillCost>;
+	/** Fast Learner: another 10% off every skill. */
+	fastLearner?: boolean;
 }
 export interface CmPreset extends RaceConditions {
 	courseId: number;

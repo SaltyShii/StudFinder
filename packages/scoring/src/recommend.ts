@@ -472,7 +472,7 @@ function searchStyle(s: StyleSearch, style: Style, isLead: boolean, lead: Candid
 	const deckKey = deck ? `|${picks.map((p) => `${p.card.id}:${p.limitBreak}`).join()}` : '';
 	const keyOf = (p: ScoredPair) => `${vi}|${style}|${p.pair.map((c) => c.id).join(',')}${deckKey}`;
 	// The values are screened or full, so the same pair reruns once its values change.
-	const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.budget}|${Object.values(b.values).join()}` : ''; };
+	const budgetKey = (p: ScoredPair) => { const b = budgetOf(p); return b ? `|${b.budget}|${b.fastLearner ?? false}|${Object.values(b.values).join()}` : ''; };
 	const fullKey = (p: ScoredPair) => `full|${keyOf(p)}${budgetKey(p)}`;
 	const screenKey = (p: ScoredPair) => `screen|${keyOf(p)}${budgetKey(p)}`;
 	// Asked before the runs: a pass that still waits for those values is thrown away, so it skips them.

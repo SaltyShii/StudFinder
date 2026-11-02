@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { recommend, recommendAsync, simulateRequest, type Candidate, type CandidateList, type LineageHorse, type OwnedVersion, type SkillCost } from './recommend';
-import { aceBudget, buySet, withoutReplaced } from './skillBudget';
+import { aceBudget, buySet, discounted, withoutReplaced } from './skillBudget';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const preset = { courseId: 10101, runner: horse, samples: 20, seed: 7 };
@@ -81,6 +81,20 @@ describe('Skill point budget', () => {
 		const gold = version(['200014']);
 		expect(scoreOf(gold, 220)).toBe(scoreOf(gold));
 		expect(scoreOf(gold, 219)).toBe(0);
+	});
+	describe('Fast Learner', () => {
+		test('adds 10% to the hint discount, rounding down as the game shows it', () => {
+			expect(discounted(170, 3)).toBe(119);
+			expect(discounted(170, 3, true)).toBe(102);
+			expect(discounted(200, 0, true)).toBe(180);
+			expect(discounted(180, 5, true)).toBe(90);
+		});
+		test('fits what the budget alone cannot', () => {
+			const v = version(['10071']);
+			const score = (fastLearner: boolean) => recommend(none, { ...preset, skillPoints: { budget: 270, costs, fastLearner } }, undefined, [v]).aceSlots[0].score;
+			expect(score(false)).toBe(0); // costs 300
+			expect(score(true)).toBeGreaterThan(0); // costs 270
+		});
 	});
 	describe('skills learned on another', () => {
 		// As in the game data: Right-Handed ◎ on ○, the gold on the ◎.

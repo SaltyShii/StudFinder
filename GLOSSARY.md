@@ -71,6 +71,9 @@ _Avoid_: points (alone)
 How far a skill's cost is discounted for an Ace, from 1 to 5 (10%, 20%, 30%, 35%, 40% off). Procced sparks for the skill raise it by their stars, up to 5; a hinted skill off the card list also becomes buyable. A hint on a white skill discounts the white skills of its group alike; a gold skill keeps its own Hint level.
 _Avoid_: hint (alone), discount level
 
+**Fast Learner**:
+A trait a run can end with: another 10% off every skill, added to the Hint level's discount. One setting for every version; only the Skill point budget reads it.
+
 **Skill point budget**:
 The total SP an Ace hero has to spend, one setting for every version (starts at about 2700, a typical Grand Concert run; the user can clear it). In each Whole-Ace run the Ace buys the affordable set with the most lengths gained per SP, with that run's Hint levels, at most one skill of a group (with what it is learned on). Cleared means unlimited: it buys every Buyable skill. Ace veterans and the loops ignore it.
 

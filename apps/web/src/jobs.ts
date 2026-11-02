@@ -143,6 +143,8 @@ export interface PlanOptions {
 	assumptions?: SimAssumptions;
 	/** Skill points the Ace may spend; null or absent is unlimited. */
 	skillPointBudget?: number | null;
+	/** Fast Learner: another 10% off every skill the Ace buys. Only a budget reads it. */
+	fastLearner?: boolean;
 	/** The Support cards the Ace may run with; absent when nothing is shortlisted (the ranking is then unchanged). */
 	support?: SupportInput;
 }
@@ -167,7 +169,7 @@ export function skillTiersOf(costs: Record<string, SkillCost>): Record<string, s
 }
 
 export function planRecommend(data: GameData | null, candidates: Candidate[], cm: Cm, options: PlanOptions): RecommendPlan {
-	const { card, course, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions, skillPointBudget, support } = options;
+	const { card, course, target = {}, coreStyleChoice = null, owned = [], loopVersions = owned, tierEdits = {}, mustHaves = [], assumptions, skillPointBudget, fastLearner, support } = options;
 	// The best-ranked style for this Sim runner on the CM course.
 	const base = card ?? GENERIC_RUNNER;
 	const style: Style = course ? rankStyles(base.aptitudes, categoryOf(course.distance))[0] : 'senko';
@@ -176,7 +178,7 @@ export function planRecommend(data: GameData | null, candidates: Candidate[], cm
 	if (!data || !course || !(candidates.length || owned.length)) return { style, coreStyle, job: null, defaults };
 	const runner = aceForCourse(base, { distance: course.distance, surface: surfaceOf(course.ground) }, style, target);
 	const costs = skillCostsOf(data.skills.values());
-	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions, skillTiers: skillTiersOf(costs), ...(skillPointBudget != null ? { skillPoints: { budget: skillPointBudget, costs } } : {}), ...(support ? { support } : {}) }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
+	return { style, coreStyle, defaults, job: { candidateList: { candidates }, preset: { ...cmPreset(cm, runner), assumptions, skillTiers: skillTiersOf(costs), ...(skillPointBudget != null ? { skillPoints: { budget: skillPointBudget, costs, ...(fastLearner ? { fastLearner } : {}) } } : {}), ...(support ? { support } : {}) }, tierList: applyTierEdit(coreTierListOf(data, coreStyle), tierEdits[coreStyle]), owned, loopVersions, mustHaves } };
 }
 
 /** Each Owned version with candidates measured against it; versions missing from the game data are skipped. */
