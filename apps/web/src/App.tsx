@@ -13,7 +13,7 @@ import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
 import { LoopVersions } from './LoopVersions';
 import { SimRunner } from './SimRunner';
-import { SupportSettings } from './SupportSettings';
+import { SupportSettingsPanel } from './SupportSettingsPanel';
 import { supportInputOf, typeMixOf, type SupportSettings as SupportSettingsValue } from './supportSettings';
 import { TierEditor } from './TierEditor';
 import { skillChips } from './SkillChart';
@@ -200,7 +200,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 							if (text === '') changeSkillPointBudget(null);
 							else if (Number.isInteger(n) && n >= 0) changeSkillPointBudget(n);
 						}} /><span class="muted"> Skill points the Ace may spend on skills; empty is unlimited.</span></label>
-						<SupportSettings data={data} value={supportSettings} onChange={changeSupportSettings} cm={cm} typeMix={typeMix} />
+						<SupportSettingsPanel data={data} value={supportSettings} onChange={changeSupportSettings} cm={cm} typeMix={typeMix} />
 						<OwnedVersions data={data} owned={owned} viable={viablePicks[cmId] ?? []} onViable={(ids) => { const next = { ...viablePicks, [cmId]: ids }; saveViableVersions(localStorage, next); setViablePicks(next); }} notSimulated={notSimulated} forced={forced} onForce={(ids) => { saveForcedVersions(localStorage, ids); setForced(ids); }} cutoff={cutoff} onCutoff={(g) => { saveFitCutoff(localStorage, g); setCutoff(g); }} onChange={(ids) => { saveOwnedVersions(localStorage, ids); setOwnedChoice(ids); const pruned = pruneViableVersions(viablePicks, new Set(ids)); saveViableVersions(localStorage, pruned); setViablePicks(pruned); }} />
 						{showLoops && <>
 							<LoopVersions data={data} owned={owned} picked={loopPicked} onChange={(ids) => { saveLoopVersions(localStorage, ids); setLoopChoice(ids); }} />

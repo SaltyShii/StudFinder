@@ -66,7 +66,7 @@ function Shortlist({ title, slug, hint, data, list, onChange }: ListProps) {
 const RARITY: Record<number, string> = { 1: 'R', 2: 'SR', 3: 'SSR' };
 
 /** The Support cards the player would consider running (own) and the Borrowed support cards they would consider, each at a limit break level. Only the Ace slot reads them. */
-export function SupportSettings({ data, value, onChange, cm, typeMix }: Props) {
+export function SupportSettingsPanel({ data, value, onChange, cm, typeMix }: Props) {
 	if (!data.supportCards.size) return null;
 	return (
 		<section class="panel" data-testid="support-settings">

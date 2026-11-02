@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'preact/test-utils';
 import { render } from 'preact';
-import { beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { GameData } from '../../../packages/lineage/src/gameData';
 import type { RawGameData } from '../../../packages/lineage/src/types';
 import { CMS } from '../../../packages/scoring/src/cm';
@@ -41,7 +41,9 @@ const App = (p: ComponentProps<typeof PlainApp>) => <PlainApp showLoops {...p} /
 const flush = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
 
 let root: HTMLElement;
-beforeEach(() => { localStorage.clear(); root = document.createElement('div'); document.body.replaceChildren(root); });
+// The default CM depends on today's date, and so do the near-tied scores some tests order by.
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime('2026-10-20'); localStorage.clear(); root = document.createElement('div'); document.body.replaceChildren(root); });
+afterEach(() => { vi.useRealTimers(); });
 
 async function importFile() {
 	const input = root.querySelector('input[type=file]') as HTMLInputElement;
