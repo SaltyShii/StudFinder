@@ -170,7 +170,7 @@ The chart of the selected CM's course (speed of a neutral baseline runner, slope
 A neutral runner with no skills, used only to draw the speed curve of the Track overview (start dash, end of pace-down, last spurt kick). Not any veteran.
 
 **Sim assumptions**:
-The race conditions the simulator assumes for every score (wit check, rushing, spot struggle, dueling with a rate per running style, lane movement), each switchable by the user. Defaults match umalator's where umalator has the option (dueling, which it lacks, defaults off); they apply to all slots. Sync RNG is not an option (the paired race always shares its seed) and position keep is left out (the paired race runs no pacemaker).
+The race conditions the simulator assumes for every score (wit check, rushing, spot struggle, dueling with a rate per running style, lane movement, HP debuffs), each switchable by the user. HP debuffs stand in for other runners' HP-draining skills, which a paired race cannot run: a count and a percent of max HP each, off by default and taken at once on entering mid-race (our estimate of when they land). Defaults match umalator's where umalator has the option (dueling, which it lacks, defaults off); they apply to all slots. Sync RNG is not an option (the paired race always shares its seed) and position keep is left out (the paired race runs no pacemaker).
 
 **CM preset**:
 The course, season and conditions of a specific Champions Meeting, used to pick the course and rank styles.

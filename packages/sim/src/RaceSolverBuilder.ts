@@ -431,6 +431,7 @@ export class RaceSolverBuilder {
 	_competeFight: boolean | undefined
 	_leadCompetition: boolean | undefined
 	_laneMovement: boolean | undefined
+	_hpDebuff: number
 	_duelingRates: {
 		runaway: number,
 		frontRunner: number,
@@ -473,6 +474,7 @@ export class RaceSolverBuilder {
 		this._competeFight = undefined;
 		this._leadCompetition = undefined;
 		this._laneMovement = undefined;
+		this._hpDebuff = 0;
 		this._duelingRates = undefined;
 		this._hpPolicyFactory = null;
 	}
@@ -751,6 +753,12 @@ export class RaceSolverBuilder {
 		return this;
 	}
 
+	/** Share of max HP lost once on entering mid-race, as if other runners' skills drained it. */
+	hpDebuff(share: number) {
+		this._hpDebuff = share;
+		return this;
+	}
+
 	competeFight(enabled: boolean) {
 		this._competeFight = enabled;
 		return this;
@@ -814,6 +822,7 @@ export class RaceSolverBuilder {
 		clone._competeFight = this._competeFight;
 		clone._leadCompetition = this._leadCompetition;
 		clone._laneMovement = this._laneMovement;
+		clone._hpDebuff = this._hpDebuff;
 		clone._duelingRates = this._duelingRates;
 
 		clone._extraSkillHooks = this._extraSkillHooks.slice();
@@ -893,7 +902,8 @@ export class RaceSolverBuilder {
 				leadCompetition: this._leadCompetition,
 				duelingRates: this._duelingRates,
 				laneMovement: this._laneMovement,
-				conservePowerStat
+				conservePowerStat,
+				hpDebuff: this._hpDebuff
 			});
 
 			if (redo) {

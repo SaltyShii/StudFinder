@@ -5,6 +5,23 @@ import { DEFAULT_ASSUMPTIONS, type SimAssumptions } from './assumptions';
 
 const horse = { speed: 1000, stamina: 800, power: 800, guts: 400, wisdom: 400, strategy: 'Senkou', distanceAptitude: 'A', surfaceAptitude: 'A', strategyAptitude: 'A', mood: 2 } as const;
 const s = { horse, courseId: 10101, samples: 20 };
+const LONG = 10604; // Tokyo 2400 m
+
+
+function hpLengths(hpDebuffs: { count: number; percent: number }) {
+	const runner = { ...horse, speed: 1100, stamina: 900 };
+	const runs = pairedRace(['200352'], { horse: runner, courseId: LONG, samples: 30, seed: 3, assumptions: { ...DEFAULT_ASSUMPTIONS, hpDebuffs } }); // Corner Recovery ○
+	return runs.reduce((t, r) => t + r.lengths, 0) / runs.length;
+}
+
+test('no HP debuffs leave the race as it was', () => {
+	expect(hpLengths({ count: 0, percent: 5 })).toBe(hpLengths({ count: 0, percent: 1 }));
+});
+
+test('HP debuffs make a recovery skill worth more to a runner short of HP', () => {
+	expect(hpLengths({ count: 0, percent: 1 })).toBeCloseTo(0, 1); // enough HP without them
+	expect(hpLengths({ count: 5, percent: 3 })).toBeGreaterThan(1);
+});
 
 test('one run per sample, activated when the skill procs', () => {
 	const runs = pairedRace(['10071'], s);

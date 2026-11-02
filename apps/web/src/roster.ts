@@ -4,7 +4,7 @@ import type { ImportResult } from '../../../packages/lineage/src/types';
 import type { TypeMix } from '../../../packages/scoring/src/support';
 import { TIER_VALUE } from '../../../packages/lineage/src/tiers';
 import { GRADE_NUMBERS, STYLES } from '../../../packages/scoring/src/ace';
-import { DEFAULT_ASSUMPTIONS, DEFAULT_DUELING_RATES, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
+import { DEFAULT_ASSUMPTIONS, DEFAULT_DUELING_RATES, DEFAULT_HP_DEBUFFS, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
 import type { TierEdits } from './jobs';
 import { EMPTY_SUPPORT, isLimitBreak, isTypeMix, type ShortlistEntry, type SupportSettings } from './supportSettings';
 
@@ -147,7 +147,7 @@ export function saveAssumptions(storage: Storage, a: SimAssumptions): void {
 }
 
 const RATE_STYLES = Object.keys(DEFAULT_DUELING_RATES) as (keyof DuelingRates)[];
-const FLAGS = (Object.keys(DEFAULT_ASSUMPTIONS) as (keyof SimAssumptions)[]).filter((k): k is Exclude<keyof SimAssumptions, 'duelingRates'> => typeof DEFAULT_ASSUMPTIONS[k] === 'boolean');
+const FLAGS = (Object.keys(DEFAULT_ASSUMPTIONS) as (keyof SimAssumptions)[]).filter((k): k is Exclude<keyof SimAssumptions, 'duelingRates' | 'hpDebuffs'> => typeof DEFAULT_ASSUMPTIONS[k] === 'boolean');
 
 /** The stored Sim assumptions; umalator's defaults when absent, stale-versioned or malformed. Not wiped by Clear data: they are settings, not Roster data. */
 export function loadAssumptions(storage: Storage): SimAssumptions {
@@ -159,6 +159,10 @@ export function loadAssumptions(storage: Storage): SimAssumptions {
 		const out: SimAssumptions = { ...DEFAULT_ASSUMPTIONS, duelingRates: { ...DEFAULT_DUELING_RATES } };
 		for (const k of FLAGS) out[k] = a[k] as boolean;
 		for (const k of RATE_STYLES) out.duelingRates[k] = rates[k] as number;
+		// A save from before HP debuffs simply has none.
+		const d = a.hpDebuffs;
+		if (d !== undefined && (typeof d?.count !== 'number' || typeof d?.percent !== 'number' || d.count < 0 || d.percent < 0)) return null;
+		out.hpDebuffs = d ? { count: d.count, percent: d.percent } : DEFAULT_HP_DEBUFFS;
 		return out;
 	}) ?? DEFAULT_ASSUMPTIONS;
 }

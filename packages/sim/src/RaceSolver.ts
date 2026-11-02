@@ -340,6 +340,9 @@ export class RaceSolver {
 	downhillTimer: Timer
 	downhillActivations: Array<[number, number]>
 
+	/** Share of max HP other runners' skills drain, taken once on entering mid-race. */
+	hpDebuff: number
+
 	// Compete Fight
 	canCompeteFight: boolean | null
 	competeFight: boolean
@@ -417,6 +420,7 @@ export class RaceSolver {
 		},
 		laneMovement?: boolean,
 		conservePowerStat?: number,
+		hpDebuff?: number,
 	}) {
 		// clone since green skills may modify the stat values
 		this.horse = Object.assign({}, params.horse);
@@ -515,6 +519,7 @@ export class RaceSolver {
 			this.initRushedState();
 		}
 
+		this.hpDebuff = params.hpDebuff ?? 0;
 		this.competeFightEnabled = params.competeFight !== false;
 		this.duelingRates = params.duelingRates || null;
 		this.canCompeteFight = null;
@@ -1337,6 +1342,7 @@ export class RaceSolver {
 		if (this.pos >= this.nextPhaseTransition && this.phase < 2) {
 			++this.phase;
 			this.nextPhaseTransition = CourseHelpers.phaseStart(this.course.distance, this.phase + 1 as Phase);
+			if (this.phase === 1 && this.hpDebuff > 0) this.hp.recover(-this.hpDebuff);
 		}
 	}
 

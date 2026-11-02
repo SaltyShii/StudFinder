@@ -1,4 +1,4 @@
-import { DEFAULT_ASSUMPTIONS, type DuelingRates, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
+import { DEFAULT_ASSUMPTIONS, type DuelingRates, type HpDebuffs, type SimAssumptions } from '../../../packages/scoring/src/assumptions';
 
 type Flag = 'witCheck' | 'rushed' | 'spotStruggle' | 'dueling' | 'laneMovement';
 
@@ -23,6 +23,10 @@ interface Props {
 /** The race conditions every simulated race assumes, switchable one by one. Only options the sim can honour are listed. */
 export function AssumptionsPanel({ value, onChange, trainingsPerCard, onTrainingsPerCard }: Props) {
 	const changed = JSON.stringify(value) !== JSON.stringify(DEFAULT_ASSUMPTIONS);
+	const setDebuff = (k: keyof HpDebuffs, raw: string, min: number) => {
+		const n = Number(raw);
+		if (Number.isFinite(n) && n >= min) onChange({ ...value, hpDebuffs: { ...value.hpDebuffs, [k]: n } });
+	};
 	return (
 		<section class="panel sim-assumptions">
 			<h2>Sim assumptions</h2>
@@ -41,6 +45,11 @@ export function AssumptionsPanel({ value, onChange, trainingsPerCard, onTraining
 					))}
 				</fieldset>
 			)}
+			<fieldset>
+				<legend>HP debuffs, taken on entering mid-race: other runners' drains, which the paired race does not run</legend>
+				<label>Count <input type="number" name="hp-debuff-count" min={0} step={1} value={value.hpDebuffs.count} onChange={(e) => setDebuff('count', e.currentTarget.value, 0)} /></label>
+				<label>% HP each <input type="number" name="hp-debuff-percent" min={0} step={0.5} value={value.hpDebuffs.percent} onChange={(e) => setDebuff('percent', e.currentTarget.value, 0)} /></label>
+			</fieldset>
 			<label>Trainings per support card <input type="number" name="trainings-per-card" min={1} step={1} value={trainingsPerCard} onInput={(e) => {
 				const n = Number(e.currentTarget.value);
 				if (Number.isInteger(n) && n >= 1) onTrainingsPerCard(n);

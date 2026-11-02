@@ -98,6 +98,18 @@ it('clearing data also drops Must-haves and Tier edits', () => {
 	expect(loadTierEdits(s)).toEqual({});
 });
 
+it('loads a save from before HP debuffs with none, and rejects malformed ones', () => {
+	const s = fakeStorage();
+	const older: Partial<typeof DEFAULT_ASSUMPTIONS> = { ...DEFAULT_ASSUMPTIONS };
+	delete older.hpDebuffs;
+	s.setItem('stud-finder:sim-assumptions', JSON.stringify({ version: 1, assumptions: { ...older, rushed: false } }));
+	expect(loadAssumptions(s)).toEqual({ ...DEFAULT_ASSUMPTIONS, rushed: false });
+	saveAssumptions(s, { ...DEFAULT_ASSUMPTIONS, hpDebuffs: { count: 2, percent: 1.5 } });
+	expect(loadAssumptions(s).hpDebuffs).toEqual({ count: 2, percent: 1.5 });
+	s.setItem('stud-finder:sim-assumptions', JSON.stringify({ version: 1, assumptions: { ...DEFAULT_ASSUMPTIONS, hpDebuffs: { count: -1, percent: 1 } } }));
+	expect(loadAssumptions(s)).toEqual(DEFAULT_ASSUMPTIONS);
+});
+
 it('persists Fast Learner, off by default and for stale or malformed saves', () => {
 	const s = fakeStorage();
 	expect(loadFastLearner(s)).toBe(false);
