@@ -134,7 +134,7 @@ Checks every 2 s with a wiz roll; a mode lasts at most 1 section (3 for Oonige),
 ## Competition and spurt mechanics
 
 - **Spot struggle**: Front Runners (or Oonige) near each other early (before section 6/9); extra target speed from guts; ends at section 9.
-- **Dueling**: final straight, candidates within range for 2 s, both ≥15% HP; speed and acceleration from guts; exits below 5% HP.
+- **Dueling**: final straight, candidates within range for 2 s, both ≥15% HP; speed and acceleration from guts; exits below 5% HP, or once 5 m ahead of or behind every uma that has duelled in this race, ended duels included (Hakuraku's dueling note, from CM14 logs; `CompeteFight.TargetContinueDistance`). The sim only has the HP exit: a paired race has no field to measure that gap against.
 - **Conserve power / release**: only with >1200 power; credit earned over sections 1-10, reduced by spot struggle (×0.95) and rushed (×0.8); released as extra acceleration on entering last spurt. Strategy-distance coefficient (short/mile/mid/long): Front 1/1/1/1, Pace 0.7/0.8/0.9/0.9, Late 0.75/0.7/0.875/1.0, End 0.7/0.75/0.86/0.9.
 - **Compete before spurt, secure lead, stamina keep**: sections 11-15, inferred from the parameter file only, details uncertain.
 - **Stamina limit break**: base stamina + skills >1200 → target speed buff on reaching max spurt speed. Distance factor: <2101 m 0×, <2201 0.5×, <2401 1.0×, <2601 1.5×, ≥2601 1.8× (1.2× / 1.5× before 2024-10-29).
