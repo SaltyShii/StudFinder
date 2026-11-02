@@ -13,6 +13,8 @@ interface Props {
 	onSelect?: (cardId: number) => void;
 	data: GameData;
 	stale: boolean;
+	/** Opens the selected hero in uma.moe's Build optimizer, once its chart is in. */
+	buildLink?: string;
 }
 
 export function nameOf(data: GameData, id: number) {
@@ -73,7 +75,7 @@ function styleText(pick: AcePick): string {
 }
 
 /** The best Ace heroes as a compact list: name, running style, expected lengths. */
-export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
+export function AceHero({ picks, selected, onSelect, data, stale, buildLink }: Props) {
 	const selectedPick = picks?.find((p) => p.cardId === selected);
 	return (
 		<section class="panel" aria-busy={stale}>
@@ -89,6 +91,7 @@ export function AceHero({ picks, selected, onSelect, data, stale }: Props) {
 				))}
 			</ol>
 			{selectedPick && <LineageTree pick={selectedPick} data={data} />}
+			{selectedPick && buildLink && !stale && <a class="external-link" data-testid="open-uma-moe" href={buildLink} target="_blank" rel="noopener">Check this build in uma.moe's Build optimizer</a>}
 			{selectedPick?.deck && <SupportDeckView deck={selectedPick.deck} />}
 		</section>
 	);

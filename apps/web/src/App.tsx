@@ -8,6 +8,8 @@ import { CMS, pickCm } from '../../../packages/scoring/src/cm';
 import type { Recommendation } from '../../../packages/scoring/src/recommend';
 import { formatAge } from './age';
 import { AceHero, nameOf } from './AceHero';
+import { aceBuildCode } from './buildCode';
+import { useBuildLink } from './useBuildLink';
 import { SHOW_LOOPS } from './flags';
 import { MustHaves } from './MustHaves';
 import { OwnedVersions } from './OwnedVersions';
@@ -151,6 +153,11 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 	const aceCard = acePicked?.result === result ? acePicked.cardId : undefined;
 	const acePick = result?.aceSlots.find((s) => s.cardId === aceCard) ?? result?.aceSlots[0];
 	const aceChart = useAceRows(runRows, result, ran?.run ?? null, acePick?.cardId, !busy);
+	const aceCode = useMemo(() => {
+		const aceVersion = acePick && data?.cards.get(acePick.cardId);
+		return aceVersion && course && ran && !aceChart.loading ? aceBuildCode(acePick, aceVersion, aceChart.rows, course, ran.run.preset) : null;
+	}, [acePick, data, course, ran, aceChart.loading, aceChart.rows]);
+	const buildLink = useBuildLink(aceCode);
 	const chips = useMemo(() => (acePick && data ? skillChips(aceChart.rows.filter((r) => !r.other), result!.track, data) : []), [acePick, aceChart.rows, result, data]);
 	// The Side loop chart follows the selected pick; the best pick until one is chosen.
 	const sidePick = result?.sideSlots.find((s) => s.cardId === sideCard) ?? result?.sideSlots[0];
@@ -217,7 +224,7 @@ export function App({ showLoops = SHOW_LOOPS, loadData = loadGameData, run = rec
 			{roster && data && ran && (
 				<div class="results">
 					{busy && <p class="panel">Computing{progress && (progress.phase === 'screen' ? `: screening skills (${progress.done} simulated)` : `: refining the shown skills (${progress.done}/${progress.total})`)}...</p>}
-					<AceHero picks={result?.aceSlots} selected={acePick?.cardId} onSelect={(cardId) => setAcePicked({ result, cardId })} data={data} stale={stale} />
+					<AceHero picks={result?.aceSlots} selected={acePick?.cardId} onSelect={(cardId) => setAcePicked({ result, cardId })} data={data} stale={stale} buildLink={buildLink} />
 					{result && <TrackOverview track={result.track} title={course && data ? courseTitle(course, data.tracks) : `${result.track.distance}m`} leftHanded={!!course && isLeftHanded(course)} chips={chips} stale={stale} />}
 					{aceChart.loading && <p class="panel muted" data-testid="ace-chart-loading">Simulating the skills of {nameOf(data, acePick!.cardId)}...</p>}
 					{aceChart.error && <p class="panel" role="alert">Could not build the skills of {nameOf(data, acePick!.cardId)}: {aceChart.error}</p>}

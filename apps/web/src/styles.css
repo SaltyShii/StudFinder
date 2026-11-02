@@ -246,6 +246,7 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .skill-footnote { grid-column: 1 / -1; padding: 0 4px; }
 .loop-pick + .loop-pick, .hero-pick + .hero-pick { margin-top: 10px; }
 .loop-pick[data-selected] .card:first-child, .hero-pick[data-selected] .card:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.external-link { align-self: flex-start; color: var(--accent); }
 .select-pick { margin-top: 4px; font-size: 0.8rem; }
 .select-pick[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
 .chart-title { margin: 8px 0 4px; }

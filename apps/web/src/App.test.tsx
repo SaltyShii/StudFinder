@@ -444,6 +444,18 @@ it('shows the Sim assumptions with umalator defaults, re-runs every slot on a ch
 	expect(root.querySelector('.sim-assumptions input[name=rate-frontRunner]')).toBeNull();
 });
 
+it('links the selected Ace hero to uma.moe once its code is encoded, and not while the result is outdated', async () => {
+	render(<App loadData={async () => data} run={inline} runVeterans={noV} runRows={() => () => {}} />, root);
+	await importFile();
+	await pickAce();
+	await act(() => new Promise<void>((r) => setTimeout(r, 50))); // gzip finishes on its own schedule
+	const link = () => root.querySelector<HTMLAnchorElement>('[data-testid=open-uma-moe]');
+	expect(link()!.href).toMatch(/^https:\/\/uma\.moe\/simulator\/skills\?build=H4sI/);
+	expect(link()!.rel).toBe('noopener');
+	await changeInput();
+	expect(link()).toBeNull();
+});
+
 it('passes Fast Learner to the job with the budget, re-runs on a change and persists it', async () => {
 	const jobs: RecommendJob[] = [];
 	const recording: RecommendRunner = (job, _p, done) => { jobs.push(job); done(computeRecommend(job)); return () => {}; };
